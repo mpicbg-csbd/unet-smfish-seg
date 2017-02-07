@@ -14,4 +14,4 @@ import os
 
 from sklearn.ensemble import RandomForestClassifier
 
-# we want to do an initial classification, then look at object features, then merge cells together as the solution to a graphical model.
+# we want to do an initial classification, then look at object features, then merge cells together as the solution to a graphical model... 

@@ -144,6 +144,10 @@ numpy alternative. [https://github.com/dmlc/minpy]
 
 I'm struggling with how to write things. How and when to open and save my data. Do I want to open large things once at the beginning and have them sit around in an object until the whole program is done? Or only open them within the function in which they are needed, then close them again at the end. Will this force my functions to be large? Do I want to use classes/objects or just dictionaries? Do I want to put complex objects inside my dictionaries or not?
 
+TODO:
+*The filters used on images allows us to do a pixel-wise classification of images, but there are also more coarse-grained features we might want to use... Why not build a global forest which includes the output from skimage.feature as well as filters?*
+*How would we incorporate these global properties into our pixel-patch classification decisions in a smart way?*
+
 # Wed Feb 1
 
 Branching project! Now we're separating the project into two pieces. One that depends on Dave's CRF code, and one that only uses scikit/numpy/keras stuff, see `carine_skit_RF`...
@@ -151,3 +155,80 @@ Branching project! Now we're separating the project into two pieces. One that de
 ----------
 
 From here on down we're in the scikit-learn branch of the project!
+
+# Thu Feb 2
+
+I want to do two more things with this project.
+
+1. Get some segmentations based off of the membrane+vertex prob maps.
+2. Try to use keras to create those prob maps.
+
+# Fri Feb 3
+
+Got some basic output from my keras model, with the help of Laurent. It doesn't seem to be able to learn the difference between the classes, except for predicting inside the tissue as membrane/vertex and outside the tissue as background... And we've tried many different reweightings of the classes, as well as adjusting the input images to set the background to zero.
+
+The next most useful thing you can do is make new featurestacks from scikit-image, and use your existing code to actually do the segmentations! (Run it as an uberjar?)
+
+Laurent's suggestions for improving the keras model are:
+
+1. remove the pure background from the samples
+2. increase the data amount by reducing the sampling stride
+3. adjust the model
+
+
+Maybe try using these new input images with zero background
+
+# Mon Feb 6
+
+Writing some notes on why the KNIME project has to be replaced here : `./KNIME_carine_post-mortem.txt`.
+
+I've got a new list of things to do in my notebook. One of the first I need to do is get full segmentations working on the results of my random forests here.
+
+I can just use Fiji as it currently exists!
+
+Laurent advice. Merge labels into 2 classes.
+
+Try U-net and membrane classifier from Thorsten that won CREMI challenge?
+
+Add to the list of obnoxious things about our KNIME workflow: The quality metrics you would expect to see after training the CRF were all hidden!
+
+---
+
+Tried to run the Cascaded Random Forest using the bash scripts and KNIME directory structure, but ran into an error "Precondition Violation... " then I fixed it by removing a file from the directory that wasn't numbered, then I got a silent failure after reading "initialization succeeded." There was simply no image output in the Results directory...
+
+Moved the Random Forest into what I hope was the correct directory and BINGO I got some additional output... It worked! Now I'll make a comparison between the CRF and xgboost.
+
+# Tue Feb 7
+
+I have a better now of why Dave's CRF wont work on linux. The `learn` binary requires a very special commit from Dave's code. We don't know which one, because we never got the source, only the results of the build. We could try building on every commit, and running tests until we find one that passes the tests... But it will very likely be the wrong commit...
+
+RESULT! from crf_vs_xgboost.py
+```
+In [41]: vs.run_jac()
+
+./knime_test_data/data/train/PredictKNIME/grayscale_0_level1_probs1.tif
+    CRF class1: 	 0.9744 	   0.5
+xgboost class1: 	 0.9735 	  0.75
+    CRF class2: 	 0.9651 	 0.333
+xgboost class2: 	 0.9648 	 0.417
+
+./knime_test_data/data/train/PredictKNIME/grayscale_1_level1_probs1.tif
+    CRF class1: 	 0.9788 	 0.417
+xgboost class1: 	 0.9789 	  0.75
+    CRF class2: 	 0.9751 	 0.375
+xgboost class2: 	 0.9752 	 0.458
+
+./knime_test_data/data/train/PredictKNIME/grayscale_2_level1_probs1.tif
+    CRF class1: 	 0.9789 	 0.375
+xgboost class1: 	 0.9782 	  0.75
+    CRF class2: 	 0.9747 	  0.25
+xgboost class2: 	 0.9743 	 0.458
+
+./knime_test_data/data/train/PredictKNIME/grayscale_3_level1_probs1.tif
+    CRF class1: 	 0.9787 	 0.375
+xgboost class1: 	 0.9783 	 0.708
+    CRF class2: 	 0.9733 	  0.25
+xgboost class2: 	 0.9731 	 0.375
+```
+
+This result means that the xgboost predictor is about as accurate as the CRF. But it also appears to find it's maximum accuracy at a more consistent value of the threshold! This means we can fix the threshold in the cell-segmentation pipeline without worrying we have a bad segmentation!

@@ -6,9 +6,6 @@ import numpy as np
 from glob import glob
 
 import skimage.io as io
-import skimage.feature as skf
-import skimage.feature.blob as B
-import skimage.filters as F
 
 import os
 
@@ -39,8 +36,32 @@ def path_base_ext(fname):
     base, ext = os.path.splitext(base)
     return directory, base, ext
 
-def example1():
+def safe_makedirs(dirpath):
+    if not os.path.exists(dirpath):
+        os.makedirs(dirpath)
+
+def apply_operation_to_imgdir(imgdir, func, dtype='input'):
+    for file in glob(imgdir + "/*.tif"):
+        img = io.imread(file)
+        dir, base, ext = path_base_ext(file)
+        result_img = func(img)
+        # result_img = np.concatenate((img, result_img[:,:, np.newaxis]), axis=2)
+        newpath = dir + os.sep + func.__name__ + os.sep
+        safe_makedirs(newpath)
+        new_img_name = newpath + base + ext
+        print("Saving to: ", new_img_name)
+        if dtype == 'input':
+            io.imsave(new_img_name, result_img)
+        else:
+            io.imsave(new_img_name, result_img.astype(dtype))
+
+def save_all_scikit_filters():
     # [io.imsave(name, f(img)) for f in dir(F)]
+    import skimage.filters as F
+    import skimage.feature.blob as B
+
+    seg_methods = [B.blob_doh, B.blob_log, B.blob_dog, B.arccos, B.gaussian_filter, B.gaussian_laplace, B.hypot, B.integral_image]
+
 
     fname = "../knime_test_data/data/train/grayscale/grayscale_0.tif"
     dir, base, ext = path_base_ext(fname)
@@ -84,34 +105,6 @@ class State:
         # datapoint_id -> feature_id -> float32 is an nd
         self.data = dict()
 
-    def build_data(self):
-        for fimg, gimg, limg in zip(self.feature_imgs, self.grayscale_imgs, self.label_imgs):
-            stack = io.imread(fimg)
-            grayimg = io.imread(gimg)
-            label = io.imread(limg).astype('uint8') # TODO: remove cast and add to spec
-            # add grayscale image to featurestack
-            stack = np.concatenate((stack, grayimg[np.newaxis, :, :]), axis=0)
-
-            # TODO: make sure that you don't sample more points than are available!
-            # Sample from each class a certain number of times
-            class_dict = dict()
-            X,Y = [],[]
-            for i, n_pts in enumerate([20000, 4000, 800]):
-                # remember pixels used for samples in [xy]samples
-                mask = label==i
-                x = np.arange(mask.shape[0])
-                y = np.arange(mask.shape[1])
-                xx,yy = np.meshgrid(y,x)
-                class_dict[i] = dict()
-                class_dict[i]['samples'] = {'x' : xx[mask], 'y' : yy[mask]}
-
-                # add that pixel + features to X
-                stack_class = stack[:, mask]
-                subsample = np.random.choice(stack_class.shape[1], n_pts, replace=False)
-                class_dict[i]['features'] = stack_class[:, subsample].T
-
-            self.data[os.path.basename(gimg)] = class_dict
-
     def build_XY(self):
         # add all the featurestacks together with appropriate labels
         X = []
@@ -129,21 +122,39 @@ class State:
 def predictions(home):
     return io.imread_collection(home + "/result_new/*.tif")
 
-def apply_operation_to_imgdir(imgdir, func, dtype='uint16'):
-    for file in glob(imgdir + "/*.tif"):
-        img = io.imread(file)
-        dir, base, ext = path_base_ext(file)
-        result_img = func(img)
-        result_img = np.concatenate((img, result_img[:,:, np.newaxis]), axis=2)
-        newpath = dir + os.sep + func.__name__ + os.sep
-        safe_makedirs(newpath)
-        new_img_name = newpath + base + ext
-        print("Saving to: ", new_img_name)
-        io.imsave(new_img_name, result_img.astype(dtype))
+def build_data(feature_img_names, label_img_names, grayscale_img_names):
+    data = dict()
+    for fimg, gimg, limg in zip(grayscale_img_names, feature_img_names, label_img_names):
+        stack = io.imread(fimg)
+        grayimg = io.imread(gimg)
+        label = io.imread(limg).astype('uint8') # TODO: remove cast and add to spec
+        # add grayscale image to featurestack
+        stack = np.concatenate((stack, grayimg[np.newaxis, :, :]), axis=0)
 
-def predict_Wekafeatures(home, randfor, proba=False):
-    grayscale_imgs = glob(home + "/grayscale/*.tif")
-    feature_imgs = glob(home + "/features/*.tif")
+        # TODO: make sure that you don't sample more points than are available!
+        # Sample from each class a certain number of times
+        class_dict = dict()
+        X,Y = [],[]
+        for i, n_pts in enumerate([20000, 4000, 800]):
+            # remember pixels used for samples in [xy]samples
+            mask = label==i
+            x = np.arange(mask.shape[0])
+            y = np.arange(mask.shape[1])
+            xx,yy = np.meshgrid(y,x)
+            class_dict[i] = dict()
+            class_dict[i]['samples'] = {'x' : xx[mask], 'y' : yy[mask]}
+
+            # add that pixel + features to X
+            stack_class = stack[:, mask]
+            subsample = np.random.choice(stack_class.shape[1], n_pts, replace=False)
+            class_dict[i]['features'] = stack_class[:, subsample].T
+
+        data[os.path.basename(gimg)] = class_dict
+    return data
+
+def predict_Wekafeatures(greyscale_dir, feature_dir, randfor, proba=False):
+    grayscale_imgs = glob(greyscale_dir + "/*.tif")
+    feature_imgs = glob(feature_dir + "/*.tif")
     res = []
     for f_img, g_img in zip(feature_imgs, grayscale_imgs):
         stack = io.imread(f_img)
@@ -167,71 +178,15 @@ def predict_Wekafeatures(home, randfor, proba=False):
         io.imsave(new_name, img.astype(dtype))
     return res
 
-def safe_makedirs(dirpath):
-    if not os.path.exists(dirpath):
-        os.makedirs(dirpath)
-
-def param_search_through_forests():
-    RandomForestClassifier()
-
-def check_train(path):
-    """The images contained in path must adhere to a strict spec to be used for training.
-    This functions checks them against that spec."""
-
-    # must have a `train/` directory with labeled images and featuremaps...
-    # feature images should all be of the same type? (Can we make random forests with a
-    # mix of numerical and label info?) IF they are not all float images, then we can't
-    # use the same set of classifiers/methods. How do we know when an pixel represents a
-    # label vs an intensity? Even intensities can be multiple types! floats, ints and
-    # uints!
-
-    # tif only has one 'f'
-
-    # The names in the various directories must all align. And the images must be the
-    # same size if they share a name.
-
-    # Images *should* have metadata like voxel size and microscopy info. We should be able
-    # to include this information in our classifiers. If we want to include this data in
-    # our tifs, then it must *also* have its own spec. (essentially a dictionary spec)
-
-    # featurestacks should include the greyscale image. *What about data augmentation?*
-
-    # for classification lables, we should check to make sure that the labels are all
-    # the same value and that the values appear in roughly the same distribution!
-
-    # intensity images should all be normalized in the same way. Sometimes float images
-    # are forced to take on values in the range [-1, 1] (like in scikit-image!)
-
-    # what about image metadata being stored in filenames? This is obnoxious, but common
-    # and useful for quick, but it does tend to blow up path names and seems like a good
-    # way to introduce nasty characters into paths... (like spaces!)
-
-    # filenames must be made up of a set of cross-platform standard ascii characters and
-    # no spaces, dashes(or?) or slashes. Just upper and lowercase letters, numbers, '_' and '.'.
-
-    # When working with new data, either we edit it s.t. it conforms to our spec, or we
-    # change our code s.t. it can read the new data. If you change the data, then your
-    # data doesn't look like the original (which is still alive, on someone else's machine
-    # but if you change your code, then you have some extra piece of code which has to
-    # live in your project made just for reading the new stuff and conforming it to the
-    # spec every time you want to load it and run your code. Which way is better? Aha! If
-    # you plan on distributing your code, then you can expect that the users will be able
-    # to conform their data to your spec, but not that they will be able to add code to
-    # read it! This puts the onus on *them* to make your tool work, but shows them exactly
-    # how to do it. Putting constraints/expectations in a spec program is *better* than
-    # hiding it away in the docs. Users will misread or just not read your docs.
-    # Having an (interactive) spec checker will force them to
-    # deal with their issues!
-
-    # Number of features in feature stack must be the same across whole directory.
-
-
-def blob():
-    # TODO
-    # The filters used on images allows us to do a pixel-wise classification of images, but
-    # there are also more coarse-grained features we might want to use... Why not build a
-    # global forest which includes the output from skimage.feature as well as filters?
-    # How would we incorporate these global properties into our pixel-patch classification
-    # decisions in a smart way?
-
-    [B.blob_doh, B.blob_log, B.blob_dog, B.arccos, B.gaussian_filter, B.gaussian_laplace, B.hypot, B.integral_image]
+def compare_with_existing_CRF():
+    # load the pixelwise predictions from our RF and from the old CRF and the labels...
+    # the problem is I don't know what score to use. I can run the dice score as a func
+    # of the threshold value? That seems a reasonable way of doing things... The look at
+    # the max score (min score. 0 is best).
+    our_img = io.imread("./knime_test_data/data/predict/result_new10xg/features_20150127_EVLvsInner01_slice11-normalized_predict.tif")
+    p0 = io.imread("./knime_test_data/data/predict/Results/PredictKNIME/predict_20150127_EVLvsInner01_slice11-normalized_level0_probs0.tif")
+    p1 = io.imread("./knime_test_data/data/predict/Results/PredictKNIME/predict_20150127_EVLvsInner01_slice11-normalized_level0_probs1.tif")
+    p2 = io.imread("./knime_test_data/data/predict/Results/PredictKNIME/predict_20150127_EVLvsInner01_slice11-normalized_level0_probs2.tif")
+    # are there any knime predictions with ground truth?
+    # can't I just use the CRF directly? Add the binary to my project and call it? On the
+    # same GT labeled data?
