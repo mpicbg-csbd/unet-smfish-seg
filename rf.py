@@ -119,12 +119,15 @@ class State:
         self.X = np.concatenate(tuple(X), axis=0)
         self.Y = np.concatenate(tuple(Y), axis=0)
 
+    def build_data(self):
+        self.data = build_data(self.feature_imgs, self.label_imgs, self.grayscale_imgs)
+
 def predictions(home):
     return io.imread_collection(home + "/result_new/*.tif")
 
 def build_data(feature_img_names, label_img_names, grayscale_img_names):
     data = dict()
-    for fimg, gimg, limg in zip(grayscale_img_names, feature_img_names, label_img_names):
+    for fimg, gimg, limg in zip(feature_img_names, grayscale_img_names, label_img_names):
         stack = io.imread(fimg)
         grayimg = io.imread(gimg)
         label = io.imread(limg).astype('uint8') # TODO: remove cast and add to spec

@@ -202,7 +202,7 @@ Moved the Random Forest into what I hope was the correct directory and BINGO I g
 
 I have a better now of why Dave's CRF wont work on linux. The `learn` binary requires a very special commit from Dave's code. We don't know which one, because we never got the source, only the results of the build. We could try building on every commit, and running tests until we find one that passes the tests... But it will very likely be the wrong commit...
 
-RESULT! from crf_vs_xgboost.py
+RESULT 1! from crf_vs_xgboost.py
 ```
 In [41]: vs.run_jac()
 
@@ -232,3 +232,47 @@ xgboost class2: 	 0.9731 	 0.375
 ```
 
 This result means that the xgboost predictor is about as accurate as the CRF. But it also appears to find it's maximum accuracy at a more consistent value of the threshold! This means we can fix the threshold in the cell-segmentation pipeline without worrying we have a bad segmentation!
+
+Laurent's advice... Build the confusion matrix for classification. Do the evaluation on all the possible metrics (or at least a lot of them) and if they all sorta agree on a winner then it's pretty clear. Use the jaccard index for vertex class, but use l1 or l2 norm for membrane, because we never do a flat segmentation on it during the cell segmentation.
+
+# Wed Feb 8
+
+Try out TensorBoard callback function for monitoring training in keras.
+
+Our pixelwise-classifier ground truth is not a valid cell segmentation. So we can't use it for evaluating our pipeline... But the ground truth i just found on Carine's server is actually useable...
+
+Also, in general it would be great if pixelwise GT labels, colors, masks, etc were all just different channels in the same tif image, and all in the same folder. This would would reduce complexity. Also, channels should probably be named... Not just indexed with a number like 0,1,2,3... But rather "red" "green" "membrane-label" "cell-label" etc...
+
+The problem with making them different channels is they have to be the same dtype... and labels would rather be uints and greyscale / intensity info would rather be floats...
+
+but mushing them into one image avoids having to keep the names consistent between different folders... And means all your cropping / scaling works across channels as well. (and will warn you that continuous transformations of your intensity image will not map nicely onto your label image!)
+
+It's most helpful to look at the confusion matrix! It shows us how the different classifiers behave very differently! xgbs really likes to make the membranes large, and favors
+
+RESULT 1.1 !
+```
+In [177]: crfs_confusion
+Out[177]:
+array([[838268,   3181,    196],
+       [ 11065,   8627,    245],
+       [  2839,   1366,    597]])
+
+# 2nd version where we assume vertex prob is add to membrane prob during classification.
+
+array([[840204,   1441,      0],
+      [ 14101,   5836,      0],
+      [  4400,    402,      0]])
+
+In [178]: xgbs_confusion
+Out[178]:
+array([[809777,  31382,    486],
+       [  1204,  18603,    130],
+       [   326,   3715,    761]])
+```
+This is the sum total across four test images. The first dimension = outer list = row corresponds to the ground truth class, while the column corresponds to the predicted class. {0:background 1:membrane 2:vertex}. We can see that the gradient boosted trees are more accurate on membrane and vertex, but less on background.
+
+TODO: more test images.
+TODO: test cell segmentations!
+TODO: keras classifier!
+
+TODO: In the xgbs model a pixel is either membrane OR vertex, while in the CRF model a pixel can be both membrane AND vertex. Which makes more sense? If you model the classes as mutually exclusive then later in the cell segmentation you have to merge them back together for creating the paths! But what do we do if a pixel is membrane in the membrane classifier but background in the vertex classifier? Then it's membrane. What about vertex in the vertex classifier, but background in the membrane classifier??? This is trickier... You probably always want to air on the side of membrane/vertex, because missing a vertex is a harder problem for the segmenter to fix than having an extra vertex.

@@ -33,7 +33,6 @@ kernel_size = (3, 3)
 import skimage.util as ut
 import skimage.io as io
 
-
 def test_model_on_folder(mod):
     greys, _ = build()
     # get a window with stride 1, predict, then patch back up into image!

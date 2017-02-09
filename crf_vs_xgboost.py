@@ -22,52 +22,72 @@ def create_result():
     f = "./knime_test_data/data/train/features/"
     return rf.predict_Wekafeatures(g, f, r, proba=bool)
 
-
-
+# load everything
 crf_mem_files = glob("./knime_test_data/data/train/PredictKNIME/grayscale_?_level1_probs1.tif")
 crf_vert_files = glob("./knime_test_data/data/train/PredictKNIME/grayscale_?_level1_probs2.tif")
 xgb_prob_map_files = glob("./knime_test_data/data/train/result_new/*.tif")
 label_files = glob("./knime_test_data/data/train/labels/composite/*.tif")
+crf1 = map(io.imread, crf_mem_files)
+crf2 = map(io.imread, crf_vert_files)
+xgbs = map(io.imread, xgb_prob_map_files)
+labs = map(io.imread, label_files)
+crfs = zip(crf1, crf2)
+def joint_crf((crf1, crf2)):
+    """How should we interpret the set of two binary classifications
+    as a 3-class probability? NOTE: `new` must be normalized over 3rd dimension!"""
+    x,y = crf1.shape
+    new = np.zeros((x,y,3), dtype=crf1.dtype)
+    new[:,:,0] = 1.0 - crf1 - crf2
+    new[:,:,1] = crf1 # - crf2
+    new[:,:,2] = crf2
+    return new
+crfs = map(joint_crf, crfs)
+xgbs = np.array(xgbs)
+labs = np.array(labs)
+crfs = np.array(crfs)
+
+# compute the confusion_matrix
+import sklearn.metrics as m
+xgbs_l = xgbs.argmax(3)
+crfs_l = crfs.argmax(3)
+a,b,c = labs.shape
+print("XGBOOST Confusion Matrix")
+xgbs_confusion = m.confusion_matrix(labs.flatten(), xgbs_l.flatten())
+print(xgbs_confusion)
+print("CRF Confusion Matrix")
+crfs_confusion = m.confusion_matrix(labs.flatten(), crfs_l.flatten())
+print(crfs_confusion)
+
+
+# critical bits
+thresholds = np.linspace(0,1,15)
+classes = [1,2]
+classifiers = {'CRF':crfs, 'XGBOOST':xgbs}
 
 
 
-def jaccard(img, label):
+def confusion_matrix(classifiers, thresholds):
+    crf = classifiers['CRF']
+
+def score((prob, label, cla, thresh)):
     import sklearn.metrics as m
-    # TODO: the jaccard score is very high, and dominated by the background predictions...
-    return m.jaccard_similarity_score(img.flatten(), label.flatten())
+    mask = prob[:,:,cla] > thresh
+    label = label == cla
+    # return mask, label
+    return m.accuracy_scor(mask.flatten(), label.flatten())
 
-def run_jac():
-    for a, b, c, d in zip(crf_mem_files, crf_vert_files, xgb_prob_map_files, label_files):
-        # pixel values are prob of being in class 1
-        rf1 = io.imread(a)
-        # pixel values are prob of being in class 2
-        rf2 = io.imread(b)
-        # (n,m,i=1..3) pixel values are probability of being in class i
-        xg  = io.imread(c)
-        xg1 = xg[:,:,1]
-        xg2 = xg[:,:,2]
-        # pixel values are classes
-        l   = io.imread(d)
+def confu((prob, label, cla, thresh)):
+    import sklearn.metrics as m
+    prob = np.argmax(prob, axis=2)
+    return m.confusion_matrix(prob.flatten(), label.flatten())
 
-        print()
-        print(a)
+def mean_score_across_images(fscore, classifier, labs, c, t):
+    x = np.array(map(fscore, zip(classifier, labs, np.repeat(c,4), np.repeat(t, 4))))
+    return np.mean(x, axis=0)
 
-        n = 25
-        keyf = lambda t: t[0]
-        maxx = lambda lizt: max(lizt, key=keyf)
-
-        row_format ="{:>15} \t {:6.4g} \t {:5.3g}"
-        # print(row_format.format("", *teams_list))
-        # for team, row in zip(teams_list, data):
-        #     print(row_format.format(team, *row))
-
-        prnt = lambda x, y: print(row_format.format(x, *y))
-
-        f = lambda x: (jaccard(rf1>x, l), x)
-        prnt("CRF class1:", maxx(map(f, np.linspace(0,1,n))))
-        f = lambda x: (jaccard(xg1>x, l), x)
-        prnt("xgboost class1:", maxx(map(f, np.linspace(0,1,n))))
-        f = lambda x: (jaccard(2*(rf2>x), l), x)
-        prnt("CRF class2:", maxx(map(f, np.linspace(0,1,n))))
-        f = lambda x: (jaccard(2*(xg2>x), l), x)
-        prnt("xgboost class2:", maxx(map(f, np.linspace(0,1,n))))
+def print_table():
+    for name, classifier in classifiers.items():
+        for cla in classes:
+            best = max([mean_score_across_images(score, classifier, labs, cla, thresh) for thresh in thresholds])
+            row = "{:<7}{:^5}{:>.5g}"
+            print(row.format(name, cla, best))
