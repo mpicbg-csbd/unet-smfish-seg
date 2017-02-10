@@ -1,6 +1,5 @@
 """
-Compare the output of Cascaded RFs to xgboost. make jaccard score as a function of threshold
-level."""
+Compare the output of Cascaded RFs to xgboost. make jaccard score as a function of threshold level."""
 
 # from ipy import *
 
@@ -10,6 +9,7 @@ from __future__ import print_function, division
 from glob import glob
 import skimage.io as io
 import numpy as np
+import weka_features as wekaf
 
 def create_result():
     """Only run once! Ever. To build the result."""
@@ -20,7 +20,7 @@ def create_result():
     r = st.randfor
     g = "./knime_test_data/data/train/grayscale/"
     f = "./knime_test_data/data/train/features/"
-    return rf.predict_Wekafeatures(g, f, r, proba=bool)
+    return wekaf.predict_Wekafeatures(g, f, r, proba=bool)
 
 # load everything
 crf_mem_files = glob("./knime_test_data/data/train/PredictKNIME/grayscale_?_level1_probs1.tif")
@@ -57,37 +57,3 @@ print(xgbs_confusion)
 print("CRF Confusion Matrix")
 crfs_confusion = m.confusion_matrix(labs.flatten(), crfs_l.flatten())
 print(crfs_confusion)
-
-
-# critical bits
-thresholds = np.linspace(0,1,15)
-classes = [1,2]
-classifiers = {'CRF':crfs, 'XGBOOST':xgbs}
-
-
-
-def confusion_matrix(classifiers, thresholds):
-    crf = classifiers['CRF']
-
-def score((prob, label, cla, thresh)):
-    import sklearn.metrics as m
-    mask = prob[:,:,cla] > thresh
-    label = label == cla
-    # return mask, label
-    return m.accuracy_scor(mask.flatten(), label.flatten())
-
-def confu((prob, label, cla, thresh)):
-    import sklearn.metrics as m
-    prob = np.argmax(prob, axis=2)
-    return m.confusion_matrix(prob.flatten(), label.flatten())
-
-def mean_score_across_images(fscore, classifier, labs, c, t):
-    x = np.array(map(fscore, zip(classifier, labs, np.repeat(c,4), np.repeat(t, 4))))
-    return np.mean(x, axis=0)
-
-def print_table():
-    for name, classifier in classifiers.items():
-        for cla in classes:
-            best = max([mean_score_across_images(score, classifier, labs, cla, thresh) for thresh in thresholds])
-            row = "{:<7}{:^5}{:>.5g}"
-            print(row.format(name, cla, best))

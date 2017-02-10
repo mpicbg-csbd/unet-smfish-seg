@@ -276,3 +276,112 @@ TODO: test cell segmentations!
 TODO: keras classifier!
 
 TODO: In the xgbs model a pixel is either membrane OR vertex, while in the CRF model a pixel can be both membrane AND vertex. Which makes more sense? If you model the classes as mutually exclusive then later in the cell segmentation you have to merge them back together for creating the paths! But what do we do if a pixel is membrane in the membrane classifier but background in the vertex classifier? Then it's membrane. What about vertex in the vertex classifier, but background in the membrane classifier??? This is trickier... You probably always want to air on the side of membrane/vertex, because missing a vertex is a harder problem for the segmenter to fix than having an extra vertex.
+
+# Fri Feb 10
+
+I wanna make a smart featurestack from skimage features and filters. How do I decide on the best param ranges? You don't need best, you just need reasonable. Try out a selection of features for a couple different parameter ranges?
+
+Trying out a range of Gabor filters for different wavelengths. For very long wavelengths the filters are very slow to compute...
+
+Trying out retraining with the class_weights='balanced' option. The results are *much* better when predicting on the training data.
+
+Wanna see how the number of training samples affects performance?
+
+```
+
+Here we only train on a random subset of 3000 pixels.
+
+In [4]: rafo = rf.train_rafo_from_stack(wekastack, lab)
+   ...: ypred = rf.predict_from_stack(rafo, wekastack)
+   ...: print(sklearn.metrics.confusion_matrix(lab.flatten(),ypred))
+   ...:
+[[211150      1      0]
+ [  4517     43      0]
+ [   875      0     10]]
+
+In [5]: rafo = rf.train_rafo_from_stack(wekastack, lab)
+   ...: ypred = rf.predict_from_stack(rafo, wekastack)
+   ...: print(sklearn.metrics.confusion_matrix(lab.flatten(),ypred))
+   ...:
+[[167235      0  43916]
+ [  3470     32   1058]
+ [   682      0    203]]
+
+In [6]: rafo = rf.train_rafo_from_stack(wekastack, lab)
+   ...: ypred = rf.predict_from_stack(rafo, wekastack)
+   ...: print(sklearn.metrics.confusion_matrix(lab.flatten(),ypred))
+   ...:
+[[167381  43768      2]
+ [  3459   1101      0]
+ [   673    201     11]]
+
+Here we train on a small subset, the first 3000 pixels in the array.
+
+In [7]: rafo = rf.train_rafo_from_stack(wekastack, lab)
+   ...: ypred = rf.predict_from_stack(rafo, wekastack)
+   ...: print(sklearn.metrics.confusion_matrix(lab.flatten(),ypred))
+   ...:
+[[167354      1  43796]
+ [  3462     40   1058]
+ [   677      0    208]]
+
+In [8]: rafo = rf.train_rafo_from_stack(wekastack, lab)
+   ...: ypred = rf.predict_from_stack(rafo, wekastack)
+   ...: print(sklearn.metrics.confusion_matrix(lab.flatten(),ypred))
+   ...:
+[[167339      5  43807]
+ [  3441     61   1058]
+ [   674      0    211]]
+
+ Here we ugrade from training on a subsample of 3000 pixels to the full image.
+
+In [9]: rafo = rf.train_rafo_from_stack(wekastack, lab)
+   ...: ypred = rf.predict_from_stack(rafo, wekastack)
+   ...: print(sklearn.metrics.confusion_matrix(lab.flatten(),ypred))
+   ...:
+[[167261  43885      5]
+ [   389   4171      0]
+ [    22    202    661]]
+
+In [10]: rafo = rf.train_rafo_from_stack(wekastack, lab)
+    ...: ypred = rf.predict_from_stack(rafo, wekastack)
+    ...: print(sklearn.metrics.confusion_matrix(lab.flatten(),ypred))
+    ...:
+[[167280  43866      5]
+ [   420   4140      0]
+ [    24    201    660]]
+
+In [11]: rafo = rf.train_rafo_from_stack(wekastack, lab)
+    ...: ypred = rf.predict_from_stack(rafo, wekastack)
+    ...: print(sklearn.metrics.confusion_matrix(lab.flatten(),ypred))
+    ...:
+[[167278  43868      5]
+ [   336   4224      0]
+ [    16    201    668]]
+
+Here we use Gabor featurestacks...
+
+In [12]: rafo = rf.train_rafo_from_stack(gaborstack, lab)
+    ...: ypred = rf.predict_from_stack(rafo, gaborstack)
+    ...: print(sklearn.metrics.confusion_matrix(lab.flatten(),ypred))
+    ...:
+[[157142    671  53338]
+ [    92   3334   1134]
+ [     6      0    879]]
+
+In [13]: rafo = rf.train_rafo_from_stack(gaborstack, lab)
+    ...: ypred = rf.predict_from_stack(rafo, gaborstack)
+    ...: print(sklearn.metrics.confusion_matrix(lab.flatten(),ypred))
+    ...:
+[[157354    462  53335]
+ [    87   3338   1135]
+ [    12      0    873]]
+
+In [14]: rafo = rf.train_rafo_from_stack(gaborstack, lab)
+    ...: ypred = rf.predict_from_stack(rafo, gaborstack)
+    ...: print(sklearn.metrics.confusion_matrix(lab.flatten(),ypred))
+    ...:
+[[157540    279  53332]
+ [    80   3345   1135]
+ [     7      0    878]]
+```
