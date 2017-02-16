@@ -17,7 +17,7 @@ from keras import backend as K
 
 batch_size = 128
 nb_classes = 10
-nb_epoch = 12
+nb_epoch   = 12
 
 # input image dimensions
 img_rows, img_cols = 28, 28
@@ -73,6 +73,7 @@ def get_window_shapes(img):
 
 
 ### ------------------------------------------------------------
+
 
 
 def buildTrainingData():

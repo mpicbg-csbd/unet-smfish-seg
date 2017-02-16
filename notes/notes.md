@@ -385,3 +385,48 @@ In [14]: rafo = rf.train_rafo_from_stack(gaborstack, lab)
  [    80   3345   1135]
  [     7      0    878]]
 ```
+
+# Wed Feb 15
+
+I'm having some troubles keeping things straight that I think would be benefitted by a type system. I want to be able to train a random forest on a single image, with a single featurestack, with subsets of the training data, on a list of images, on a concatenated numpy array of images, or on a directory. That's a lot of potentially differently-typed input! Some of these different things can be run through the same code without any trouble, for example a single featurestack can probably use the same code as a concatenated set of featurestacks...
+
+Can we solve this problem by labeling the axes of our arrays?
+
+Do we need different code for objects of the same type? i.e. featurestacks and concatenated featurestacks?
+
+ERRATA 1.1:
+We don't know how the CRFs were trained, but probably both the CRFs and the XGBOOST trees were trained on all four labeled images. Which means we're only testing model power (ability to overfit) in RESULT 1.1 and not ability to generalize.
+
+Accidentally shuffled both X's and Y's in totally unrelated ways. Then tried predicting. Got exactly zero membrane and vertices correct on testing data, but still got a bunch of background correct. Also, got a lot of both correct on the training data! This would be a good test to do every time you train a classifier...
+
+Fixing the shuffling issue brings the training and testing data much closer together. This shows us how important spatial correlations are!
+
+Training an XGBOOST classifier without balancing the data results in both Train and Test only classified as background!
+
+# Thu Feb 16
+
+I've got enough files now and enough different experiments where I need to break things up a bit more. I'm going to make a scripts directory for standalone scripts, i.e. things that take care of their own reading/writing/importing files and modules.
+
+Maybe there should also be some common utility functions which we can separate into a `common` or `util`. But the bulk of our code is not standalone scripts, but rather functions which work with python data and don't need to know about the filesystem or global state at all.
+
+Now I've got a bunch of stuff in `keras_classifier.py` that talks to the filesystem. I'm going to remove that bit and only have it talk to `imglist`s, which are lists of (potentially differently sized) ndarrays corresponding to images. We just need function which turn these image lists into the shapes of things that go into the learers. For random forests, X.ndim = 2, but the size will vary for many keras models, including (n_patches,xdim,ydim,n_channels) image patch arrays. Since X is model specific, each model should have it's own imglist -> X function. *what about preprocessing?* yes, each model should have it's own preprocessing, becuase that's really a part of the model and something we will do a lot of experiments with... But if we can have a Model class with a `preprocessing` and `fit` and `imglist->X` and `predict`... that would go a long way to enabling code that works with RF and keras... but they are so different we might just want use separate interfaces anyways...
+
+This also means that each model should have it's own module, and that we should have a `models` directory for storing them...
+
+## Pros and cons of storing the preprocessing with the model
+
+Pro
+---
+1. They are always applied in pairs. Preprocessing only makes sense if followed by a model and vice versa. In many ways the preprocessing is really a part of the modeling itself.
+2. You won't forget which type of preprocessing you've done, since they are always coupled in the same file.
+3. Much of the preprocessing will be on full images, i.e. before we translate the imglist into `X` and `Y`, so they can be shared.
+
+Con
+---
+1. But We might want to mix and match preprocessing approaches with modeling approaches, because they are also largely independent. If we have the same type of X [same shape] then we can apply the same preprocessing routines on them, and that code should live in a shared library. But to the extent that these things are independent and unshareable they should live with the modeling code.
+
+*Do we even want to preprocess our images?*
+I thought preprocessing just destroyed potentially useful/informative variance? Won't our learners just learn to deal with the data the way it is?
+
+*What about data augmentation?*
+This will likely be required by some data-hungry models. This can/should also be separate, so that we can also try feeding the augmented data into the RandomForest models just for fun?

@@ -48,35 +48,45 @@ class State:
     def build_data(self):
         self.data = build_data(self.feature_imgs, self.label_imgs, self.grayscale_imgs)
 
+def balanced_sample_weights(Ytrain):
+    sw = Ytrain.copy().astype('float32')
+    sw[sw==0] = 1.0/len(sw[sw==0])
+    sw[sw==1] = 1.0/len(sw[sw==1])
+    sw[sw==2] = 1.0/len(sw[sw==2])
+    sw *= len(Ytrain)
+    return sw
+
 def predict_from_stack(rafo, stack):
-    X = to_X_single(stack)
+    a,b,c = stack.shape
+    X = stack.reshape((b*c, a))
     return rafo.predict(X)
 
-
-
-def train_rafo_from_stack(stack, labels, subsample=None):
-    if type(stack)==np.ndarray:
-        X,Y = to_XY_single(stack, labels)
-    elif type(stack)==list:
-        X,Y = to_XY(stack, labels)
+def imglist_to_XY(stacks, labels):
+    if type(stacks)==np.ndarray and stacks.ndim==3:
+        X,Y = to_XY_single(stacks, labels)
+    elif type(stacks)==list:
+        X,Y = to_XY(stacks, labels)
     else:
         raise "WTF IS WRONG WITH YOU..."
-    # X,Y = subsample_XY(X,Y,size=3000)
-    if subsample != None:
-        X,Y = X[subsample, :], Y[subsample]
+    return X,Y
+
+def train_rafo_from_XY(X,Y, **kwargs):
     print("Class Dist: ", np.unique(Y, return_counts=True))
     # cw = {0:1, 1:10 , 2:50}
-    cw = 'balanced_subsample'
-    # rafo = xgboost.XGBClassifier(n_estimators=50, max_depth=20, min_samples_split=5, class_weight=cw)
-    rafo = sklearn.ensemble.RandomForestClassifier(n_estimators=50, max_features="sqrt", max_depth=None, min_samples_split=5, class_weight=cw)
-    rafo.fit(X, Y)
+    cw = 'balanced' # 'balanced_subsample'
+    rafo = xgboost.XGBClassifier()
+    # rafo = sklearn.ensemble.RandomForestClassifier(n_estimators=50,
+    #             max_features="sqrt", max_depth=20, min_samples_split=5,
+    #             class_weight=cw)
+    rafo.fit(X, Y, **kwargs)
     return rafo
 
 def to_XY(stack, labels):
     """stack,labels are lists of featurestacks / labels. images need not be the same shape"""
     xys = map(lambda (s,l): to_XY_single(s,l), zip(stack, labels))
     def f((x1,y1), (x2,y2)):
-        (np.stack(x1,x2), np.stack(y1,y2))
+        "reducing function. use on list of (X,Y) tuples to concatenate into single long X,Y."
+        return (np.concatenate((x1,x2)), np.concatenate((y1,y2)))
     (X,Y) = reduce(f, xys)
     return (X,Y)
 
@@ -85,15 +95,6 @@ def to_XY_single(stack, lab):
     X = stack.reshape((b*c, a))
     Y = lab.reshape(b*c)
     return (X, Y)
-
-def to_X_single(stack):
-    a,b,c = stack.shape
-    X = stack.reshape((b*c, a))
-    return X
-
-def subsample_XY(X,Y, size=10000):
-    ss = np.random.choice(len(Y), size=size, replace=False)
-    return (X[ss,:], Y[ss])
 
 def build_data(feature_img_names, label_img_names, grayscale_img_names):
     """load all featurestacks and labels into dict."""
