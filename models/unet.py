@@ -14,15 +14,15 @@ from keras.utils import np_utils
 # from keras.utils.visualize_util import plot
 from keras.optimizers import SGD
 
-import skimage.util as ut
+import skimage.util as skut
+import util
 
-# import sys
-# sys.path.insert(0, './lib/')
-# from help_functions import *
+# global variables for patch dimensions and stride
+x_width = 48
+y_width = 48
+step = 10
 
-# input image dimensions
-
-def sample_patches_from_img(coords, img, x_width=48, y_width=48):
+def sample_patches_from_img(coords, img):
     assert coords[:,0].max() <= img.shape[0]-x_width
     assert coords[:,1].max() <= img.shape[1]-y_width
     patches = np.zeros(shape=(coords.shape[0], x_width, y_width), dtype=img.dtype)
@@ -30,14 +30,14 @@ def sample_patches_from_img(coords, img, x_width=48, y_width=48):
         patches[m] = img[ind[0]:ind[0]+x_width, ind[1]:ind[1]+y_width]
     return patches
 
-def random_patch_coords(img, n, x_width=48, y_width=48):
+def random_patch_coords(img, n):
     xc = np.random.randint(img.shape[0]-x_width, size=n)
     yc = np.random.randint(img.shape[1]-y_width, size=n)
     return np.stack((xc, yc), axis=1)
 
-def regular_patch_coords(img, x_width=48, y_width=48, step=10):
+def regular_patch_coords(img):
     dx,dy = img.shape[0]-x_width, img.shape[1]-y_width
-    coords = ut.view_as_windows(np.indices((dx+1,dy+1)), (2,1,1), step=step)
+    coords = skut.view_as_windows(np.indices((dx+1,dy+1)), (2,1,1), step=step)
     a,b,c,d,e,f = coords.shape
     return coords.reshape(b*c,2)
 
@@ -51,28 +51,37 @@ def rebuild_img_from_patches(zeros_img, patches, coords):
         count_img[x:x+dx, y:y+dy] += np.ones_like(patch)
     return zeros_img/count_img
 
-def imglists_to_XY(greylist, labellist, x_width=48, y_width=48, step=10):
-    "turn list of images into ndarray of patches, labels and their coordinates"
+def imglist_to_X(greylist):
+    """turn list of images into ndarray of patches, labels and their coordinates. Used for
+    both training and testing."""
 
-    def get_patch_coords(img):
-        coords = regular_patch_coords(img, x_width, y_width, step)
-        return coords
-        
-    def f((img, coords)):
-        return sample_patches_from_img(coords, img, x_width, y_width)
-
-    coords = map(get_patch_coords, greylist)
-    greypatches = map(f, zip(greylist, coords))
+    coords = map(regular_patch_coords, greylist)
+    f = lambda (c,g): sample_patches_from_img(c,g)
+    greypatches = map(f, zip(coords, greylist))
     X = np.concatenate(tuple(greypatches), axis=0)
-    labelpatches = map(f, zip(labellist, coords))
-    labelpatches = np.concatenate(tuple(labelpatches), axis=0)
-    Y = labelpatches
-    coords = np.concatenate(tuple(coords), axis=0)
 
     # reshape into theano dimension ordering
     a,b,c = X.shape
     assert K.image_dim_ordering() == 'th'
     X = X.reshape(a, 1, b, c)
+
+    # normalize X per patch
+    mi = np.amin(X,axis = (1,2,3), keepdims = True)
+    ma = np.amax(X,axis = (1,2,3), keepdims = True)+1.e-10
+    X = (X-mi)/(ma-mi)
+    return X.astype(np.float32)
+
+def imglist_to_Y(labellist):
+    "turn list of images into ndarray of patches, labels and their coordinates"
+
+    coords = map(regular_patch_coords, labellist)
+    f = lambda (c,g): sample_patches_from_img(c,g)
+    labelpatches = map(f, zip(coords, labellist))
+    Y = np.concatenate(tuple(labelpatches), axis=0)
+
+    # reshape into theano dimension ordering
+    a,b,c = Y.shape
+    assert K.image_dim_ordering() == 'th'
     Y = Y.reshape(a, 1, b, c)
 
     # convert label values to vector of label scores
@@ -82,57 +91,23 @@ def imglists_to_XY(greylist, labellist, x_width=48, y_width=48, step=10):
     Y = Y.reshape(a*b*c)
     Y = np_utils.to_categorical(Y, nb_classes)
     Y = Y.reshape(a, b*c, nb_classes)
-    #Y = Y.reshape(a ,b,c, nb_classes).transpose(0,3,1,2)
+    return Y.astype(np.float32)
 
-    # normalize X per patch
-    mi = np.amin(X,axis = (1,2,3), keepdims = True)
-    ma = np.amax(X,axis = (1,2,3), keepdims = True)+1.e-10
-    X = (X-mi)/(ma-mi)
-
-    return X.astype(np.float32), Y.astype(np.float32), coords
+def imglists_to_XY(greylist, labellist):
+    X = imglist_to_X(greylist)
+    Y = imglist_to_Y(labellist)
+    return X,Y
 
 def my_categorical_crossentropy(weights =(1., 1.)):
-    def _func(y_true, y_pred):
-        return -(weights[0]*K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon()))+weights[1]*K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
+    def catcross(y_true, y_pred):
+        return -(weights[0] * K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon())) +
+                 weights[1] * K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
 
         # return -(K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon()))+K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
-    return _func
+    return catcross
 
-def get_unet_small(patch_height, patch_width, n_ch):
-    inputs = Input((n_ch, patch_height, patch_width))
-    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(inputs)
-    conv1 = Dropout(0.2)(conv1)
-    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv1)
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-    #
-    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(pool1)
-    conv2 = Dropout(0.2)(conv2)
-    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(conv2)
-    #
-    up2 = merge([UpSampling2D(size=(2, 2))(conv2), conv1], mode='concat', concat_axis=1)
-    conv5 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(up2)
-    conv5 = Dropout(0.2)(conv5)
-    conv5 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv5)
-    #
-    # here nb_classes used to be just the number 2
-    conv6 = Convolution2D(2, 1, 1, activation='relu',border_mode='same')(conv5)
-    conv6 = core.Reshape((2, patch_height*patch_width))(conv6)
-    conv6 = core.Permute((2,1))(conv6)
-    ############
-    conv7 = core.Activation('softmax')(conv6)
-
-    model = Model(input=inputs, output=conv7)
-
-    # sgd = SGD(lr=0.01, decay=1e-6, momentum=0.3, nesterov=False)
-    #model.compile(optimizer='sgd',loss='categorical_crossentropy',metrics=['accuracy'])
-    #model.compile(optimizer='sgd',loss=my_categorical_crossentropy((1,30.)),metrics=['accuracy'])
-    # model.compile(optimizer=Adam(lr = 0.0001),loss=my_categorical_crossentropy((1,1.)),metrics=['mean_squared_error'])
-    model.compile(optimizer=Adam(lr = 0.001),loss="categorical_crossentropy", metrics=['accuracy'])
-
-    return model
-
-def get_unet(patch_height, patch_width, n_ch):
-    inputs = Input((n_ch, patch_height, patch_width))
+def get_unet():
+    inputs = Input((1, y_width, x_width))
     conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(inputs)
     conv1 = Dropout(0.2)(conv1)
     conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv1)
@@ -159,58 +134,73 @@ def get_unet(patch_height, patch_width, n_ch):
     #
     # here nb_classes used to be just the number 2
     conv6 = Convolution2D(2, 1, 1, activation='relu',border_mode='same')(conv5)
-    conv6 = core.Reshape((2, patch_height*patch_width))(conv6)
+    conv6 = core.Reshape((2, y_width*x_width))(conv6)
     conv6 = core.Permute((2,1))(conv6)
     ############
     conv7 = core.Activation('softmax')(conv6)
 
     model = Model(input=inputs, output=conv7)
-
-    # sgd = SGD(lr=0.01, decay=1e-6, momentum=0.3, nesterov=False)
-    #model.compile(optimizer='sgd',loss='categorical_crossentropy',metrics=['accuracy'])
-    #model.compile(optimizer='sgd',loss=my_categorical_crossentropy((1,30.)),metrics=['accuracy'])
-    # model.compile(optimizer=Adam(lr = 0.001),loss=my_categorical_crossentropy((1,10.)),metrics=['mean_squared_error'])
-    model.compile(optimizer=Adam(lr = 0.001),loss="categorical_crossentropy", metrics=['accuracy'])
     return model
 
-def trainmodel(model, X_train, Y_train, X_vali, Y_vali, batch_size = 128, nb_epoch = 1, patience = 5):
+def trainmodel(X, Y, batch_size = 128, nb_epoch = 1, patience = 5):
     """
     Note: Input X,Y should really just be training data! Not all the labeled data we have!
     """
-    import sklearn.utils as ut
-    import util
-    # from sklearn.model_selection import train_test_split
 
-    path_model = "./keras_model.h5"
+    # this shuffles the data (if we're gonna augment data, do it now)
+    X_train, Y_train, X_vali, Y_vali, = util.train_test_split(X,Y,0.2)
 
+    # Adjust Sample weights
     classimg = np.argmax(Y_train, axis=-1).flatten()
+    n_zeros = len(classimg[classimg==0])
+    n_ones = len(classimg[classimg==1])
+    classweights = {0: 1, 1: n_zeros/n_ones}
+    print(classweights)
 
-    classweights = ut.compute_class_weight('balanced', list(np.unique(classimg)), classimg)
-    checkpointer = ModelCheckpoint(filepath=path_model, verbose=0, save_best_only=True)
+    # Which model?
+    model = get_unet()
+
+    # How to optimize?
+    # sgd = SGD(lr=0.01, decay=1e-6, momentum=0.3, nesterov=False)
+    # model.compile(optimizer='sgd',loss='categorical_crossentropy',metrics=['accuracy'])
+    # model.compile(optimizer='sgd',loss=my_categorical_crossentropy((1,30.)),metrics=['accuracy'])
+    # model.compile(optimizer=Adam(lr = 0.001),loss=my_categorical_crossentropy((1,10.)),metrics=['mean_squared_error'])
+    model.compile(optimizer=Adam(lr = 0.001),loss=my_categorical_crossentropy(weights=(1., 30.)), metrics=['accuracy'])
+
+    # Callbacks
+    # TODO: IO/Filepaths controlled by single module...
+    checkpointer = ModelCheckpoint(filepath="./unet_model_weights_checkpoint.h5", verbose=0, save_best_only=True, save_weights_only=True)
     earlystopper = EarlyStopping(patience=patience, verbose=0)
     callbacks = [checkpointer, earlystopper]
-    classweights = {i:classweights[i] for i in range(len(classweights))}
-    # print(classweights)
-    # model = get_unet(48, 48, 1)
-    # model = buildmodel()
-    # model.compile(loss='categorical_crossentropy',
-    #             #   optimizer='adadelta',
-    #               optimizer='adam',
-    #               metrics=['accuracy'])
-    #
-    model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=nb_epoch,
-              verbose=1, validation_data=(X_vali, Y_vali),
-              #class_weight=classweights,
+
+    # Build and Train
+    model.fit(X_train,
+              Y_train,
+              batch_size=batch_size,
+              nb_epoch=nb_epoch,
+              verbose=1,
+              validation_data=(X_vali, Y_vali),
               callbacks=callbacks)
-    # model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=nb_epoch,
-    #           verbose=1, validation_data=(X_vali, Y_vali), sample_weight=np.array(sampleweights), callbacks=callbacks)
 
     score = model.evaluate(X_vali, Y_vali, verbose=0)
     print('Test score:', score[0])
     print('Test accuracy:', score[1])
     return model
 
-def view_results(X,Y,Ypred):
+def predict_single_image(model, img):
+    # predict on an image and save result
+    X = imglist_to_X([img])
+    Y_pred = model.predict(X)
+
+    # n,one,pixels,classes = Y_pred.shape
+    Y_pred = np.argmax(Y_pred, axis=-1)
+    Y_pred = Y_pred.reshape((Y_pred.shape[0], y_width, x_width))
+    # WARNING: TODO: This will break when we change the coords used in `imglist_to_X`
+    coords = regular_patch_coords(img)
+    res = rebuild_img_from_patches(np.zeros_like(img), Y_pred, coords)
+    return res
+
+def save_patches(X,Y,Ypred):
     import matplotlib.pyplot as plt
     def imsho(x, fname):
         # plt.figure()

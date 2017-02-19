@@ -13,32 +13,43 @@ import sklearn
 import sys
 sys.path.append("./models/")
 
-# import keras_classifier as kc
-import util as ut
+import util
 
-import mnist_keras as mk
+# import mnist_keras as mk
 import build_featurestack as bf
 import rf
-import unet
-
 
 # run training across a set of images
 
-# greyscale_list = glob("./knime_test_data/data/train/grayscale/grayscale_?.tif")
-greyscale_list = glob("./knime_test_data/data/train/greyscale_bg_removed/bg_removed?.tif")
-greyscale_list = map(io.imread, greyscale_list)
-labels_list = glob("./knime_test_data/data/train/labels/composite/vertex_labels_?.tif")
-labels_list = map(io.imread, labels_list)
+greyscale_list_files = glob("./knime_test_data/data/train/grayscale/grayscale_?.tif")
+# greyscale_list_files = glob("./knime_test_data/data/train/greyscale_bg_removed/bg_removed?.tif")
+greyscale_list = map(io.imread, greyscale_list_files)
+labels_list_files = glob("./knime_test_data/data/train/labels/composite/vertex_labels_?.tif")
+labels_list = map(io.imread, labels_list_files)
 
 # ---- BUILD/IMPORT FEATURESTACKS for RANDOM FOREST TRAINING
 
-def run_random_forest():
+def train_and_test_rafo_gabor():
     gabor_list = map(bf.gabor_stack, greyscale_list)
+
+    X,Y = rf.imglist_to_XY(gabor_list, labels_list)
+    Xtrain, Ytrain, Xtest, Ytest = util.train_test_split(X,Y,0.2)
+    rafo = rf.train_rafo_from_XY(Xtrain, Ytrain, sample_weight=sw)
+
+    print("confusion_matrix Train:")
+    Ypred_train = rafo.predict(Xtrain)
+    print(sklearn.metrics.confusion_matrix(Ytrain, Ypred_train))
+
+    print("confusion_matrix Test:")
+    Ypred_test = rafo.predict(Xtest)
+    print(sklearn.metrics.confusion_matrix(Ytest, Ypred_test))
+
+def train_and_test_rafo_weka():
     knime_list = glob("./knime_test_data/data/train/features/features_?.tif")
     knime_list = map(io.imread, knime_list)
 
     X,Y = rf.imglist_to_XY(knime_list, labels_list)
-    Xtrain, Ytrain, Xtest, Ytest = ut.train_test_split(X,Y,0.2)
+    Xtrain, Ytrain, Xtest, Ytest = util.train_test_split(X,Y,0.2)
     rafo = rf.train_rafo_from_XY(Xtrain, Ytrain, sample_weight=sw)
 
     print("confusion_matrix Train:")
@@ -51,30 +62,33 @@ def run_random_forest():
 
 # ---- Try with a UNet
 
-def run_unet():
-    # import
-    X,Y,coords = unet.imglists_to_XY(greyscale_list[:-1], labels_list[:-1], step=48)
-
-    # split and shuffle
-    X_train, Y_train, X_vali, Y_vali = ut.train_test_split(X,Y,test_fraction=0.2)
+def train_unet():
+    import unet
+    unet.x_width = 48
+    unet.y_width = 48
+    unet.step = 15
+    X,Y = unet.imglists_to_XY(greyscale_list[:-1], labels_list[:-1])
 
     # train
-    model = unet.get_unet(48,48,1)
-    model = unet.trainmodel(model, X_train, Y_train, X_vali, Y_vali, nb_epoch = 5)
+    model = unet.trainmodel(X, Y, nb_epoch = 5)
+    # model.save('unet_model.h5')
+    # model.save_weights('unet_weights.h5')
+    return model
 
-    import keras
-    model = keras.models.load_model('./keras_model.h5')
+def predict_unet(model=None):
+    import unet
+    unet.x_width = 48
+    unet.y_width = 48
+    unet.step = 20
 
-    # predict on an image and save result
-    img = greyscale_list[-1]
-    label = labels_list[-1]
-    X,Y,coords = unet.imglists_to_XY([img], [label], step=10)
-    Y_pred = model.predict(X)
-    # n,one,pixels,classes = Y_pred.shape
-    Y_pred = np.argmax(Y_pred, axis=-1)
-    Y_pred = Y_pred.reshape((Y_pred.shape[0], 48, 48))
-    res = unet.rebuild_img_from_patches(np.zeros_like(img), Y_pred, coords)
-    io.imsave('grey_res.tif', res)
+    if model is None:
+        model = unet.get_unet()
+        model.load_weights('unet_model_weights_checkpoint.h5')
+
+    for name, img in zip(greyscale_list_files, greyscale_list):
+        res = unet.predict_single_image(model, img)
+        path, base, ext =  util.path_base_ext(name)
+        io.imsave(base + '_predict' + ext, res)
 
 
 # ---- Automatic CrossValidation RANDOM FORESTS

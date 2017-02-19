@@ -41,8 +41,8 @@ def advanced(img):
             io.imsave("gabor/img{}_{}.tif".format(i,th), flt.gabor(img, frequency=i, theta=th)[0])
 
 def gabor_stack(img):
-    fqs = np.linspace(0.1,.6, 7)
-    ths = np.linspace(0, 3.1415/2.0, 4)
+    fqs = np.linspace(0.1,.6, 10)
+    ths = np.linspace(0, 3.1415/2.0, 5)
     stack = [flt.gabor(img, frequency=fq, theta=th)[0] for fq in fqs for th in ths]
     return np.array([img] + stack)
 
