@@ -425,8 +425,36 @@ Con
 ---
 1. But We might want to mix and match preprocessing approaches with modeling approaches, because they are also largely independent. If we have the same type of X [same shape] then we can apply the same preprocessing routines on them, and that code should live in a shared library. But to the extent that these things are independent and unshareable they should live with the modeling code.
 
+----------
+
 *Do we even want to preprocess our images?*
 I thought preprocessing just destroyed potentially useful/informative variance? Won't our learners just learn to deal with the data the way it is?
 
 *What about data augmentation?*
 This will likely be required by some data-hungry models. This can/should also be separate, so that we can also try feeding the augmented data into the RandomForest models just for fun?
+
+What responsibilities fall within the `imglist_to_XY` function vs the `preprocess` function? At which point do we make sure that we have the correct types, etc? Since the types involved are closely related to the normalization of the data it makes sense to keep all the type conversion ONLY in the preprocessing step.
+
+## DAWN OF THE DEEP U-NETS
+
+I've got my first Unet trining here and the accuracy on the validation set > 1k samples is already .9668 and growing. I don't know if we ever had accuracy this good with the Random Forests? But we still don't know if this is the same local minimum that we get just by classifying everything as background.
+
+# Fri Feb 17
+
+Let's try running the net on a piece of image with both classes.
+
+# Sat Feb 18
+
+First, let's write a function that will run our unets on an imagelist and write out predictions which are full images, sown together of little patches. Then we'll combine all the preprocessing into the `imglist_to_XY` function.
+
+NOTE: Martin's good point. The model we've trained is only a couple of convolutions and then upsampling, each of which change your patch-size by a constant factor, but don't depend on the input patch size being fixed! We could build a different model with a different Input/Output shape & larger patches, but then just use the weights from this model without retraining. *Our convolutions are still being applied to pixel patches 2x2 and 3x3*, so it's not like it messes up the scaling. It's just that we have to apply many more convolutions at each layer. This number is implicitly defined in the model = img-width*img-height/2x2 or 3x3.
+
+TODO: Add an Image object which extends ndArray in the same way as Julia's Image, so that images can have metadata that they carry along, without getting decoupled/lost when you're shuffling data around.
+
+# Sun Feb 19
+
+8386s per epoch with "Train on 103101 samples, validate on 25776 samples".
+
+It's hard to get exactly the right api. A problem I have at the moment is some functions work at the dataset level (lists of images, full X,Y vectors, etc) and some work at the single image level. X and Y mush image data together, duplicate image data, and can't be pieced back together to make images at all. Maybe we don't want them to be? But probably we do. This requires saving lots of extra info (coordinates for each patch as well as which image those coordinates belong to, as well as keeping the coordinate vector in sync with the X and Y vectors). The way we would do things with Random Forests was to split data up into X/Y_train and X/Y_test. We would calculate our metrics based on the test data, which was fine because each sample in X&Y was an individual pixel, only seen once in the true images. (Although sometimes we would only evaluate a subsample?) But with patch-based classifiers we have duplicated data, so now the accuracy across patches doesn't reflect the accuracy across our images...... No I'm not sure there's a difference, because we still have to break our images up into overlapping patches... In the end we need our images to correspond to classifications, so we must be able to combine the patches in a smart way... TODO: when averaging overlapping patches together this should be done BEFORE we apply the argmax to turn our class-scores into a firm class decision...
+
+We want to be running code on the cluster, on full datasets, not interactively in ipython, on single images!
