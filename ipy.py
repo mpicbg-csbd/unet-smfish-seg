@@ -60,7 +60,11 @@ def train_and_test_rafo_weka():
     knime_list = map(io.imread, knime_list)
 
     X,Y = rf.imglist_to_XY(knime_list, labels_list)
-    Xtrain, Ytrain, Xtest, Ytest = util.train_test_split(X,Y,0.2)
+    train_ind, test_ind = util.subsample_ind(X,Y,0.2)
+    np.random.shuffle(train_ind)
+    np.random.shuffle(test_ind)
+    X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
+
     sw = rf.balanced_sample_weights(Ytrain)
     rafo = rf.train_rafo_from_XY(Xtrain, Ytrain, sample_weight=sw)
 
@@ -82,7 +86,7 @@ def train_unet(model=None):
     X,Y = unet.imglists_to_XY(greyscale_list[:-1], labels_list[:-1])
     # train
     if model is None:
-        model = unet.trainmodel(X, Y, batch_size = 32, nb_epoch = 100)
+        model = unet.trainmodel(X, Y, batch_size = 32, nb_epoch = 10)
     else:
         model = unet.trainmodel(X, Y, model, batch_size = 32, nb_epoch = 5)
     # model.save_weights('unet_weights.h5')
