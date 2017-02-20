@@ -22,6 +22,9 @@ x_width = 48
 y_width = 48
 step = 10
 
+
+# setup X and Y for feeding into the model
+
 def sample_patches_from_img(coords, img):
     assert coords[:,0].max() <= img.shape[0]-x_width
     assert coords[:,1].max() <= img.shape[1]-y_width
@@ -46,6 +49,18 @@ def rebuild_img_from_patches(zeros_img, patches, coords):
     count_img = np.zeros_like(zeros_img)
     n_samp, dx, dy = patches.shape
     for cord,patch in zip(coords, patches):
+        x,y = cord
+        zeros_img[x:x+dx, y:y+dy] += patch
+        count_img[x:x+dx, y:y+dy] += np.ones_like(patch)
+    return zeros_img/count_img
+
+def rebuild_img_from_patch_activations((x,y), patchact, coords):
+    "TODO: potentially add more ways of recombining than a simple average, i.e. maximum"
+    # TODO: this will break.
+    n_samp, dx, dy, nclasses = patchact.shape
+    zeros_img = np.zeros(shape=(x,y,nclasses))
+    count_img = np.zeros(shape=(x,y,nclasses))
+    for cord,patch in zip(coords, patchact):
         x,y = cord
         zeros_img[x:x+dx, y:y+dy] += patch
         count_img[x:x+dx, y:y+dy] += np.ones_like(patch)
@@ -98,6 +113,13 @@ def imglists_to_XY(greylist, labellist):
     Y = imglist_to_Y(labellist)
     return X,Y
 
+def process_XY_for_training(X,Y):
+    assert X.ndim==4
+    inds = np.mean(X, axis=(1,2,3)) > 0.5
+    return X,Y
+
+# setup and train the model
+
 def my_categorical_crossentropy(weights =(1., 1.)):
     def catcross(y_true, y_pred):
         return -(weights[0] * K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon())) +
@@ -142,13 +164,16 @@ def get_unet():
     model = Model(input=inputs, output=conv7)
     return model
 
-def trainmodel(X, Y, batch_size = 128, nb_epoch = 1, patience = 5):
+def trainmodel(X, Y, model=None, batch_size = 128, nb_epoch = 1, patience = 5):
     """
     Note: Input X,Y should really just be training data! Not all the labeled data we have!
     """
 
     # this shuffles the data (if we're gonna augment data, do it now)
-    X_train, Y_train, X_vali, Y_vali, = util.train_test_split(X,Y,0.2)
+    train_ind, test_ind = util.subsample_ind(X,Y,0.2)
+    np.random.shuffle(train_ind)
+    np.random.shuffle(test_ind)
+    X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
 
     # Adjust Sample weights
     classimg = np.argmax(Y_train, axis=-1).flatten()
@@ -158,14 +183,16 @@ def trainmodel(X, Y, batch_size = 128, nb_epoch = 1, patience = 5):
     print(classweights)
 
     # Which model?
-    model = get_unet()
+    if model is None:
+        model = get_unet()
 
     # How to optimize?
     # sgd = SGD(lr=0.01, decay=1e-6, momentum=0.3, nesterov=False)
     # model.compile(optimizer='sgd',loss='categorical_crossentropy',metrics=['accuracy'])
     # model.compile(optimizer='sgd',loss=my_categorical_crossentropy((1,30.)),metrics=['accuracy'])
     # model.compile(optimizer=Adam(lr = 0.001),loss=my_categorical_crossentropy((1,10.)),metrics=['mean_squared_error'])
-    model.compile(optimizer=Adam(lr = 0.001),loss=my_categorical_crossentropy(weights=(1., 30.)), metrics=['accuracy'])
+    cw = classweights
+    model.compile(optimizer=Adam(lr = 0.00005), loss=my_categorical_crossentropy(weights=(cw[0], cw[1])), metrics=['accuracy'])
 
     # Callbacks
     # TODO: IO/Filepaths controlled by single module...
@@ -187,18 +214,22 @@ def trainmodel(X, Y, batch_size = 128, nb_epoch = 1, patience = 5):
     print('Test accuracy:', score[1])
     return model
 
+# use the model for prediction
+
 def predict_single_image(model, img):
     # predict on an image and save result
     X = imglist_to_X([img])
     Y_pred = model.predict(X)
 
     # n,one,pixels,classes = Y_pred.shape
-    Y_pred = np.argmax(Y_pred, axis=-1)
-    Y_pred = Y_pred.reshape((Y_pred.shape[0], y_width, x_width))
+    # Y_pred = np.argmax(Y_pred, axis=-1)
+
+    # TODO: fix `2` below -> nclasses
+    Y_pred = Y_pred.reshape((Y_pred.shape[0], y_width, x_width, 2))
     # WARNING: TODO: This will break when we change the coords used in `imglist_to_X`
     coords = regular_patch_coords(img)
-    res = rebuild_img_from_patches(np.zeros_like(img), Y_pred, coords)
-    return res
+    res = rebuild_img_from_patch_activations(img.shape, Y_pred, coords)
+    return res[:,:,0].astype(np.float32)
 
 def save_patches(X,Y,Ypred):
     import matplotlib.pyplot as plt

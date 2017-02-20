@@ -1,5 +1,9 @@
 """An interactive module. Use me by copy and pasting lines into iPython!"""
 
+# for old ipython
+# %load_ext autoreload
+# %autoreload 2
+
 # global python
 from __future__ import print_function, division
 from glob import glob
@@ -16,8 +20,6 @@ sys.path.append("./models/")
 import util
 
 # import mnist_keras as mk
-import build_featurestack as bf
-import rf
 
 # run training across a set of images
 
@@ -30,10 +32,17 @@ labels_list = map(io.imread, labels_list_files)
 # ---- BUILD/IMPORT FEATURESTACKS for RANDOM FOREST TRAINING
 
 def train_and_test_rafo_gabor():
+    import build_featurestack as bf
+    import rf
+
     gabor_list = map(bf.gabor_stack, greyscale_list)
 
     X,Y = rf.imglist_to_XY(gabor_list, labels_list)
-    Xtrain, Ytrain, Xtest, Ytest = util.train_test_split(X,Y,0.2)
+    train_ind, test_ind = util.subsample_ind(X,Y,0.2)
+    np.random.shuffle(train_ind)
+    np.random.shuffle(test_ind)
+    X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
+    sw = rf.balanced_sample_weights(Ytrain)
     rafo = rf.train_rafo_from_XY(Xtrain, Ytrain, sample_weight=sw)
 
     print("confusion_matrix Train:")
@@ -45,11 +54,14 @@ def train_and_test_rafo_gabor():
     print(sklearn.metrics.confusion_matrix(Ytest, Ypred_test))
 
 def train_and_test_rafo_weka():
+    import rf
+
     knime_list = glob("./knime_test_data/data/train/features/features_?.tif")
     knime_list = map(io.imread, knime_list)
 
     X,Y = rf.imglist_to_XY(knime_list, labels_list)
     Xtrain, Ytrain, Xtest, Ytest = util.train_test_split(X,Y,0.2)
+    sw = rf.balanced_sample_weights(Ytrain)
     rafo = rf.train_rafo_from_XY(Xtrain, Ytrain, sample_weight=sw)
 
     print("confusion_matrix Train:")
@@ -62,16 +74,17 @@ def train_and_test_rafo_weka():
 
 # ---- Try with a UNet
 
-def train_unet():
+def train_unet(model=None):
     import unet
     unet.x_width = 48
     unet.y_width = 48
-    unet.step = 15
+    unet.step = 24
     X,Y = unet.imglists_to_XY(greyscale_list[:-1], labels_list[:-1])
-
     # train
-    model = unet.trainmodel(X, Y, nb_epoch = 5)
-    # model.save('unet_model.h5')
+    if model is None:
+        model = unet.trainmodel(X, Y, batch_size = 32, nb_epoch = 100)
+    else:
+        model = unet.trainmodel(X, Y, model, batch_size = 32, nb_epoch = 5)
     # model.save_weights('unet_weights.h5')
     return model
 
@@ -79,7 +92,7 @@ def predict_unet(model=None):
     import unet
     unet.x_width = 48
     unet.y_width = 48
-    unet.step = 20
+    unet.step = 6
 
     if model is None:
         model = unet.get_unet()
@@ -89,7 +102,6 @@ def predict_unet(model=None):
         res = unet.predict_single_image(model, img)
         path, base, ext =  util.path_base_ext(name)
         io.imsave(base + '_predict' + ext, res)
-
 
 # ---- Automatic CrossValidation RANDOM FORESTS
 
@@ -133,4 +145,4 @@ def run_gridsearch():
         gsearch1.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
 
 if __name__ == '__main__':
-    run_unet()
+    train_and_test_rafo_weka()

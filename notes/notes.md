@@ -458,3 +458,50 @@ TODO: Add an Image object which extends ndArray in the same way as Julia's Image
 It's hard to get exactly the right api. A problem I have at the moment is some functions work at the dataset level (lists of images, full X,Y vectors, etc) and some work at the single image level. X and Y mush image data together, duplicate image data, and can't be pieced back together to make images at all. Maybe we don't want them to be? But probably we do. This requires saving lots of extra info (coordinates for each patch as well as which image those coordinates belong to, as well as keeping the coordinate vector in sync with the X and Y vectors). The way we would do things with Random Forests was to split data up into X/Y_train and X/Y_test. We would calculate our metrics based on the test data, which was fine because each sample in X&Y was an individual pixel, only seen once in the true images. (Although sometimes we would only evaluate a subsample?) But with patch-based classifiers we have duplicated data, so now the accuracy across patches doesn't reflect the accuracy across our images...... No I'm not sure there's a difference, because we still have to break our images up into overlapping patches... In the end we need our images to correspond to classifications, so we must be able to combine the patches in a smart way... TODO: when averaging overlapping patches together this should be done BEFORE we apply the argmax to turn our class-scores into a firm class decision...
 
 We want to be running code on the cluster, on full datasets, not interactively in ipython, on single images!
+
+RESULT 1.2
+```
+In [6]: ipy.train_and_test_rafo_gabor()
+Class Dist:  (array([0, 1, 2], dtype=uint8), array([673193,  16051,   3863]))
+confusion_matrix Train:
+[[177552 313178 182463]
+ [  3294   8740   4017]
+ [   544   1441   1878]]
+confusion_matrix Test:
+[[43544 79089 45819]
+ [ 1058  1762  1066]
+ [  248   438   253]]
+```
+Gabors by themselves are terrible at predicting! How can this even be possible?
+
+Test: try kmeans, or a "decision tree" just based off of the intensity feature alone.
+
+I've given my model big patches to look at and I've used stride 5. I'm letting it train for 40 mins, but the loss and accuracy just don't change at all.
+
+# Mon Feb 20
+
+Now that I've got a system for training, predicting, and retraining my models I can continually improve on a single model until it's optimal. But this means I can change the learning rate as i see the model have a harder and harder time decreasing with each step.
+
+Setting up my Ubuntu 12.4.3 machine required...
+
+```
+sudo apt-get install git
+sudo apt-get install python-dev  # for python2.x installs
+download get-pip.py and install
+pip install --user numpy scipy ipython nose scikit-learn scikit-image
+pip install --user keras
+sudo apt-get install python-tk
+
+# necessary for xgboost
+sudo apt-get install g++
+build and install xgboost (see their site. git clone + make -j4)
+setup xgboost python package installation
+pip install --user tensorflow
+```
+
+It's important to appreciate that with machine-learned models with enough training data you get systems which are as accurate as *experts* in biological image analysis. Not just random people you hired off of amazon Turk. But people who spend their time looking at (e.g. fluorescence microscopy) images!
+
+
+
+
+

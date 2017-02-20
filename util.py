@@ -4,19 +4,6 @@ import skimage.io as io
 from glob import glob
 import os
 
-def train_test_split(X,Y,test_fraction):
-    """
-    Note: This works even when X & Y have ndim > 2
-    """
-    assert(0.0 < test_fraction < 0.5)
-    # TODO: fix. this will break when we have more than size(int) samples
-    ind = int(X.shape[0]*(1-test_fraction))
-    # WARNING! IN PLACE SHUFFLE!
-    np.random.shuffle(X)
-    np.random.shuffle(Y)
-    # Xtrain, Ytrain, Xtest, Ytest
-    return X[:ind], Y[:ind], X[ind:], Y[ind:]
-
 def subsample_ind(X,Y,test_fraction):
     """
     returns (sorted) train and test indices in appropriate ratio
