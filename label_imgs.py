@@ -50,7 +50,6 @@ def permlabels(img, perm=None):
         img2[img==i] = perm[i]
     return img2
 
-
 def match_score_1(img1, img2):
     """
     Compute the matching score from image1 to image2. (2D only)

@@ -497,11 +497,53 @@ sudo apt-get install g++
 build and install xgboost (see their site. git clone + make -j4)
 setup xgboost python package installation
 pip install --user tensorflow
+pip install --user tensorflow-gpu
+```
+
+BUT in the end, tensorflow was not compatible with Ubuntu 10.x, so I asked Juraj to help upgrade to 12.x...
+
+GPUs on myers-pc-2
+```
+broaddus@myers-pc-2:~/Desktop/Projects/carine_smFISH_seg$ lspci | grep VGA
+05:00.0 VGA compatible controller: NVIDIA Corporation GF100GL [Quadro 4000] (rev a3)
+22:00.0 VGA compatible controller: NVIDIA Corporation GF100GL [Quadro 4000] (rev a3)
 ```
 
 It's important to appreciate that with machine-learned models with enough training data you get systems which are as accurate as *experts* in biological image analysis. Not just random people you hired off of amazon Turk. But people who spend their time looking at (e.g. fluorescence microscopy) images!
 
+Thoughts after 14x5 epochs of training... We still haven't converged, although the learning rate has been decreased heavily. Now we're
 
+Now let's make a really dumb segmentation algorithm... It will first apply a threshold, then id small connected components as cells, then it will do a seeded watershed at the center of each component on the membrane-activation channel.
 
+NOTE: membrane activation channel + background channel not= 1! How should we deal with regions that are uncertain? What does it mean when both scores are low? high?
 
+So many things are weird... why do my images look like they're filled with nans? the nans are still there after saving and importing. But the images look fine!
+
+WE EXPECT BLACK BARS ON OUR PREDICTION IMAGES. THE BLACK BARS ARE NAN. They come from the pixels that never made it into any patch. When windowing, if your stride is large, you will miss pixels on the bottom and right borders, depending on how evenly your width/height is divisible by the step size and patch width.
+
+TODO: move unseen data and labeled_data over to other machines. Setup synchronization with rsync.
+
+# 02/21/17
+
+*How well does the unet generalize to unseen images?*
+*Is it OK to train the net on 80% of the data across all images, and test on the other 20%?*
+
+*If we train on the unseen images only, how do the predictions change?* The unseen images were used in the paper and have labeled cells (from which we can infer the membrane labeling, and test ground truth segmentation...)
+
+TODO: fix rotation problem... nevermind it's just that Carine rotated some of the images for the paper...
+
+TODO: Image viewing problems...
+How are we supposed to view greyscale/intensity images alongside label images? If we want to perge them into a single image we have to convert the types to be the same, which means embedding the uints inside the floats. Really we don't want to mush them into the same image, but just want them to zoom/pan/rotate together as one image, but we want the types and colorschemes to be different. We might even want to group a label image with an RGB image! Then we can view multpile intensity channels together for e.g. nuclei and membrane, blended, and then jump back and forth between the labels and the intensity.
+
+ERROR!
+When downscaling a labeled image you have to be sure *not* to average the labels together! How to do it? Does interpolation oder = 0 do the trick? Let's see, but I doubt it, as we don't really have to interpolate when downscaling, but I'm not sure how it's defined. What we really want is MIN_POOLING, where we downscale by an integer factor and, within each window, we take the min. This will keep our 0-valued membrane boundaries intact! (actually it will grow them!? we can't do this... Even a 1px wide 0-valued membrane would grow in width according to the scaling factor, and since the rest of the image would be smaller it would really grow. NO IT WONT GROW THEM, BECAUSE THE DOWNSCALING WINDOWS WILL NOT OVERLAP.
+
+Min-Pool downscaling works!
+Min-Pool downscaling doesn't work!!! We lose some cells in the process! This is a shame... Any cell smaller than a few pixels across will be totally lost in this process! But we can still compare the results of the downscaled labeling with the segmentation of the downscaled image, even if a few small cells got swallowed up in the process...
+
+Failed to install tensorflow-gpu on my mac. Even with the correct LD flags. Not sure why. Uninstalled and reinstalled normal tensorflow. Which broke my code... Strange bug "TypeError: Expected int32, got list containing Tensors of type '_Message' instead." Need to downgrade my TensorFlow, as this appears to be a bug.
+
+Had to uninstall tensorflow1.0.0 and reinstall 0.12. Which required me to use sudo, otherwise it would break upon cleanup after pip install....
+
+But now at least things are back to where they were yesterday....
 

@@ -60,10 +60,14 @@ def rebuild_img_from_patch_activations((x,y), patchact, coords):
     n_samp, dx, dy, nclasses = patchact.shape
     zeros_img = np.zeros(shape=(x,y,nclasses))
     count_img = np.zeros(shape=(x,y,nclasses))
+    print("Nans?: ", np.sum(map(util.count_nans, patchact)))
     for cord,patch in zip(coords, patchact):
         x,y = cord
         zeros_img[x:x+dx, y:y+dy] += patch
         count_img[x:x+dx, y:y+dy] += np.ones_like(patch)
+    print(map(util.count_nans, [zeros_img, count_img]))
+    res = zeros_img/count_img
+    res[res==np.nan] = -1
     return zeros_img/count_img
 
 def imglist_to_X(greylist):
@@ -164,6 +168,42 @@ def get_unet():
     model = Model(input=inputs, output=conv7)
     return model
 
+def get_unet_2():
+    inputs = Input((1, y_width, x_width))
+    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(inputs)
+    conv1 = Dropout(0.2)(conv1)
+    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv1)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+    #
+    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(pool1)
+    conv2 = Dropout(0.2)(conv2)
+    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+    #
+    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(pool2)
+    conv3 = Dropout(0.2)(conv3)
+    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(conv3)
+
+    up1 = merge([UpSampling2D(size=(2, 2))(conv3), conv2], mode='concat', concat_axis=1)
+    conv4 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(up1)
+    conv4 = Dropout(0.2)(conv4)
+    conv4 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(conv4)
+    #
+    up2 = merge([UpSampling2D(size=(2, 2))(conv4), conv1], mode='concat', concat_axis=1)
+    conv5 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(up2)
+    conv5 = Dropout(0.2)(conv5)
+    conv5 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv5)
+    #
+    # here nb_classes used to be just the number 2
+    conv6 = Convolution2D(2, 1, 1, activation='relu',border_mode='same')(conv5)
+    conv6 = core.Reshape((2, y_width*x_width))(conv6)
+    conv6 = core.Permute((2,1))(conv6)
+    ############
+    conv7 = core.Activation('softmax')(conv6)
+
+    model = Model(input=inputs, output=conv7)
+    return model
+
 def trainmodel(X, Y, model=None, batch_size = 128, nb_epoch = 1, patience = 5):
     """
     Note: Input X,Y should really just be training data! Not all the labeled data we have!
@@ -229,7 +269,7 @@ def predict_single_image(model, img):
     # WARNING: TODO: This will break when we change the coords used in `imglist_to_X`
     coords = regular_patch_coords(img)
     res = rebuild_img_from_patch_activations(img.shape, Y_pred, coords)
-    return res[:,:,0].astype(np.float32)
+    return res[:,:,1].astype(np.float32)
 
 def save_patches(X,Y,Ypred):
     import matplotlib.pyplot as plt

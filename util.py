@@ -29,18 +29,24 @@ def safe_makedirs(dirpath):
     if not os.path.exists(dirpath):
         os.makedirs(dirpath)
 
-def apply_operation_to_imgdir(imgdir, func, dtype='input'):
+def apply_operation_to_imgdir(imgdir, func, dtype='input', ext='.tif', inplace=False):
     "apply func to every img in dir, then save to new subdir."
-    for file in glob(imgdir + "/*.tif"):
+    for file in glob(imgdir + "/*" + ext):
         img = io.imread(file)
-        dir, base, ext = path_base_ext(file)
+        path, base, _ = path_base_ext(file)
         result_img = func(img)
         # result_img = np.concatenate((img, result_img[:,:, np.newaxis]), axis=2)
-        newpath = dir + os.sep + func.__name__ + os.sep
-        safe_makedirs(newpath)
-        new_img_name = newpath + base + ext
+        if inplace:
+            new_img_name = path + os.sep + base + ext
+        else:
+            newpath = path + os.sep + func.__name__ + os.sep
+            safe_makedirs(newpath)
+            new_img_name = newpath + base + ext
         print("Saving to: ", new_img_name)
         if dtype == 'input':
             io.imsave(new_img_name, result_img)
         else:
             io.imsave(new_img_name, result_img.astype(dtype))
+
+def count_nans(img):
+    return np.count_nonzero(np.isnan(img))

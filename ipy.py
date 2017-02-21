@@ -13,27 +13,156 @@ import numpy as np
 import skimage.io as io
 import timeit
 import sklearn
+from scipy.ndimage import label, zoom
+from skimage.filters.thresholding import threshold_isodata, threshold_li, threshold_otsu
 
 import sys
 sys.path.append("./models/")
 
 import util
 
+
 # import mnist_keras as mk
 
 # run training across a set of images
 
-greyscale_list_files = glob("./knime_test_data/data/train/grayscale/grayscale_?.tif")
-# greyscale_list_files = glob("./knime_test_data/data/train/greyscale_bg_removed/bg_removed?.tif")
-greyscale_list = map(io.imread, greyscale_list_files)
-labels_list_files = glob("./knime_test_data/data/train/labels/composite/vertex_labels_?.tif")
-labels_list = map(io.imread, labels_list_files)
+# greyscale_list_files = lambda : glob("./knime_test_data/data/train/greyscale_bg_removed/bg_removed?.tif")
+greyscale_list_files = lambda : glob("./knime_test_data/data/train/grayscale/grayscale_?.tif")
+greyscale_list = lambda : map(io.imread, greyscale_list_files())
+labels_list_files = lambda : glob("./knime_test_data/data/train/labels/composite/vertex_labels_?.tif")
+labels_list = lambda : map(io.imread, labels_list_files())
+
+keras_prediction_files = lambda : glob("./grayscale_?_predict.tif")
+keras_prediction_imgs = lambda : map(io.imread, keras_prediction_files())
+
+unseen_greyscale_files = lambda : glob("./unseen_greys/mean6/*.tif")
+unseen_greys = lambda : map(io.imread, unseen_greyscale_files())
+unseen_label_files = lambda : glob("unseen_labels/pooled/*.tif")
+unseen_labels = lambda : map(io.imread, unseen_label_files())
+unseen_mem_predict_files = lambda : glob("./unseen_mem_predict/*.tif")
+unseen_mem_predictions = lambda : map(io.imread, unseen_mem_predict_files())
+unseen_seg_files = lambda : glob("unseen_segments/*.tif")
+unseen_seg = lambda : map(io.imread, unseen_seg_files())
+
+
+# ---- HOW WE MADE THE DATA
+
+# def make_prediction_overlays():
+#     pairs = zip(unseen_seg(), unseen_labels(), unseen_greys(), unseen_seg_files())
+#     def save((a,b,c, name)):
+#         path, base, ext = util.path_base_ext(name)
+#         new = np.stack((c,a,b), axis=0)
+#         io.imsave(base + "_overlay" + ext, new)
+#     map(save, pairs)
+
+# def min_pool_downscale():
+#     from skimage.util import view_as_windows
+#     def pooled(img):
+#         img = img[0]
+#         print("shape: ", img.shape)
+#         img = view_as_windows(img, 6, step=6)
+#         return np.min(img, axis=(2,3))
+#     util.apply_operation_to_imgdir("./unseen_labels/", pooled)
+
+# def mean_downscale():
+#     from skimage.util import view_as_windows
+#     def mean6(img):
+#         s = img.shape
+#         print("shape: ", img.shape)
+#         if s[0] > s[1]:
+#             img = np.transpose(img)
+#         img = view_as_windows(img, 6, step=6)
+#         return np.mean(img, axis=(2,3)).astype(np.float32)
+#     util.apply_operation_to_imgdir("./unseen_greys/", mean6)
+
+# def rotate():
+#     def rot(img):
+#         s = img.shape
+#         if s[0] > s[1]:
+#             img = np.rot90(img, 3)
+#         img -= img.min()
+#         img *= 20
+#         return img
+#     ipy.util.apply_operation_to_imgdir("unseen_greys/", rot)
+
+# In the end we had to rotate manually, because the different images were all 
+# rotated/flipped differently.
+
+# ---- Try with a UNet
+
+def compare_segment_predictions_with_groundtruth():
+    pairs = zip(unseen_labels(), unseen_seg())
+    from label_imgs import match_score_1
+    f = lambda (a, b) : match_score_1(a, b)
+    return map(f, pairs)
+
+def segment_classified_images():
+    def get_label(img):
+        img = img.astype(np.float32, copy = False)
+        img = np.nan_to_num(img)
+        img /= img.max()
+
+        threshold = threshold_otsu(img)
+
+        x = (1-threshold) * 0.22
+        threshold += x
+
+        # img < threshold means the membrane takes on high values and we want the cytoplasm
+        mask = np.where(img < threshold, 1, 0)
+        # mask = np.where(img > threshold)
+
+        lab_img = label(mask)[0]
+        print("Number of cells: ", lab_img.max())
+
+        # convert from int32
+        lab_img = np.array(lab_img, dtype='uint16')
+        return lab_img
+    
+    res = map(get_label, unseen_mem_predictions())
+    for fname, img in zip(unseen_mem_predict_files(), res):
+        path, base, ext = util.path_base_ext(fname)
+        io.imsave(base + '_seg' + ext, img)
+    return res
+
+def train_unet(model=None):
+    import unet
+    unet.x_width = 48
+    unet.y_width = 48
+    unet.step = 24
+
+    X,Y = unet.imglists_to_XY(greyscale_list[:-1], labels_list[:-1])
+    # train
+    if model is None:
+        model = unet.trainmodel(X, Y, batch_size = 32, nb_epoch = 10)
+    else:
+        model = unet.trainmodel(X, Y, model, batch_size = 32, nb_epoch = 5)
+    # model.save_weights('unet_weights.h5')
+    return model
+
+def predict_unet(model=None):
+    import unet
+    unet.x_width = 48
+    unet.y_width = 48
+    unet.step = 8
+
+    if model is None:
+        model = unet.get_unet()
+        model.load_weights('very_first_model/unet_model_weights_checkpoint.h5')
+
+    return model
+    # for name, img in zip(unseen_greyscale_files(), unseen_greys()):
+    #     res = unet.predict_single_image(model, img)
+    #     print("There are {} nans!".format(np.count_nonzero(~np.isnan(res))))
+    #     path, base, ext =  util.path_base_ext(name)
+    #     io.imsave(base + '_predict' + ext, res.astype(np.float32))
 
 # ---- BUILD/IMPORT FEATURESTACKS for RANDOM FOREST TRAINING
 
 def train_and_test_rafo_gabor():
     import build_featurestack as bf
     import rf
+    greyscale_list = greyscale_list()
+    labels_list = labels_list()
 
     gabor_list = map(bf.gabor_stack, greyscale_list)
 
@@ -65,47 +194,16 @@ def train_and_test_rafo_weka():
     np.random.shuffle(test_ind)
     X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
 
-    sw = rf.balanced_sample_weights(Ytrain)
-    rafo = rf.train_rafo_from_XY(Xtrain, Ytrain, sample_weight=sw)
+    sw = rf.balanced_sample_weights(Y_train)
+    rafo = rf.train_rafo_from_XY(X_train, Y_train, sample_weight=sw)
 
     print("confusion_matrix Train:")
-    Ypred_train = rafo.predict(Xtrain)
-    print(sklearn.metrics.confusion_matrix(Ytrain, Ypred_train))
+    Ypred_train = rafo.predict(X_train)
+    print(sklearn.metrics.confusion_matrix(Y_train, Ypred_train))
 
     print("confusion_matrix Test:")
-    Ypred_test = rafo.predict(Xtest)
-    print(sklearn.metrics.confusion_matrix(Ytest, Ypred_test))
-
-# ---- Try with a UNet
-
-def train_unet(model=None):
-    import unet
-    unet.x_width = 48
-    unet.y_width = 48
-    unet.step = 24
-    X,Y = unet.imglists_to_XY(greyscale_list[:-1], labels_list[:-1])
-    # train
-    if model is None:
-        model = unet.trainmodel(X, Y, batch_size = 32, nb_epoch = 10)
-    else:
-        model = unet.trainmodel(X, Y, model, batch_size = 32, nb_epoch = 5)
-    # model.save_weights('unet_weights.h5')
-    return model
-
-def predict_unet(model=None):
-    import unet
-    unet.x_width = 48
-    unet.y_width = 48
-    unet.step = 6
-
-    if model is None:
-        model = unet.get_unet()
-        model.load_weights('unet_model_weights_checkpoint.h5')
-
-    for name, img in zip(greyscale_list_files, greyscale_list):
-        res = unet.predict_single_image(model, img)
-        path, base, ext =  util.path_base_ext(name)
-        io.imsave(base + '_predict' + ext, res)
+    Ypred_test = rafo.predict(X_test)
+    print(sklearn.metrics.confusion_matrix(Y_test, Ypred_test))
 
 # ---- Automatic CrossValidation RANDOM FORESTS
 
@@ -148,5 +246,6 @@ def run_gridsearch():
         gsearch1.fit(train[predictors],train[target])
         gsearch1.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
 
+# ---- Main entry point
 if __name__ == '__main__':
-    train_and_test_rafo_weka()
+    print("Do Nothing...")
