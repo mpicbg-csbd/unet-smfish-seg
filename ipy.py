@@ -26,23 +26,16 @@ import util
 
 # run training across a set of images
 
-# greyscale_list_files = lambda : glob("./knime_test_data/data/train/greyscale_bg_removed/bg_removed?.tif")
-greyscale_list_files = lambda : glob("./knime_test_data/data/train/grayscale/grayscale_?.tif")
-greyscale_list = lambda : map(io.imread, greyscale_list_files())
-labels_list_files = lambda : glob("./knime_test_data/data/train/labels/composite/vertex_labels_?.tif")
-labels_list = lambda : map(io.imread, labels_list_files())
+knime_train_data_greys_bgblack = lambda : glob("./knime_test_data/data/train/greyscale_bg_removed/bg_removed?.tif")
+knime_train_data_greys = lambda : glob("./knime_test_data/data/train/grayscale/grayscale_?.tif")
+knime_train_data_memvert_labels = lambda : glob("./knime_test_data/data/train/labels/composite/vertex_labels_?.tif")
+knime_train_data_keras_mem_predictions = lambda : glob("./grayscale_?_predict.tif")
 
-keras_prediction_files = lambda : glob("./grayscale_?_predict.tif")
-keras_prediction_imgs = lambda : map(io.imread, keras_prediction_files())
-
-unseen_greyscale_files = lambda : glob("./unseen_greys/mean6/*.tif")
-unseen_greys = lambda : map(io.imread, unseen_greyscale_files())
-unseen_label_files = lambda : glob("unseen_labels/pooled/*.tif")
-unseen_labels = lambda : map(io.imread, unseen_label_files())
-unseen_mem_predict_files = lambda : glob("./unseen_mem_predict/*.tif")
-unseen_mem_predictions = lambda : map(io.imread, unseen_mem_predict_files())
-unseen_seg_files = lambda : glob("unseen_segments/*.tif")
-unseen_seg = lambda : map(io.imread, unseen_seg_files())
+unseen_greys = lambda : glob("./unseen_greys/mean6/*.tif")
+unseen_labels = lambda : glob("unseen_labels/pooled/*.tif")
+# unseen_mem_predict = lambda : glob("./unseen_mem_predict/*.tif")
+unseen_mem_predict = lambda : glob("./2015*predict.tif")
+unseen_seg = lambda : glob("./2015*seg.tif")
 
 
 # ---- HOW WE MADE THE DATA
@@ -90,22 +83,26 @@ unseen_seg = lambda : map(io.imread, unseen_seg_files())
 
 # ---- Try with a UNet
 
-def compare_segment_predictions_with_groundtruth():
-    pairs = zip(unseen_labels(), unseen_seg())
+def compare_segment_predictions_with_groundtruth(segs, labels):
+    "segs and labels are lists of filenames of images."
+    seg_imgs = map(io.imread, segs)
+    label_imgs = map(io.imread, labels)
+    pairs = zip(label_imgs, seg_imgs)
     from label_imgs import match_score_1
     f = lambda (a, b) : match_score_1(a, b)
     return map(f, pairs)
 
-def segment_classified_images():
+def segment_classified_images(membranes, threshold):
+    "membranes is a list of filenames of membrane images."
     def get_label(img):
         img = img.astype(np.float32, copy = False)
         img = np.nan_to_num(img)
         img /= img.max()
 
-        threshold = threshold_otsu(img)
+        # threshold = threshold_otsu(img)
 
-        x = (1-threshold) * 0.22
-        threshold += x
+        # x = (1-threshold) * 0.22
+        # threshold += x
 
         # img < threshold means the membrane takes on high values and we want the cytoplasm
         mask = np.where(img < threshold, 1, 0)
@@ -118,51 +115,56 @@ def segment_classified_images():
         lab_img = np.array(lab_img, dtype='uint16')
         return lab_img
     
-    res = map(get_label, unseen_mem_predictions())
-    for fname, img in zip(unseen_mem_predict_files(), res):
+    imgs = map(io.imread, membranes)
+    res = map(get_label, imgs)
+    for fname, img in zip(membranes, res):
         path, base, ext = util.path_base_ext(fname)
         io.imsave(base + '_seg' + ext, img)
     return res
 
-def train_unet(model=None):
+def train_unet(greys, labels, model=None):
+    "greys and labels are lists of filenames of greyscale and labeled images."
     import unet
-    unet.x_width = 48
-    unet.y_width = 48
+    unet.x_width = 96
+    unet.y_width = 96
     unet.step = 24
+    grey_imgs = map(io.imread, greys)
+    label_imgs = map(io.imread, labels)
 
-    X,Y = unet.imglists_to_XY(greyscale_list[:-1], labels_list[:-1])
+    X,Y = unet.imglists_to_XY(grey_imgs, label_imgs)
     # train
     if model is None:
-        model = unet.trainmodel(X, Y, batch_size = 32, nb_epoch = 10)
+        model = unet.trainmodel(X, Y, batch_size = 32, nb_epoch = 20)
     else:
-        model = unet.trainmodel(X, Y, model, batch_size = 32, nb_epoch = 5)
+        model = unet.trainmodel(X, Y, model, batch_size = 32, nb_epoch = 20)
     # model.save_weights('unet_weights.h5')
     return model
 
-def predict_unet(model=None):
+def predict_unet(greys, model=None):
     import unet
-    unet.x_width = 48
-    unet.y_width = 48
+    unet.x_width = 96
+    unet.y_width = 96
     unet.step = 8
 
     if model is None:
         model = unet.get_unet()
-        model.load_weights('very_first_model/unet_model_weights_checkpoint.h5')
+        model.load_weights("./unet_model_weights_checkpoint.h5")
 
-    return model
     # for name, img in zip(unseen_greyscale_files(), unseen_greys()):
-    #     res = unet.predict_single_image(model, img)
-    #     print("There are {} nans!".format(np.count_nonzero(~np.isnan(res))))
-    #     path, base, ext =  util.path_base_ext(name)
-    #     io.imsave(base + '_predict' + ext, res.astype(np.float32))
+    images = map(io.imread, greys)
+    for name, img in zip(greys, images):
+        res = unet.predict_single_image(model, img)
+        print("There are {} nans!".format(np.count_nonzero(~np.isnan(res))))
+        path, base, ext =  util.path_base_ext(name)
+        io.imsave(base + '_predict' + ext, res.astype(np.float32))
 
 # ---- BUILD/IMPORT FEATURESTACKS for RANDOM FOREST TRAINING
 
-def train_and_test_rafo_gabor():
+def train_and_test_rafo_gabor(greys, labels):
     import build_featurestack as bf
     import rf
-    greyscale_list = greyscale_list()
-    labels_list = labels_list()
+    greyscale_list = map(io.imread, greys)
+    labels_list = map(io.imread, labels)
 
     gabor_list = map(bf.gabor_stack, greyscale_list)
 
@@ -207,44 +209,42 @@ def train_and_test_rafo_weka():
 
 # ---- Automatic CrossValidation RANDOM FORESTS
 
-def run_crossval():
+def run_crossval(X, Y, n_folds=3):
 
     import xgboost as xgb
     from sklearn.cross_validation import KFold, train_test_split
     from sklearn.metrics import confusion_matrix, mean_squared_error
 
-    def crossval(X,Y,n_folds=3):
-        rng = np.random.RandomState(31337)
-        kf = KFold(Y.shape[0], n_folds=n_folds, shuffle=True, random_state=rng)
-        for train_index, test_index in kf:
-            sw = rf.balanced_sample_weights(Y[train_index])
-            xgb_model = xgb.XGBClassifier().fit(X[train_index],Y[train_index], sample_weight=sw)
+    rng = np.random.RandomState(31337)
+    kf = KFold(Y.shape[0], n_folds=n_folds, shuffle=True, random_state=rng)
+    for train_index, test_index in kf:
+        sw = rf.balanced_sample_weights(Y[train_index])
+        xgb_model = xgb.XGBClassifier().fit(X[train_index],Y[train_index], sample_weight=sw)
 
-            print("confusion_matrix Train:")
-            Ypred_train = xgb_model.predict(X[train_index])
-            print(sklearn.metrics.confusion_matrix(Y[train_index], Ypred_train))
+        print("confusion_matrix Train:")
+        Ypred_train = xgb_model.predict(X[train_index])
+        print(sklearn.metrics.confusion_matrix(Y[train_index], Ypred_train))
 
-            print("confusion_matrix Test:")
-            Ypred_test = xgb_model.predict(X[test_index])
-            print(sklearn.metrics.confusion_matrix(Y[test_index], Ypred_test))
+        print("confusion_matrix Test:")
+        Ypred_test = xgb_model.predict(X[test_index])
+        print(sklearn.metrics.confusion_matrix(Y[test_index], Ypred_test))
 
-            print("--------------------")
+        print("--------------------")
 
 # ---- Grid Search through params
 
 def run_gridsearch():
-    def grid_search():
-        param_test1 = {
-         'max_depth':range(3,10,2),
-         'min_child_weight':range(1,6,2)
-        }
-        gsearch1 = GridSearchCV(estimator = XGBClassifier( learning_rate =0.1, n_estimators=140,
-        max_depth=5,
-         min_child_weight=1, gamma=0, subsample=0.8, colsample_bytree=0.8,
-         objective= 'binary:logistic', nthread=4, scale_pos_weight=1, seed=27),
-         param_grid = param_test1, scoring='roc_auc',n_jobs=4,iid=False, cv=5)
-        gsearch1.fit(train[predictors],train[target])
-        gsearch1.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
+    param_test1 = {
+     'max_depth':range(3,10,2),
+     'min_child_weight':range(1,6,2)
+    }
+    gsearch1 = GridSearchCV(estimator = XGBClassifier( learning_rate =0.1, n_estimators=140,
+                            max_depth=5,
+                             min_child_weight=1, gamma=0, subsample=0.8, colsample_bytree=0.8,
+                             objective= 'binary:logistic', nthread=4, scale_pos_weight=1, seed=27),
+                             param_grid = param_test1, scoring='roc_auc',n_jobs=4,iid=False, cv=5)
+    gsearch1.fit(train[predictors],train[target])
+    gsearch1.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
 
 # ---- Main entry point
 if __name__ == '__main__':
