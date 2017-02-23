@@ -10,7 +10,6 @@ The labeled images that Carine made have zero-valued membranes which separate th
 boundary layer, and it probably also shouldn't count towards our cell-matching score. (Neither should the background?).
 """
 
-
 # import networkx as nx
 import numpy as np
 import skimage.io as io
@@ -50,6 +49,42 @@ def permlabels(img, perm=None):
         img2[img==i] = perm[i]
     return img2
 
+# TODO: make me work
+def seg(ground_truth, prediction):
+    """
+    ground_truth and prediction are label-images (2d ndarrays).
+    See definition of SEG: http://ctc2015.gryf.fi.muni.cz/Public/Documents/SEG.pdf
+    """
+
+    mat = matching_matrix(ground_truth, prediction)
+
+    def jaccard(i):
+        gt_size = np.sum(mat[i,:]) # an int
+        max_match_ind = np.argmax(mat[i,:])
+        if max_match_ind==0:
+            print("match to background: ", i)
+            return 0
+        intersection = mat[i, max_match_ind]
+        if 2*intersection > gt_size:
+            # we have a good match!
+            match_size = np.sum(mat[:,max_match_ind])
+            print(gt_size, intersection, match_size, "matched to id:", max_match_ind)
+            return intersection / (gt_size + match_size)
+        else:
+            return 0
+    return np.mean([jaccard(i) for i in range(mat.shape[0])])
+
+
+def matching_matrix(img1, img2):
+    "img1 and img2 must be same shape, and label (uint) images."
+    imgs = np.stack((img1, img2), axis=2)
+    mat = np.zeros((img1.max()+1, img2.max()+1), dtype=np.uint32)
+    a,b,c = imgs.shape
+    for edg in imgs.reshape((a*b,c)):
+        mat[edg[0], edg[1]] += 1
+    return mat
+
+
 def match_score_1(img1, img2):
     """
     Compute the matching score from image1 to image2. (2D only)
@@ -62,11 +97,7 @@ def match_score_1(img1, img2):
     IDEA:
     Faster label-image-comparison by first concatenating id1 and id2 (at same pixel location) into a single number (bitwise?) and then making a histogram, and then undoing the histogram back into a directed graph.
     """
-    imgs = np.stack((img1, img2), axis=2)
-    mat = np.zeros((img1.max()+1, img2.max()+1), dtype=np.uint32)
-    a,b,c = imgs.shape
-    for edg in imgs.reshape((a*b,c)):
-        mat[edg[0], edg[1]] += 1
+    mat = matching_matrix(img1, img2)
     # first map from img1 to img2
     ans = [np.argmax(mat[i,:]) for i in range(mat.shape[0])]
     # then from img2 back to img1
