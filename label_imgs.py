@@ -34,6 +34,35 @@ img2 = np.roll(img2, 3, axis=1)
 # img2 = zoom(img2, 0.2)
 
 
+import colorsys
+
+def label_colors(bg_ID=1, membrane_ID=0, n_colors = 10, maxlabel=1000):
+    n_colors = 10
+    HSV_tuples = [(x * 1.0 / n_colors, 0.5, 0.5) for x in range(n_colors)]
+    RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
+    # intens *= 2**16/intens.max()
+
+    assert membrane_ID != bg_ID
+    RGB_tuples *= maxlabel
+    RGB_tuples[membrane_ID] = (0, 0, 0)
+    RGB_tuples[bg_ID] = (0.01, 0.01, 0.01)
+    return RGB_tuples
+
+def labelImg_to_rgb(img, bg_ID=1, membrane_ID=0):
+    # TODO: the RGB_tuples list we generate is 10 times longer than it needs to be
+    RGB_tuples = label_colors(bg_ID, membrane_ID, n_colors=10, maxlabel=img.max())
+    a,b = img.shape
+    rgb = np.zeros((a,b,3), dtype=np.float32)
+    for val in np.unique(img):
+        mask = img==val
+        print(mask.shape)
+        # rgb[mask,:] = np.array(get_color_from_label(val))
+        rgb[mask,:] = RGB_tuples[val]
+    # f16max = np.finfo(np.float16).
+    print(rgb.max())
+    # rgb *= 255*255
+    return rgb.astype(np.float32) # Preview on Mac only works with 32bit or lower :)
+
 def permlabels(img, perm=None):
     """
     Permute the labels on a labeled image according to `perm`, if `perm` not given
@@ -49,7 +78,6 @@ def permlabels(img, perm=None):
         img2[img==i] = perm[i]
     return img2
 
-# TODO: make me work
 def seg(ground_truth, prediction):
     """
     ground_truth and prediction are label-images (2d ndarrays).
@@ -69,11 +97,12 @@ def seg(ground_truth, prediction):
             # we have a good match!
             match_size = np.sum(mat[:,max_match_ind])
             print(gt_size, intersection, match_size, "matched to id:", max_match_ind)
-            return intersection / (gt_size + match_size)
+            jac = intersection / (gt_size + match_size - intersection)
+            print("jac:", jac)
+            return jac
         else:
             return 0
-    return np.mean([jaccard(i) for i in range(mat.shape[0])])
-
+    return [jaccard(i) for i in range(1, mat.shape[0])]
 
 def matching_matrix(img1, img2):
     "img1 and img2 must be same shape, and label (uint) images."
@@ -83,7 +112,6 @@ def matching_matrix(img1, img2):
     for edg in imgs.reshape((a*b,c)):
         mat[edg[0], edg[1]] += 1
     return mat
-
 
 def match_score_1(img1, img2):
     """

@@ -4,7 +4,7 @@ import skimage.io as io
 from glob import glob
 import os
 
-def subsample_ind(X,Y,test_fraction):
+def subsample_ind(X,Y,test_fraction, rand_state=None):
     """
     returns (sorted) train and test indices in appropriate ratio
     """
@@ -13,7 +13,11 @@ def subsample_ind(X,Y,test_fraction):
     test_size = int(Y.shape[0]*test_fraction)
     train_size = Y.shape[0]-test_size
     idxs = np.array(range(Y.shape[0]))
-    test_ind = np.random.choice(Y.shape[0], size=test_size, replace=False)
+    if rand_state is None:
+        rs = np.random.RandomState()
+    else:
+        rs = np.random.RandomState(rand_state)
+    test_ind = rs.choice(Y.shape[0], size=test_size, replace=False)
     test_ind.sort()
     train_ind = filter(lambda idx: idx not in test_ind, idxs)
     train_ind = np.array(train_ind)

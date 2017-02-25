@@ -455,7 +455,7 @@ TODO: Add an Image object which extends ndArray in the same way as Julia's Image
 
 8386s per epoch with "Train on 103101 samples, validate on 25776 samples".
 
-It's hard to get exactly the right api. A problem I have at the moment is some functions work at the dataset level (lists of images, full X,Y vectors, etc) and some work at the single image level. X and Y mush image data together, duplicate image data, and can't be pieced back together to make images at all. Maybe we don't want them to be? But probably we do. This requires saving lots of extra info (coordinates for each patch as well as which image those coordinates belong to, as well as keeping the coordinate vector in sync with the X and Y vectors). The way we would do things with Random Forests was to split data up into X/Y_train and X/Y_test. We would calculate our metrics based on the test data, which was fine because each sample in X&Y was an individual pixel, only seen once in the true images. (Although sometimes we would only evaluate a subsample?) But with patch-based classifiers we have duplicated data, so now the accuracy across patches doesn't reflect the accuracy across our images...... No I'm not sure there's a difference, because we still have to break our images up into overlapping patches... In the end we need our images to correspond to classifications, so we must be able to combine the patches in a smart way... TODO: when averaging overlapping patches together this should be done BEFORE we apply the argmax to turn our class-scores into a firm class decision...
+It's hard to get exactly the right api. A problem I have at the moment is some functions work at the dataset level (lists of images, full X,Y vectors, etc) and some work at the single image level. X and Y mush image data together, duplicate image data, and can't be pieced back together to make images at all. Maybe we don't want them to be? But probably we do. This requires saving lots of extra info (coordinates for each patch as well as which image those coordinates belong to, as well as keeping the coordinate vector in sync with the X and Y vectors). The way we would do things with Random Forests was to split data up into X/Y_train and X/Y_test. We would calculate our metrics based on the test data, which was fine because each sample in X&Y was an individual pixel, only seen once in the true images. (Although sometimes we would only evaluate a subsample?) But with patch-based classifiers we have duplicated data, so now the accuracy across patches doesn't reflect the accuracy across our images...... No I'm not sure there's a difference, because we still have to break our images up into overlapping patches... In the end we need our images to correspond to classifications, so we must be able to combine the patches in a smart way... ~~TODO: when averaging overlapping patches together this should be done BEFORE we apply the argmax to turn our class-scores into a firm class decision...~~
 
 We want to be running code on the cluster, on full datasets, not interactively in ipython, on single images!
 
@@ -546,4 +546,34 @@ Failed to install tensorflow-gpu on my mac. Even with the correct LD flags. Not 
 Had to uninstall tensorflow1.0.0 and reinstall 0.12. Which required me to use sudo, otherwise it would break upon cleanup after pip install....
 
 But now at least things are back to where they were yesterday....
+
+# 02/22/17
+
+My unet is giving beautiful results on the training data ;). But there are strangely-dark patches on the `unseen` test data. IE it's overfitting, which I can see from the prediction results, but can't see *during* the actual training because i reshuffle the X/Y data every time I rerun the tests, which means I'm essentially training on 100% of the data, not just 80%...
+
+Martin helped me set up my machine for using my CUDA-enabled GPU. 
+
+The SEG segmentation measure is implemented wrong... or maybe has some secret hidden constraints that prevents it from working for anyone but the implementer.
+
+# Thu Feb 23
+
+Still getting shitty weird dark patches in my predictions... 
+- Is it due to normalization?
+
+TODO:
+- Deform error
+- RAND error
+- pixelwise error
+
+image viewer as a function that prepares a list of images (interpreted as a stack) for viewing with the system viewer, i.e. a properly scaled RGB image.
+
+TODO: DONE:
+Every TODO above this line has been ported over to Workflowy todo list
+
+# Fri Feb 24 14:28:06 2017
+
+
+
+
+
 

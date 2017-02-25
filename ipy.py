@@ -19,6 +19,7 @@ from skimage.filters.thresholding import threshold_isodata, threshold_li, thresh
 import sys
 sys.path.append("./models/")
 
+import label_imgs
 import util
 
 
@@ -30,6 +31,7 @@ knime_train_data_greys_bgblack = lambda : glob("./knime_test_data/data/train/gre
 knime_train_data_greys = lambda : glob("./knime_test_data/data/train/grayscale/grayscale_?.tif")
 knime_train_data_memvert_labels = lambda : glob("./knime_test_data/data/train/labels/composite/vertex_labels_?.tif")
 knime_train_data_keras_mem_predictions = lambda : glob("./grayscale_?_predict.tif")
+knime_predict_data_greys = lambda : glob("./knime_test_data/data/predict/grayscale/*.tif")
 
 unseen_greys = lambda : glob("./unseen_greys/mean6/*.tif")
 unseen_labels = lambda : glob("unseen_labels/pooled/*.tif")
@@ -38,6 +40,9 @@ unseen_mem_predict = lambda : glob("./2015*predict.tif")
 unseen_seg = lambda : glob("./2015*seg.tif")
 
 
+def imsave(fname, img, **kwargs):
+    io.imsave(fname, img, compress=6, **kwargs)
+
 # ---- HOW WE MADE THE DATA
 
 # def make_prediction_overlays():
@@ -45,7 +50,7 @@ unseen_seg = lambda : glob("./2015*seg.tif")
 #     def save((a,b,c, name)):
 #         path, base, ext = util.path_base_ext(name)
 #         new = np.stack((c,a,b), axis=0)
-#         io.imsave(base + "_overlay" + ext, new)
+#         imsave(base + "_overlay" + ext, new)
 #     map(save, pairs)
 
 # def min_pool_downscale():
@@ -78,6 +83,8 @@ unseen_seg = lambda : glob("./2015*seg.tif")
 #         return img
 #     ipy.util.apply_operation_to_imgdir("unseen_greys/", rot)
 
+
+
 # In the end we had to rotate manually, because the different images were all 
 # rotated/flipped differently.
 
@@ -85,12 +92,13 @@ unseen_seg = lambda : glob("./2015*seg.tif")
 
 def compare_segment_predictions_with_groundtruth(segs, labels):
     "segs and labels are lists of filenames of images."
-    seg_imgs = map(io.imread, segs)
-    label_imgs = map(io.imread, labels)
-    pairs = zip(label_imgs, seg_imgs)
     from label_imgs import match_score_1
-    f = lambda (a, b) : match_score_1(a, b)
-    return map(f, pairs)
+    def print_and_score((s,l)):
+        simg = io.imread(s)
+        limg = io.imread(l)
+        print('\n', s)
+        return match_score_1(simg, limg)
+    return map(print_and_score, zip(segs, labels))
 
 def segment_classified_images(membranes, threshold):
     "membranes is a list of filenames of membrane images."
@@ -119,32 +127,40 @@ def segment_classified_images(membranes, threshold):
     res = map(get_label, imgs)
     for fname, img in zip(membranes, res):
         path, base, ext = util.path_base_ext(fname)
-        io.imsave(base + '_seg' + ext, img)
+        imsave(base + '_seg' + ext, img)
+        imsave(base + '_seg_preview' + ext, label_imgs.labelImg_to_rgb(img), compress=6)
     return res
 
 def train_unet(greys, labels, model=None):
     "greys and labels are lists of filenames of greyscale and labeled images."
     import unet
-    unet.x_width = 96
-    unet.y_width = 96
-    unet.step = 24
+    unet.x_width = 160
+    unet.y_width = 160
+    unet.step = 40
     grey_imgs = map(io.imread, greys)
     label_imgs = map(io.imread, labels)
 
     X,Y = unet.imglists_to_XY(grey_imgs, label_imgs)
+
+    # this shuffles the data (if we're gonna augment data, do it now)
+    train_ind, test_ind = util.subsample_ind(X, Y, test_fraction=0.2, rand_state=0)
+    np.random.shuffle(train_ind)
+    np.random.shuffle(test_ind)
+    X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
+
     # train
     if model is None:
-        model = unet.trainmodel(X, Y, batch_size = 32, nb_epoch = 20)
+        model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, batch_size = 4, nb_epoch = 300)
     else:
-        model = unet.trainmodel(X, Y, model, batch_size = 32, nb_epoch = 20)
+        model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, model, batch_size = 32, nb_epoch = 20)
     # model.save_weights('unet_weights.h5')
     return model
 
 def predict_unet(greys, model=None):
     import unet
-    unet.x_width = 96
-    unet.y_width = 96
-    unet.step = 8
+    unet.x_width = 200
+    unet.y_width = 200
+    unet.step = 10
 
     if model is None:
         model = unet.get_unet()
@@ -153,10 +169,27 @@ def predict_unet(greys, model=None):
     # for name, img in zip(unseen_greyscale_files(), unseen_greys()):
     images = map(io.imread, greys)
     for name, img in zip(greys, images):
-        res = unet.predict_single_image(model, img)
+        res = unet.predict_single_image(model, img, batch_size=4)
         print("There are {} nans!".format(np.count_nonzero(~np.isnan(res))))
         path, base, ext =  util.path_base_ext(name)
-        io.imsave(base + '_predict' + ext, res.astype(np.float32))
+        imsave(base + '_predict' + ext, res.astype(np.float32))
+
+def save_patches(X,Y,Ypred):
+    # import matplotlib.pyplot as plt
+    # def imsho(x, fname):
+    #     # plt.figure()
+    #     # plt.imshow(x, interpolation='nearest')
+    #     imsave(fname, x)
+    idx = np.random.randint(Ypred.shape[0])
+    x= X[idx,0]
+    a,b = x.shape
+    # imsho(x, 'x.tif')
+    y_gt = Y[idx,:,0].reshape((a,b))
+    # imsho(y_gt)
+    y_pre = Ypred[idx,:,0].reshape((a,b))
+    # imsho(y_pre)
+    imsave('randstack.tif', np.stack((x,y_gt,y_pre), axis=0))
+
 
 # ---- BUILD/IMPORT FEATURESTACKS for RANDOM FOREST TRAINING
 

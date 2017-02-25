@@ -65,10 +65,14 @@ def rebuild_img_from_patch_activations((x,y), patchact, coords):
         x,y = cord
         zeros_img[x:x+dx, y:y+dy] += patch
         count_img[x:x+dx, y:y+dy] += np.ones_like(patch)
+        # z = zeros_img[x:x+dx, y:y+dy]
+        # zeros_img[x:x+dx, y:y+dy] = np.where(z>patch, z, patch)
+        # assert 0>1
     print(map(util.count_nans, [zeros_img, count_img]))
-    res = zeros_img/count_img
-    res[res==np.nan] = -1
+    # res = zeros_img/count_img
+    # res[res==np.nan] = -1
     return zeros_img/count_img
+    # return zeros_img
 
 def imglist_to_X(greylist):
     """turn list of images into ndarray of patches, labels and their coordinates. Used for
@@ -118,7 +122,7 @@ def imglists_to_XY(greylist, labellist):
     return X,Y
 
 def process_XY_for_training(X,Y):
-    assert X.ndim==4
+    assert X.ndim==4 # samples, y, x, ...
     inds = np.mean(X, axis=(1,2,3)) > 0.5
     return X,Y
 
@@ -204,16 +208,10 @@ def get_unet_2():
     model = Model(input=inputs, output=conv7)
     return model
 
-def trainmodel(X, Y, model=None, batch_size = 128, nb_epoch = 1, patience = 5):
+def trainmodel(X_train, Y_train, X_vali, Y_vali, model=None, batch_size = 128, nb_epoch = 1, patience = 5):
     """
     Note: Input X,Y should really just be training data! Not all the labeled data we have!
     """
-
-    # this shuffles the data (if we're gonna augment data, do it now)
-    train_ind, test_ind = util.subsample_ind(X,Y,0.2)
-    np.random.shuffle(train_ind)
-    np.random.shuffle(test_ind)
-    X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
 
     # Adjust Sample weights
     classimg = np.argmax(Y_train, axis=-1).flatten()
@@ -232,7 +230,7 @@ def trainmodel(X, Y, model=None, batch_size = 128, nb_epoch = 1, patience = 5):
     # model.compile(optimizer='sgd',loss=my_categorical_crossentropy((1,30.)),metrics=['accuracy'])
     # model.compile(optimizer=Adam(lr = 0.001),loss=my_categorical_crossentropy((1,10.)),metrics=['mean_squared_error'])
     cw = classweights
-    model.compile(optimizer=Adam(lr = 0.00005), loss=my_categorical_crossentropy(weights=(cw[0], cw[1])), metrics=['accuracy'])
+    model.compile(optimizer=Adam(lr = 0.0005), loss=my_categorical_crossentropy(weights=(cw[0], 10*cw[1])), metrics=['accuracy'])
 
     # Callbacks
     # TODO: IO/Filepaths controlled by single module...
@@ -256,33 +254,15 @@ def trainmodel(X, Y, model=None, batch_size = 128, nb_epoch = 1, patience = 5):
 
 # use the model for prediction
 
-def predict_single_image(model, img):
-    # predict on an image and save result
+def predict_single_image(model, img, batch_size=4):
+    "unet predict on a greyscale img"
     X = imglist_to_X([img])
-    Y_pred = model.predict(X)
+    Y_pred = model.predict(X, batch_size=batch_size)
+    a,b,c = Y_pred.shape
+    assert c==2
 
-    # n,one,pixels,classes = Y_pred.shape
-    # Y_pred = np.argmax(Y_pred, axis=-1)
-
-    # TODO: fix `2` below -> nclasses
-    Y_pred = Y_pred.reshape((Y_pred.shape[0], y_width, x_width, 2))
-    # WARNING: TODO: This will break when we change the coords used in `imglist_to_X`
+    Y_pred = Y_pred.reshape((a, y_width, x_width, c))
+    # WARNING TODO: This will break when we change the coords used in `imglist_to_X`
     coords = regular_patch_coords(img)
     res = rebuild_img_from_patch_activations(img.shape, Y_pred, coords)
     return res[:,:,1].astype(np.float32)
-
-def save_patches(X,Y,Ypred):
-    import matplotlib.pyplot as plt
-    def imsho(x, fname):
-        # plt.figure()
-        # plt.imshow(x, interpolation='nearest')
-        io.imsave(fname, x)
-    idx = np.random.randint(Ypred.shape[0])
-    x= X[idx,0]
-    a,b = x.shape
-    # imsho(x, 'x.tif')
-    y_gt = Y[idx,:,0].reshape((a,b))
-    # imsho(y_gt)
-    y_pre = Ypred[idx,:,0].reshape((a,b))
-    # imsho(y_pre)
-    io.imsave('randstack.tif', np.stack((x,y_gt,y_pre), axis=0))

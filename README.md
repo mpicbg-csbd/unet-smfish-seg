@@ -1,10 +1,10 @@
-A tool for membrane-labeling and 2D cell segmentation in fluorescence images of mesenchymal tissue sections.
+# A tool for membrane-labeling and 2D cell segmentation in fluorescence images of mesenchymal tissue sections.
 
 Pic is worth 10^3 words:
 
-![fluorescent membranes, membrane highlighting, cell segmentation](./grey_mem_seg.jpg "fluorescent membranes, membrane highlighting, and cell segmentation")
+![fluorescent membranes, membrane highlighting, cell segmentation](./resources/grey_mem_seg.jpg "fluorescent membranes, membrane highlighting, and cell segmentation")
 
-# About
+## About
 
 For information about the sample preparation and imaging involved in creating the data please see [1],[2].
 
@@ -12,12 +12,17 @@ For information about the sample preparation and imaging involved in creating th
 
 [2]: Stapel, L. Carine, et al. (Springer Methods, etc)
 
+## Methods
 
-# Installation
+Membrane pixelwise classification is performed with a 5-layer (2-downsampling, 1-bottom, 2-upsampling) [unet](https://arxiv.org/pdf/1505.04597.pdf) with same model used [here](https://github.com/orobix/retina-unet).
+
+## Installation
 
 You need Python >= 2.7 with the standard scientific python libraries:
 - numpy, scipy, scikit-learn and scikit-image
 - the deep learning framework Keras
-- which uses as backend: Tensorflow or Theano
+    - which uses as backend: Tensorflow or Theano
 
-# Usage
+## Usage
+
+...
