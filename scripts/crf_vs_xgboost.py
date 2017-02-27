@@ -35,9 +35,10 @@ crf2 = map(io.imread, crf_vert_files)
 xgbs = map(io.imread, xgb_prob_map_files)
 labs = map(io.imread, label_files)
 crfs = zip(crf1, crf2)
-def joint_crf((crf1, crf2)):
+def joint_crf(crf1_crf2):
     """How should we interpret the set of two binary classifications
     as a 3-class probability? NOTE: `new` must be normalized over 3rd dimension!"""
+    crf1, crf2 = crf1_crf2
     x,y = crf1.shape
     new = np.zeros((x,y,3), dtype=crf1.dtype)
     new[:,:,0] = 1.0 - crf1 - crf2

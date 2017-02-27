@@ -18,8 +18,8 @@ import skimage.util as skut
 import util
 
 # global variables for patch dimensions and stride
-x_width = 48
-y_width = 48
+x_width = 160
+y_width = 160
 step = 10
 
 
@@ -54,9 +54,10 @@ def rebuild_img_from_patches(zeros_img, patches, coords):
         count_img[x:x+dx, y:y+dy] += np.ones_like(patch)
     return zeros_img/count_img
 
-def rebuild_img_from_patch_activations((x,y), patchact, coords):
+def rebuild_img_from_patch_activations(x_y, patchact, coords):
     "TODO: potentially add more ways of recombining than a simple average, i.e. maximum"
     # TODO: this will break.
+    x,y = x_y
     n_samp, dx, dy, nclasses = patchact.shape
     zeros_img = np.zeros(shape=(x,y,nclasses))
     count_img = np.zeros(shape=(x,y,nclasses))
@@ -123,7 +124,28 @@ def imglists_to_XY(greylist, labellist):
 
 def process_XY_for_training(X,Y):
     assert X.ndim==4 # samples, y, x, ...
-    inds = np.mean(X, axis=(1,2,3)) > 0.5
+    a,b,c,d = X.shape
+    X = X.reshape(a,c,d)
+    Y = Y.reshape(a,c,d,2)
+    inds = np.mean(X, axis=(1,2)) > 0.15 # 0.12 taken from images
+    X = X[inds]
+    Y = Y[inds]
+    a,c,d = X.shape
+    X1 = np.flip(X, 1)
+    X2 = np.flip(X, 2)
+    Y1 = np.flip(Y, 1)
+    Y2 = np.flip(Y, 2)
+    X3 = np.flip(np.flip(X, 1), 2)
+    Y3 = np.flip(np.flip(Y, 1), 2)
+    X = np.concatenate((X, X1, X2, X3), axis=0)
+    Y = np.concatenate((Y, Y1, Y2, Y3), axis=0)
+    # from scipy.ndimage import rotate
+    # x_rotations = [rotate(X, theta, axes=(1,2), reshape=False) for theta in [-10, 0, 10]]
+    # y_rotations = [rotate(Y, theta, axes=(1,2), reshape=False, order=0) for theta in [-10, 0, 10]]
+    # X = np.concatenate(tuple(x_rotations), axis=0)
+    # Y = np.concatenate(tuple(y_rotations), axis=0)
+    X = X.reshape(4*a,1,c,d)
+    Y = Y.reshape(4*a,c*d,2)
     return X,Y
 
 # setup and train the model

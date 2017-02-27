@@ -14,6 +14,7 @@ import skimage.io as io
 import timeit
 import sklearn
 from scipy.ndimage import label, zoom
+# requires skimage version xxx?
 from skimage.filters.thresholding import threshold_isodata, threshold_li, threshold_otsu
 
 import sys
@@ -27,17 +28,17 @@ import util
 
 # run training across a set of images
 
-knime_train_data_greys_bgblack = lambda : glob("./knime_test_data/data/train/greyscale_bg_removed/bg_removed?.tif")
-knime_train_data_greys = lambda : glob("./knime_test_data/data/train/grayscale/grayscale_?.tif")
-knime_train_data_memvert_labels = lambda : glob("./knime_test_data/data/train/labels/composite/vertex_labels_?.tif")
-knime_train_data_keras_mem_predictions = lambda : glob("./grayscale_?_predict.tif")
-knime_predict_data_greys = lambda : glob("./knime_test_data/data/predict/grayscale/*.tif")
+knime_train_data_greys_bgblack = lambda : glob("data/knime_test_data/data/train/greyscale_bg_removed/bg_removed?.tif")
+knime_train_data_greys = lambda : glob("data/knime_test_data/data/train/grayscale/grayscale_?.tif")
+knime_train_data_labels = lambda : glob("data/knime_test_data/data/train/labels/composite/vertex_labels_?.tif")
+knime_train_data_keras_mem_predictions = lambda : glob("data/grayscale_?_predict.tif")
+knime_predict_data_greys = lambda : glob("data/knime_test_data/data/predict/grayscale/*.tif")
 
-unseen_greys = lambda : glob("./unseen_greys/mean6/*.tif")
-unseen_labels = lambda : glob("unseen_labels/pooled/*.tif")
-# unseen_mem_predict = lambda : glob("./unseen_mem_predict/*.tif")
-unseen_mem_predict = lambda : glob("./2015*predict.tif")
-unseen_seg = lambda : glob("./2015*seg.tif")
+unseen_greys = lambda : glob("data/unseen_greys/mean8/*.tif")
+unseen_labels = lambda : glob("data/unseen_labels/pooled/*.tif")
+# unseen_mem_predict = lambda : glob("data/unseen_mem_predict/*.tif")
+unseen_mem_predict = lambda : glob("data/2015*predict.tif")
+unseen_seg = lambda : glob("data/2015*seg.tif")
 
 
 def imsave(fname, img, **kwargs):
@@ -60,18 +61,18 @@ def imsave(fname, img, **kwargs):
 #         print("shape: ", img.shape)
 #         img = view_as_windows(img, 6, step=6)
 #         return np.min(img, axis=(2,3))
-#     util.apply_operation_to_imgdir("./unseen_labels/", pooled)
+#     util.apply_operation_to_imgdir("data/unseen_labels/", pooled)
 
-# def mean_downscale():
-#     from skimage.util import view_as_windows
-#     def mean6(img):
-#         s = img.shape
-#         print("shape: ", img.shape)
-#         if s[0] > s[1]:
-#             img = np.transpose(img)
-#         img = view_as_windows(img, 6, step=6)
-#         return np.mean(img, axis=(2,3)).astype(np.float32)
-#     util.apply_operation_to_imgdir("./unseen_greys/", mean6)
+def mean_downscale():
+    from skimage.util import view_as_windows
+    def mean8(img):
+        s = img.shape
+        print("shape: ", img.shape)
+        if s[0] > s[1]:
+            img = np.transpose(img)
+        img = view_as_windows(img, 8, step=8)
+        return np.mean(img, axis=(2,3)).astype(np.float32)
+    util.apply_operation_to_imgdir("data/unseen_greys/", mean8)
 
 # def rotate():
 #     def rot(img):
@@ -84,8 +85,7 @@ def imsave(fname, img, **kwargs):
 #     ipy.util.apply_operation_to_imgdir("unseen_greys/", rot)
 
 
-
-# In the end we had to rotate manually, because the different images were all 
+# In the end we had to rotate manually, because the different images were all
 # rotated/flipped differently.
 
 # ---- Try with a UNet
@@ -93,7 +93,8 @@ def imsave(fname, img, **kwargs):
 def compare_segment_predictions_with_groundtruth(segs, labels):
     "segs and labels are lists of filenames of images."
     from label_imgs import match_score_1
-    def print_and_score((s,l)):
+    def print_and_score(s_l):
+        s,l = s_l
         simg = io.imread(s)
         limg = io.imread(l)
         print('\n', s)
@@ -122,7 +123,7 @@ def segment_classified_images(membranes, threshold):
         # convert from int32
         lab_img = np.array(lab_img, dtype='uint16')
         return lab_img
-    
+
     imgs = map(io.imread, membranes)
     res = map(get_label, imgs)
     for fname, img in zip(membranes, res):
@@ -134,14 +135,14 @@ def segment_classified_images(membranes, threshold):
 def train_unet(greys, labels, model=None):
     "greys and labels are lists of filenames of greyscale and labeled images."
     import unet
-    unet.x_width = 160
-    unet.y_width = 160
-    unet.step = 40
+    unet.x_width = 100
+    unet.y_width = 100
+    unet.step = 10
     grey_imgs = map(io.imread, greys)
     label_imgs = map(io.imread, labels)
 
     X,Y = unet.imglists_to_XY(grey_imgs, label_imgs)
-
+    X,Y = unet.process_XY_for_training(X, Y)
     # this shuffles the data (if we're gonna augment data, do it now)
     train_ind, test_ind = util.subsample_ind(X, Y, test_fraction=0.2, rand_state=0)
     np.random.shuffle(train_ind)
@@ -150,7 +151,7 @@ def train_unet(greys, labels, model=None):
 
     # train
     if model is None:
-        model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, batch_size = 4, nb_epoch = 300)
+        model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, batch_size = 1, nb_epoch = 300)
     else:
         model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, model, batch_size = 32, nb_epoch = 20)
     # model.save_weights('unet_weights.h5')
@@ -220,7 +221,7 @@ def train_and_test_rafo_gabor(greys, labels):
 def train_and_test_rafo_weka():
     import rf
 
-    knime_list = glob("./knime_test_data/data/train/features/features_?.tif")
+    knime_list = glob("data/knime_test_data/data/train/features/features_?.tif")
     knime_list = map(io.imread, knime_list)
 
     X,Y = rf.imglist_to_XY(knime_list, labels_list)
@@ -278,6 +279,20 @@ def run_gridsearch():
                              param_grid = param_test1, scoring='roc_auc',n_jobs=4,iid=False, cv=5)
     gsearch1.fit(train[predictors],train[target])
     gsearch1.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
+
+def run_command():
+    import util
+    number = int(glob('data2/*')[-1][-4:])
+    trialDir = 'data2/trial{:04d}/'.format(number+1)
+    util.safe_makedirs(trialDir)
+    # make directory
+    move = lambda f: shutil.copy(f, trialDir)
+    filesToMove = ["ipy.py", "unet.py"]
+    map(move, filesToMove)
+
+    # move source files there
+    # run training and use dir as model checkpoint folder
+    # save model th
 
 # ---- Main entry point
 if __name__ == '__main__':

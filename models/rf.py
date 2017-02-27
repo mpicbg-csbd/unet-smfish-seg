@@ -84,7 +84,9 @@ def train_rafo_from_XY(X,Y, **kwargs):
 def to_XY(stack, labels):
     """stack,labels are lists of featurestacks / labels. images need not be the same shape"""
     xys = map(lambda (s,l): to_XY_single(s,l), zip(stack, labels))
-    def f((x1,y1), (x2,y2)):
+    def f(x1_y1, x2_y2):
+        x1, y1 = x1_y1
+        x2, y2 = x2_y2
         "reducing function. use on list of (X,Y) tuples to concatenate into single long X,Y."
         return (np.concatenate((x1,x2)), np.concatenate((y1,y2)))
     (X,Y) = reduce(f, xys)

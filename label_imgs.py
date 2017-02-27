@@ -17,11 +17,11 @@ import skimage.io as io
 # img2 = io.imread("./20150513_New_data/20150430_eif4g_dome03_slice11.tif")
 # io.imsave('i1.tif', img1[1])
 
-img1 = io.imread("./Cell_segmentations_paper/20150430_eif4g_dome03_R3D_MASKS.tif")
-img1 = img1[0]
-img2 = img1.copy()
-img2 = np.roll(img2, 3, axis=0)
-img2 = np.roll(img2, 3, axis=1)
+# img1 = io.imread("data/Cell_segmentations_paper/20150430_eif4g_dome03_R3D_MASKS.tif")
+# img1 = img1[0]
+# img2 = img1.copy()
+# img2 = np.roll(img2, 3, axis=0)
+# img2 = np.roll(img2, 3, axis=1)
 
 # # this adds an edge whenever there is *any* overlap
 # dg = nx.DiGraph()
