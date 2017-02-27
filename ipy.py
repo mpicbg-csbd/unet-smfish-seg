@@ -15,13 +15,14 @@ import timeit
 import sklearn
 from scipy.ndimage import label, zoom
 # requires skimage version xxx?
-from skimage.filters.thresholding import threshold_isodata, threshold_li, threshold_otsu
+from skimage.filter import threshold_isodata, threshold_li, threshold_otsu
 
 import sys
 sys.path.append("./models/")
 
 import label_imgs
 import util
+import unet
 
 
 # import mnist_keras as mk
@@ -158,12 +159,10 @@ def train_unet(greys, labels, model=None):
     return model
 
 def predict_unet(greys, model=None):
-    import unet
-    unet.x_width = 200
-    unet.y_width = 200
-    unet.step = 10
-
     if model is None:
+        unet.x_width = 200
+        unet.y_width = 200
+        unet.step = 10
         model = unet.get_unet()
         model.load_weights("./unet_model_weights_checkpoint.h5")
 
@@ -296,4 +295,9 @@ def run_command():
 
 # ---- Main entry point
 if __name__ == '__main__':
-    print("Do Nothing...")
+    unet.x_width = 160
+    unet.y_width = 160
+    unet.step = 10
+    model = unet.get_unet()
+    model.load_weights(sys.argv[1])
+    predict_unet(knime_predict_data_greys(), model)
