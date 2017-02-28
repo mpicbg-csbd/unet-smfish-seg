@@ -230,7 +230,7 @@ def get_unet_2():
     model = Model(input=inputs, output=conv7)
     return model
 
-def trainmodel(X_train, Y_train, X_vali, Y_vali, model=None, batch_size = 128, nb_epoch = 1, patience = 5):
+def trainmodel(X_train, Y_train, X_vali, Y_vali, model=None, batch_size = 128, nb_epoch = 1, patience = 5, savedir=None):
     """
     Note: Input X,Y should really just be training data! Not all the labeled data we have!
     """
@@ -256,7 +256,10 @@ def trainmodel(X_train, Y_train, X_vali, Y_vali, model=None, batch_size = 128, n
 
     # Callbacks
     # TODO: IO/Filepaths controlled by single module...
-    checkpointer = ModelCheckpoint(filepath="./unet_model_weights_checkpoint.h5", verbose=0, save_best_only=True, save_weights_only=True)
+    if savedir is None:
+        checkpointer = ModelCheckpoint(filepath="./unet_model_weights_checkpoint.h5", verbose=0, save_best_only=True, save_weights_only=True)
+    else:
+        checkpointer = ModelCheckpoint(filepath=savedir + "/unet_model_weights_checkpoint.h5", verbose=0, save_best_only=True, save_weights_only=True)
     earlystopper = EarlyStopping(patience=patience, verbose=0)
     callbacks = [checkpointer, earlystopper]
 

@@ -18,6 +18,7 @@ from skimage.filter import threshold_isodata, threshold_otsu
 
 import sys
 sys.path.append("./models/")
+import shutil
 
 import label_imgs
 import util
@@ -43,6 +44,7 @@ unseen_seg = lambda : glob("data/2015*seg.tif")
 
 def imsave(fname, img, **kwargs):
     io.imsave(fname, img, compress=6, **kwargs)
+    # io.imsave(fname, img, **kwargs)
 
 # ---- HOW WE MADE THE DATA
 
@@ -132,12 +134,8 @@ def segment_classified_images(membranes, threshold):
         imsave(base + '_seg_preview' + ext, label_imgs.labelImg_to_rgb(img))
     return res
 
-def train_unet(greys, labels, model=None):
+def train_unet(greys, labels, model=None, savedir=None):
     "greys and labels are lists of filenames of greyscale and labeled images."
-    import unet
-    unet.x_width = 100
-    unet.y_width = 100
-    unet.step = 10
     grey_imgs = map(io.imread, greys)
     label_imgs = map(io.imread, labels)
 
@@ -151,13 +149,16 @@ def train_unet(greys, labels, model=None):
 
     # train
     if model is None:
-        model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, batch_size = 1, nb_epoch = 300)
+        unet.x_width = 160
+        unet.y_width = 160
+        unet.step = 10
+        model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, batch_size = 1, nb_epoch = 3, savedir=savedir)
     else:
-        model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, model, batch_size = 32, nb_epoch = 20)
+        model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, model, batch_size = 1, nb_epoch = 20, savedir=savedir)
     # model.save_weights('unet_weights.h5')
     return model
 
-def predict_unet(greys, model=None):
+def predict_unet(greys, model=None, savedir=None):
     if model is None:
         unet.x_width = 200
         unet.y_width = 200
@@ -171,7 +172,10 @@ def predict_unet(greys, model=None):
         res = unet.predict_single_image(model, img, batch_size=4)
         print("There are {} nans!".format(np.count_nonzero(~np.isnan(res))))
         path, base, ext =  util.path_base_ext(name)
-        imsave(base + '_predict' + ext, res.astype(np.float32))
+        if savedir is None:
+            imsave(base + '_predict' + ext, res.astype(np.float32))
+        else:
+            imsave(savedir + "/" + base + '_predict' + ext, res.astype(np.float32))
 
 def save_patches(X,Y,Ypred):
     # import matplotlib.pyplot as plt
@@ -278,15 +282,16 @@ def run_gridsearch():
     gsearch1.fit(train[predictors],train[target])
     gsearch1.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
 
-def run_command():
+def setup_new_dir_and_return_dirname():
     import util
-    number = int(glob('data2/*')[-1][-4:])
-    trialDir = 'data2/trial{:04d}/'.format(number+1)
-    util.safe_makedirs(trialDir)
+    number = int(glob('results/*')[-1][-4:])
+    saveDir = 'results/trial{:04d}/'.format(number+1)
+    util.safe_makedirs(saveDir)
     # make directory
-    move = lambda f: shutil.copy(f, trialDir)
-    filesToMove = ["ipy.py", "unet.py"]
+    move = lambda f: shutil.copy(f, saveDir)
+    filesToMove = ["ipy.py", "models/unet.py"]
     map(move, filesToMove)
+    return saveDir
 
     # move source files there
     # run training and use dir as model checkpoint folder
@@ -299,4 +304,6 @@ if __name__ == '__main__':
     unet.step = 10
     model = unet.get_unet()
     model.load_weights(sys.argv[1])
-    predict_unet(knime_predict_data_greys(), model)
+    # predict_unet(knime_predict_data_greys(), model)
+    saveDir = setup_new_dir_and_return_dirname()
+    train_unet(knime_train_data_greys(), knime_train_data_labels(), model, saveDir)
