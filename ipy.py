@@ -129,7 +129,7 @@ def segment_classified_images(membranes, threshold):
     for fname, img in zip(membranes, res):
         path, base, ext = util.path_base_ext(fname)
         imsave(base + '_seg' + ext, img)
-        imsave(base + '_seg_preview' + ext, label_imgs.labelImg_to_rgb(img), compress=6)
+        imsave(base + '_seg_preview' + ext, label_imgs.labelImg_to_rgb(img))
     return res
 
 def train_unet(greys, labels, model=None):
