@@ -14,8 +14,7 @@ import skimage.io as io
 import timeit
 import sklearn
 from scipy.ndimage import label, zoom
-# requires skimage version xxx?
-from skimage.filter import threshold_isodata, threshold_li, threshold_otsu
+from skimage.filter import threshold_isodata, threshold_otsu
 
 import sys
 sys.path.append("./models/")

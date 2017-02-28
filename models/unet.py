@@ -80,7 +80,7 @@ def imglist_to_X(greylist):
     both training and testing."""
 
     coords = map(regular_patch_coords, greylist)
-    f = lambda (c,g): sample_patches_from_img(c,g)
+    f = lambda c_g: sample_patches_from_img(c_g[0],c_g[1])
     greypatches = map(f, zip(coords, greylist))
     X = np.concatenate(tuple(greypatches), axis=0)
 
@@ -99,7 +99,7 @@ def imglist_to_Y(labellist):
     "turn list of images into ndarray of patches, labels and their coordinates"
 
     coords = map(regular_patch_coords, labellist)
-    f = lambda (c,g): sample_patches_from_img(c,g)
+    f = lambda c_g: sample_patches_from_img(c_g[0],c_g[1])
     labelpatches = map(f, zip(coords, labellist))
     Y = np.concatenate(tuple(labelpatches), axis=0)
 
