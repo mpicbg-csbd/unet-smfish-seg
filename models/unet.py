@@ -127,7 +127,10 @@ def process_XY_for_training(X,Y):
     a,b,c,d = X.shape
     X = X.reshape(a,c,d)
     Y = Y.reshape(a,c,d,2)
-    inds = np.mean(X, axis=(1,2)) > 0.15 # 0.12 taken from images
+    ylabel = np.argmax(Y, axis=-1)
+    # 0.15 looks like a good value after close image inspection
+    # inds1 = np.mean(X, axis=(1,2)) > 0.15
+    inds = np.any(ylabel==1, axis=(1,2))
     X = X[inds]
     Y = Y[inds]
     a,c,d = X.shape
