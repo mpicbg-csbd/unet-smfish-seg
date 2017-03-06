@@ -29,22 +29,27 @@ import unet
 
 # run training across a set of images
 
-knime_train_data_greys_bgblack = lambda : glob("data/knime_test_data/data/train/greyscale_bg_removed/bg_removed?.tif")
-knime_train_data_greys = lambda : glob("data/knime_test_data/data/train/grayscale/grayscale_?.tif")
-knime_train_data_labels = lambda : glob("data/knime_test_data/data/train/labels/composite/vertex_labels_?.tif")
-knime_train_data_keras_mem_predictions = lambda : glob("data/grayscale_?_predict.tif")
-knime_predict_data_greys = lambda : glob("data/knime_test_data/data/predict/grayscale/*.tif")
+sglob = lambda string: sorted(glob(string))
 
-unseen_greys = lambda : glob("data/unseen_greys/mean8/*.tif")
-unseen_labels = lambda : glob("data/unseen_labels/pooled/*.tif")
-# unseen_mem_predict = lambda : glob("data/unseen_mem_predict/*.tif")
-unseen_mem_predict = lambda : glob("data/2015*predict.tif")
-unseen_seg = lambda : glob("data/2015*seg.tif")
+knime_train_data_greys_bgblack = lambda : sglob("data/knime_test_data/data/train/greyscale_bg_removed/bg_removed?.tif")
+knime_train_data_greys = lambda : sglob("data/knime_test_data/data/train/grayscale/grayscale_?.tif")
+knime_train_data_labels = lambda : sglob("data/knime_test_data/data/train/labels/composite/vertex_labels_?.tif")
+knime_train_data_keras_mem_predictions = lambda : sglob("data/grayscale_?_predict.tif")
+knime_predict_data_greys = lambda : sglob("data/knime_test_data/data/predict/grayscale/*.tif")
+
+unseen_greys = lambda : sglob("data/unseen_greys/mean8/*.tif")
+unseen_labels = lambda : sglob("data/unseen_labels/pooled/*.tif")
+# unseen_mem_predict = lambda : sglob("data/unseen_mem_predict/*.tif")
+unseen_mem_predict = lambda : sglob("data/2015*predict.tif")
+unseen_seg = lambda : sglob("data/2015*seg.tif")
 
 
 def imsave(fname, img, **kwargs):
     io.imsave(fname, img, compress=6, **kwargs)
     # io.imsave(fname, img, **kwargs)
+
+def imread(fname, **kwargs):
+    return io.imread(fname, plugin='tifffile', **kwargs)
 
 # ---- HOW WE MADE THE DATA
 
@@ -97,8 +102,8 @@ def compare_segment_predictions_with_groundtruth(segs, labels):
     from label_imgs import match_score_1
     def print_and_score(s_l):
         s,l = s_l
-        simg = io.imread(s)
-        limg = io.imread(l)
+        simg = imread(s)
+        limg = imread(l)
         print('\n', s)
         return match_score_1(simg, limg)
     return map(print_and_score, zip(segs, labels))
@@ -126,7 +131,7 @@ def segment_classified_images(membranes, threshold):
         lab_img = np.array(lab_img, dtype='uint16')
         return lab_img
 
-    imgs = map(io.imread, membranes)
+    imgs = map(imread, membranes)
     res = map(get_label, imgs)
     for fname, img in zip(membranes, res):
         path, base, ext = util.path_base_ext(fname)
@@ -136,8 +141,13 @@ def segment_classified_images(membranes, threshold):
 
 def train_unet(greys, labels, model=None, savedir=None):
     "greys and labels are lists of filenames of greyscale and labeled images."
-    grey_imgs = map(io.imread, greys)
-    label_imgs = map(io.imread, labels)
+    grey_imgs = [imread(x) for x in greys]
+    label_imgs = [imread(x) for x in labels]
+
+    print(greys)
+    print(labels)
+    print(grey_imgs)
+    print(type(grey_imgs[0]))
 
     X,Y = unet.imglists_to_XY(grey_imgs, label_imgs)
     X,Y = unet.process_XY_for_training(X, Y)
@@ -167,7 +177,7 @@ def predict_unet(greys, model=None, savedir=None):
         model.load_weights("./unet_model_weights_checkpoint.h5")
 
     # for name, img in zip(unseen_greyscale_files(), unseen_greys()):
-    images = map(io.imread, greys)
+    images = map(imread, greys)
     for name, img in zip(greys, images):
         res = unet.predict_single_image(model, img, batch_size=4)
         print("There are {} nans!".format(np.count_nonzero(~np.isnan(res))))
@@ -199,8 +209,8 @@ def save_patches(X,Y,Ypred):
 def train_and_test_rafo_gabor(greys, labels):
     import build_featurestack as bf
     import rf
-    greyscale_list = map(io.imread, greys)
-    labels_list = map(io.imread, labels)
+    greyscale_list = map(imread, greys)
+    labels_list = map(imread, labels)
 
     gabor_list = map(bf.gabor_stack, greyscale_list)
 
@@ -223,8 +233,8 @@ def train_and_test_rafo_gabor(greys, labels):
 def train_and_test_rafo_weka():
     import rf
 
-    knime_list = glob("data/knime_test_data/data/train/features/features_?.tif")
-    knime_list = map(io.imread, knime_list)
+    knime_list = sglob("data/knime_test_data/data/train/features/features_?.tif")
+    knime_list = map(imread, knime_list)
 
     X,Y = rf.imglist_to_XY(knime_list, labels_list)
     train_ind, test_ind = util.subsample_ind(X,Y,0.2)
@@ -284,7 +294,7 @@ def run_gridsearch():
 
 def setup_new_dir_and_return_dirname():
     import util
-    number = int(glob('results/*')[-1][-4:])
+    number = int(sglob('results/*')[-1][-4:])
     saveDir = 'results/trial{:04d}/'.format(number+1)
     util.safe_makedirs(saveDir)
     # make directory
@@ -299,6 +309,8 @@ def setup_new_dir_and_return_dirname():
 
 # ---- Main entry point
 if __name__ == '__main__':
+    # print(knime_train_data_greys())
+    # print(knime_train_data_labels())
     unet.x_width = 160
     unet.y_width = 160
     unet.step = 10
@@ -307,3 +319,4 @@ if __name__ == '__main__':
     # predict_unet(knime_predict_data_greys(), model)
     saveDir = setup_new_dir_and_return_dirname()
     train_unet(knime_train_data_greys(), knime_train_data_labels(), model, saveDir)
+    #print(io.find_available_plugins())
