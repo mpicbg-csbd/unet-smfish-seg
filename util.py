@@ -4,6 +4,9 @@ import skimage.io as io
 from glob import glob
 import os
 
+def sglob(string):
+    return sorted(glob(string))
+
 def subsample_ind(X,Y,test_fraction, rand_state=None):
     """
     returns (sorted) train and test indices in appropriate ratio

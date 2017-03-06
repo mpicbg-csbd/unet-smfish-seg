@@ -18,18 +18,16 @@ from skimage.filter import threshold_isodata, threshold_otsu
 
 import sys
 sys.path.append("./models/")
-import shutil
 
 import label_imgs
 import util
+from util import sglob
 import unet
 
 
 # import mnist_keras as mk
 
 # run training across a set of images
-
-sglob = lambda string: sorted(glob(string))
 
 knime_train_data_greys_bgblack = lambda : sglob("data/knime_test_data/data/train/greyscale_bg_removed/bg_removed?.tif")
 knime_train_data_greys = lambda : sglob("data/knime_test_data/data/train/grayscale/grayscale_?.tif")
@@ -144,10 +142,10 @@ def train_unet(greys, labels, model=None, savedir=None):
     grey_imgs = [imread(x) for x in greys]
     label_imgs = [imread(x) for x in labels]
 
-    print(greys)
-    print(labels)
-    print(grey_imgs)
-    print(type(grey_imgs[0]))
+    print("Input greyscale images:")
+    map(print, greys)
+    print("Input label images:")
+    map(print, labels)
 
     X,Y = unet.imglists_to_XY(grey_imgs, label_imgs)
     X,Y = unet.process_XY_for_training(X, Y)
@@ -291,32 +289,3 @@ def run_gridsearch():
                              param_grid = param_test1, scoring='roc_auc',n_jobs=4,iid=False, cv=5)
     gsearch1.fit(train[predictors],train[target])
     gsearch1.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
-
-def setup_new_dir_and_return_dirname():
-    import util
-    number = int(sglob('results/*')[-1][-4:])
-    saveDir = 'results/trial{:04d}/'.format(number+1)
-    util.safe_makedirs(saveDir)
-    # make directory
-    move = lambda f: shutil.copy(f, saveDir)
-    filesToMove = ["ipy.py", "models/unet.py"]
-    map(move, filesToMove)
-    return saveDir
-
-    # move source files there
-    # run training and use dir as model checkpoint folder
-    # save model th
-
-# ---- Main entry point
-if __name__ == '__main__':
-    # print(knime_train_data_greys())
-    # print(knime_train_data_labels())
-    unet.x_width = 160
-    unet.y_width = 160
-    unet.step = 10
-    model = unet.get_unet()
-    model.load_weights(sys.argv[1])
-    # predict_unet(knime_predict_data_greys(), model)
-    saveDir = setup_new_dir_and_return_dirname()
-    train_unet(knime_train_data_greys(), knime_train_data_labels(), model, saveDir)
-    #print(io.find_available_plugins())
