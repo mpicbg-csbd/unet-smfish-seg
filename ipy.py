@@ -143,9 +143,11 @@ def train_unet(greys, labels, model=None, savedir=None):
     label_imgs = [imread(x) for x in labels]
 
     print("Input greyscale images:")
-    map(print, greys)
+    for name in greys:
+        print(name)
     print("Input label images:")
-    map(print, labels)
+    for name in labels:
+        print(name)
 
     X,Y = unet.imglists_to_XY(grey_imgs, label_imgs)
     X,Y = unet.process_XY_for_training(X, Y)

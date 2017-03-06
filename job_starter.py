@@ -16,7 +16,7 @@ def setup_new_dir_and_return_dirname():
     return saveDir
 
 def main(direct):
-    home = os.getcwdu()
+    home = os.getcwd()
     # params = makeParams()
     # repeats = 1
     # N = params["N"]
@@ -49,8 +49,8 @@ def main(direct):
       print("Running job:", job)
     elif platform.uname()[1].startswith('falcon'):
       print("On Madmax. Trying bsub. TODO...")
+      job = "bsub -J {1} -n 1 -q gpu -W 8:00 -M 4096 -e {0}/stderr -o {0}/stdout time python main.py {0} &".format(direct, os.path.basename(direct)[-8:])
       subprocess.call(job, shell=True)
-      job = "bsub -J {1} -n 1 -q gpu -W 24:00:00 -M 4096 -e {0}/stderr -o {0}/stdout time python main.py {0} &".format(direct, os.path.basename(direct)[-8:])
     else:
       print("ERROR: Couldn't detect platform!")
 

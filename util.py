@@ -22,7 +22,8 @@ def subsample_ind(X,Y,test_fraction, rand_state=None):
         rs = np.random.RandomState(rand_state)
     test_ind = rs.choice(Y.shape[0], size=test_size, replace=False)
     test_ind.sort()
-    train_ind = filter(lambda idx: idx not in test_ind, idxs)
+    # train_ind = filter(lambda idx: idx not in test_ind, idxs)
+    train_ind = [idx for idx in idxs if idx not in test_ind]
     train_ind = np.array(train_ind)
     # train_ind = np.random.choice(Y.shape[0], size=train_size, replace=False)
     return train_ind, test_ind
