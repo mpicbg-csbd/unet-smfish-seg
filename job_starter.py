@@ -44,9 +44,6 @@ def main(direct):
       subprocess.call(job, shell=True)
     elif platform.uname()[1].startswith('falcon1'):
       print("On Furiosa. Trying SLURM.")
-      subprocess.call("module load hdf5", shell=True)
-      subprocess.call("module load gcc/5.3.0", shell=True)
-      subprocess.call("module load cuda/8.0.44", shell=True)
       job = "srun -n 1 -c 4 -p gpu --time=24:00:00 --mem-per-cpu=4096 -e {0}/stderr -o {0}/stdout time python main.py {0}".format(direct)
       subprocess.call(job, shell=True)
       print("Running job:", job)
