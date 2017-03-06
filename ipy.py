@@ -142,7 +142,9 @@ def train_unet(greys, labels, model=None, savedir=None):
     X,Y = unet.imglists_to_XY(grey_imgs, label_imgs)
     X,Y = unet.process_XY_for_training(X, Y)
     # this shuffles the data (if we're gonna augment data, do it now)
+    print("X.shape = ", X.shape, " and Y.shape = ", Y.shape)
     train_ind, test_ind = util.subsample_ind(X, Y, test_fraction=0.2, rand_state=0)
+    print("train_ind = ", train_ind, " and test_ind =", test_ind)
     np.random.shuffle(train_ind)
     np.random.shuffle(test_ind)
     X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]

@@ -131,12 +131,12 @@ def process_XY_for_training(X,Y):
     X = X[inds]
     Y = Y[inds]
     a,c,d = X.shape
-    X1 = np.flip(X, 1)
-    X2 = np.flip(X, 2)
-    Y1 = np.flip(Y, 1)
-    Y2 = np.flip(Y, 2)
-    X3 = np.flip(np.flip(X, 1), 2)
-    Y3 = np.flip(np.flip(Y, 1), 2)
+    X1 = np.flipud(X)
+    X2 = np.fliplr(X)
+    Y1 = np.flipud(Y)
+    Y2 = np.fliplr(Y)
+    X3 = np.flipud(np.fliplr(X))
+    Y3 = np.flipud(np.fliplr(Y))
     X = np.concatenate((X, X1, X2, X3), axis=0)
     Y = np.concatenate((Y, Y1, Y2, Y3), axis=0)
     # from scipy.ndimage import rotate
