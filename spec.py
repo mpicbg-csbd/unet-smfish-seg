@@ -48,3 +48,11 @@ def check_against_spec(path):
     # deal with their issues!
 
     # Number of features in feature stack must be the same across whole directory.
+
+    # x vs y, dim 2 vs dim 1, height vs width, and (left to right vs right left)
+    # where is (x,y) = (0,0) ? top right? bottom left? 
+
+
+    # The label values for pixels that we use with membrane=1/background=0/vertex=2 label images
+    # assigns different values to membrane and background than the images with labeled cells
+    # where background=1, membrane=0,cell=unique_id...

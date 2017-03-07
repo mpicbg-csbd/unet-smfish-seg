@@ -41,9 +41,17 @@ unseen_labels = lambda : sglob("data/unseen_labels/pooled/*.tif")
 unseen_mem_predict = lambda : sglob("data/2015*predict.tif")
 unseen_seg = lambda : sglob("data/2015*seg.tif")
 
+# --- NEW DATA BELOW [only use this] ---
+
+greyscales = lambda : sglob("data2/labeled_data_100xObj/images/*.tif")
+labels = lambda : sglob("data2/labeled_data_100xObj/labels/*.tif")
+greyscales_down3x = lambda : sglob("data2/labeled_data_100xObj/images/down3x/*.tif")
+labels_down3x = lambda : sglob("data2/labeled_data_100xObj/labels/pooled/*.tif")
+
+
 
 def imsave(fname, img, **kwargs):
-    io.imsave(fname, img, compress=6, **kwargs)
+    io.imsave(fname, img, compress=6, plugin='tifffile', **kwargs)
     # io.imsave(fname, img, **kwargs)
 
 def imread(fname, **kwargs):
@@ -59,25 +67,29 @@ def imread(fname, **kwargs):
 #         imsave(base + "_overlay" + ext, new)
 #     map(save, pairs)
 
-# def min_pool_downscale():
-#     from skimage.util import view_as_windows
-#     def pooled(img):
-#         img = img[0]
-#         print("shape: ", img.shape)
-#         img = view_as_windows(img, 6, step=6)
-#         return np.min(img, axis=(2,3))
-#     util.apply_operation_to_imgdir("data/unseen_labels/", pooled)
+def min_pool_downscale():
+    from skimage.util import view_as_windows
+    def pooled(img):
+        img[img==0] = 3 # so that membrane is 1 is the min value
+        print("shape: ", img.shape)
+        img = view_as_windows(img, 3, step=3)
+        img = np.min(img, axis=(2,3))
+        # now permute back
+        img[img==3] = 0
+        return img
+    util.apply_operation_to_imgdir("data2/labeled_data_100xObj/labels/", pooled)
 
 def mean_downscale():
     from skimage.util import view_as_windows
-    def mean8(img):
+    def down3x(img):
         s = img.shape
         print("shape: ", img.shape)
-        if s[0] > s[1]:
-            img = np.transpose(img)
-        img = view_as_windows(img, 8, step=8)
-        return np.mean(img, axis=(2,3)).astype(np.float32)
-    util.apply_operation_to_imgdir("data/unseen_greys/", mean8)
+        # if s[0] > s[1]:
+        # img = np.transpose(img)
+        img = view_as_windows(img, 3, step=3)
+        img = np.mean(img, axis=(2,3)).astype(np.float32)
+        return img/img.max()
+    util.apply_operation_to_imgdir("data2/labeled_data_100xObj/images/", down3x)
 
 # def rotate():
 #     def rot(img):
@@ -139,9 +151,11 @@ def segment_classified_images(membranes, threshold):
 
 def train_unet(greys, labels, model=None, savedir=None):
     "greys and labels are lists of filenames of greyscale and labeled images."
-    grey_imgs = [imread(x) for x in greys]
-    label_imgs = [imread(x) for x in labels]
+    # We're training on only the right half of each image!
+    # Then we can easily identify overfitting by eye.
 
+    grey_imgs = [imread(x)[:,300:] for x in greys]
+    label_imgs = [imread(x)[:,300:] for x in labels]
     print("Input greyscale images:")
     for name in greys:
         print(name)
