@@ -81,15 +81,15 @@ def min_pool_downscale():
 
 def mean_downscale():
     from skimage.util import view_as_windows
-    def down3x(img):
+    def down6x(img):
         s = img.shape
         print("shape: ", img.shape)
         # if s[0] > s[1]:
         # img = np.transpose(img)
-        img = view_as_windows(img, 3, step=3)
+        img = view_as_windows(img, 6, step=6)
         img = np.mean(img, axis=(2,3)).astype(np.float32)
         return img/img.max()
-    util.apply_operation_to_imgdir("data2/labeled_data_100xObj/images/", down3x)
+    util.apply_operation_to_imgdir("data2/labeled_data_100xObj/originals/", down6x)
 
 # def rotate():
 #     def rot(img):
@@ -107,6 +107,15 @@ def mean_downscale():
 
 # ---- Try with a UNet
 
+def upscale_and_compare(labeling, annotated):
+    a,b = labeling.shape
+    _,c,d = annotated.shape
+    upscaled = zoom(labeling, (c/a, d/b), order=0)
+    score = label_imgs.match_score_1(annotated[0], upscaled)
+    imsave('upscaled.tif', upscaled)
+    imsave('cells.tif', annotated[0])
+    return score
+
 def compare_segment_predictions_with_groundtruth(segs, labels):
     "segs and labels are lists of filenames of images."
     from label_imgs import match_score_1
@@ -118,34 +127,34 @@ def compare_segment_predictions_with_groundtruth(segs, labels):
         return match_score_1(simg, limg)
     return map(print_and_score, zip(segs, labels))
 
+def get_label(img, threshold):
+    "normalizes img min&max to [0,1), then binarize at threshold, then labels connected components."
+    img = img.astype(np.float32, copy = False)
+    img = np.nan_to_num(img) # sets nan to zero?
+    img /= img.max()
+
+    # threshold = threshold_otsu(img)
+
+    # x = (1-threshold) * 0.22
+    # threshold += x
+
+    # img < threshold means the membrane takes on high values and we want the cytoplasm
+    mask = np.where(img < threshold, 1, 0)
+
+    lab_img = label(mask)[0]
+    print("Number of cells: ", lab_img.max())
+
+    # convert from int32
+    lab_img = np.array(lab_img, dtype='uint16')
+    return lab_img
+
 def segment_classified_images(membranes, threshold):
     "membranes is a list of filenames of membrane images."
-    def get_label(img):
-        img = img.astype(np.float32, copy = False)
-        img = np.nan_to_num(img)
-        img /= img.max()
-
-        # threshold = threshold_otsu(img)
-
-        # x = (1-threshold) * 0.22
-        # threshold += x
-
-        # img < threshold means the membrane takes on high values and we want the cytoplasm
-        mask = np.where(img < threshold, 1, 0)
-        # mask = np.where(img > threshold)
-
-        lab_img = label(mask)[0]
-        print("Number of cells: ", lab_img.max())
-
-        # convert from int32
-        lab_img = np.array(lab_img, dtype='uint16')
-        return lab_img
-
-    imgs = map(imread, membranes)
-    res = map(get_label, imgs)
+    imgs = [imread(mem) for mem in membranes]
+    res = [get_label(img, threshold) for img in imgs]
     for fname, img in zip(membranes, res):
         path, base, ext = util.path_base_ext(fname)
-        imsave(base + '_seg' + ext, img)
+        imsave(base + '_seg' + ext, img) 
         imsave(base + '_seg_preview' + ext, label_imgs.labelImg_to_rgb(img))
     return res
 

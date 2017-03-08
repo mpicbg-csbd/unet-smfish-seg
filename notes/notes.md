@@ -572,6 +572,49 @@ Every TODO above this line has been ported over to Workflowy todo list
 
 # Fri Feb 24 14:28:06 2017
 
+# Wed Mar  8 10:54:39 2017
+
+We really want two different workflows for training and prediction. Predictions should specify the model file to use, but the predictions do not go in the same folder as the model file.
+
+Models result from code
+Predictions ⤆ code + input images
+
+**What is my current problem?**
+- My cell segmentations aren't perfect (but they are quite good?)
+- There are some pieces of membrane where I don't know the correct classification!
+- The project isn't ready for use by 3rd parties.
+- I can't compare cell segmentations with full size results!
+  + Rotate original images.
+  + Scale up the cell predictions
+- Do we want predictions with vertices?
+- I don't know what learning rate is best? (This is not an issue if the membrane maps are good!)
+  + With learning rate 0.005 we can't escape the initial param regime where everything is grey...
+
+I want to know if there are labeled versions of the images in "Cell segmentations paper/"... They are all labeled... 
+
+---
+
+I want to automatically segment my images. To find the best threshold segmentation level and compare it against snake-based segmentation. How easy would it be to 
+
+OK! Everything in data2/ is now rotated correctly! Problems solved.
+
+Can't compare the cropped images with the cell segmentation GT!
+Gotta predict on the non-cropped imgs...
+
+FOUND THE REMAINING CELL SEGMENTATIONS!!!
+
+Now we really have ALL the labeled data AND the full size input images.
+
+
+
+
+
+
+
+
+
+
+
 
 
 
