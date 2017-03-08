@@ -44,7 +44,8 @@ def main(direct):
       subprocess.call(job, shell=True)
     elif platform.uname()[1].startswith('falcon1'):
       print("On Furiosa. Trying SLURM.")
-      job = "srun -J {1} -n 1 -c 4 -p gpu --time=24:00:00 --mem-per-cpu=4096 -e {0}/stderr -o {0}/stdout time python main.py {0} &".format(direct, os.path.basename(direct)[-8:])
+      job = "srun -J {1} -n 1 -p gpu --time=24:00:00 -e {0}/stderr -o {0}/stdout time python main.py {0} &".format(direct, os.path.basename(direct)[-8:])
+      #job = "srun -J {1} -n 1 -c 4 -p gpu --time=24:00:00 --mem-per-cpu=4096 -e {0}/stderr -o {0}/stdout time python main.py {0} &".format(direct, os.path.basename(direct)[-8:])
       subprocess.call(job, shell=True)
       print("Running job:", job)
     elif platform.uname()[1].startswith('falcon'):

@@ -43,10 +43,11 @@ unseen_seg = lambda : sglob("data/2015*seg.tif")
 
 # --- NEW DATA BELOW [only use this] ---
 
-greyscales = lambda : sglob("data2/labeled_data_100xObj/images/*.tif")
-labels = lambda : sglob("data2/labeled_data_100xObj/labels/*.tif")
-greyscales_down3x = lambda : sglob("data2/labeled_data_100xObj/images/down3x/*.tif")
-labels_down3x = lambda : sglob("data2/labeled_data_100xObj/labels/pooled/*.tif")
+greyscales = lambda : sglob("data2/greyscales/*.tif")
+labels = lambda : sglob("data2/Cell_segmentations_paper/*.tif")
+# newgreys = lambda : sglob("data2/20150513_New_data/*.tif")
+# greyscales_down3x = lambda : sglob("data2/labeled_data_100xObj/images/down3x/*.tif")
+# labels_down3x = lambda : sglob("data2/labeled_data_100xObj/labels/pooled/*.tif")
 
 
 
@@ -158,19 +159,31 @@ def segment_classified_images(membranes, threshold):
         imsave(base + '_seg_preview' + ext, label_imgs.labelImg_to_rgb(img))
     return res
 
-def train_unet(greys, labels, model=None, savedir=None):
+def train_unet(greys, labels, model, savedir=None):
     "greys and labels are lists of filenames of greyscale and labeled images."
     # We're training on only the right half of each image!
     # Then we can easily identify overfitting by eye.
 
-    grey_imgs = [imread(x)[:,300:] for x in greys]
-    label_imgs = [imread(x)[:,300:] for x in labels]
+    grey_imgs = [imread(x) for x in greys]
+    label_imgs = [imread(x)[0] for x in labels]
+    grey_imgs_small = []
+    label_imgs_small = []
+    for grey,lab in zip(grey_imgs, label_imgs):
+        a,b = grey.shape    
+        grey_imgs_small.append(grey[:,0:b//2])
+        label_imgs_small.append(lab[:,0:b//2])
+
     print("Input greyscale images:")
     for name in greys:
         print(name)
     print("Input label images:")
     for name in labels:
         print(name)
+
+    for grey,lab in zip(grey_imgs, label_imgs):
+        print(grey.shape, lab.shape)
+    for grey,lab in zip(grey_imgs_small, label_imgs_small):
+        print(grey.shape, lab.shape)
 
     X,Y = unet.imglists_to_XY(grey_imgs, label_imgs)
     X,Y = unet.process_XY_for_training(X, Y)
@@ -182,30 +195,15 @@ def train_unet(greys, labels, model=None, savedir=None):
     np.random.shuffle(test_ind)
     X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
 
-    # train
-    if model is None:
-        unet.x_width = 160
-        unet.y_width = 160
-        unet.step = 10
-        model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, batch_size = 1, nb_epoch = 3, savedir=savedir)
-    else:
-        model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, model, batch_size = 1, nb_epoch = 20, savedir=savedir)
-    # model.save_weights('unet_weights.h5')
+    model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, model, batch_size = 1, nb_epoch = 300, savedir=savedir)
     return model
 
-def predict_unet(greys, model=None, savedir=None):
-    if model is None:
-        unet.x_width = 200
-        unet.y_width = 200
-        unet.step = 10
-        model = unet.get_unet()
-        model.load_weights("./unet_model_weights_checkpoint.h5")
-
+def predict_unet(greys, model, savedir=None):
     # for name, img in zip(unseen_greyscale_files(), unseen_greys()):
     images = map(imread, greys)
     for name, img in zip(greys, images):
         res = unet.predict_single_image(model, img, batch_size=4)
-        print("There are {} nans!".format(np.count_nonzero(~np.isnan(res))))
+        # print("There are {} nans!".format(np.count_nonzero(~np.isnan(res))))
         path, base, ext =  util.path_base_ext(name)
         if savedir is None:
             imsave(base + '_predict' + ext, res.astype(np.float32))

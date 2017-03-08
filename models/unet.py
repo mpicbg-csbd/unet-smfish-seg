@@ -109,7 +109,10 @@ def imglist_to_Y(labellist):
     Y = Y.reshape(a, 1, b, c)
 
     # convert label values to vector of label scores
-    Y[Y==2] = 1
+    # Y[Y==2] = 1
+    Y[Y!=0] = 3
+    Y[Y==0] = 1
+    Y[Y==3] = 0
     assert Y.min() == 0
     nb_classes = Y.max()+1
     Y = Y.reshape(a*b*c)
@@ -123,7 +126,7 @@ def imglists_to_XY(greylist, labellist):
     return X,Y
 
 def process_XY_for_training(X,Y):
-    assert X.ndim==4 # samples, y, x, ...
+    assert X.ndim==4 # samples, y, x + channels...
     a,b,c,d = X.shape
     X = X.reshape(a,c,d)
     Y = Y.reshape(a,c,d,2)
