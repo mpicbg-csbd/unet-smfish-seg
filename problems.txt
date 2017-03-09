@@ -1,0 +1,97 @@
+problems
+
+# Thu Mar  9 13:28:55 2017 -- Early stopping, weak models & proper scaling
+
+I submitted a job to the cluster last night: `results/bigim3/`. It was supposed to run for 300 epochs, but only ran for 18. There were no signs of error in the stderr log, or in stdout.
+
+The callbacks I was running include...
+checkpoint and earlystopper.
+
+I bet it was earlystopper on the validation loss, which appeared not to be advancing very much any more.
+
+I changed the verbosity to 1, so it will tell me when it causes an earlystop, but I aslo bet there was a problem that the model was just not powerful enough.
+
+We can either try to fix this problem by adding more layers, or by decreasing the size of the input images. Our normal size is 6x smaller. This leads to good predictions, but we have trouble upscaling the images again.
+
+If we're going to get good cell segmentations, we don't want to be upscaling images by a factor of 6!!! This will completely destroy many of the cells in the ground truth, turning them into things only a few pixels on a side...
+
+We want to know how: *how much can we downscale the image and still get 100% correct cell segmentations after upscaling?* We can answer this question (and the maximum accuracy of our membrane segmentations) because we have access to cell and membrane segmentation ground truth.
+
+-------------------------------------------------------------------------------
+
+# Thu Mar  9 13:41:14 2017 -- Fiji vs leiningen & maven
+
+I want to make quick clojure scripts that can interact with the images I have open in fiji. Why not just always work with ndarrays and python, and **only use fiji for viewing and measuring**?
+
+My problem is when I use clojure with leiningen, importing all the java/imageJ classes that I need, I don't have access to the full power of Fiji; just ImageJ.
+
+You can run simple clojure scripts from the command line with `fiji script.clj` to execute them with all of the Fiji classes & plugins on the classpath! This is really powerful! But it is also totally non-standard. Would the REPL still work? No, because you are executing via a totally separate mechanism. But fiji has it's own REPL! But this would totally ignore `leiningen`. It might not even be able to pick up the other local clojure files, unless it automatically adds the local dir to the classpath. The behavior you get when running via fiji and via Lein or standard clojure will not be in general the same, because the package versions will be different between fiji and maven.
+
+-------------------------------------------------------------------------------
+
+# Thu Mar  9 16:16:44 2017 -- Analysis of ./results/halfhalf_pred4_2/
+
+I've got my predictions back on the correctly-cropped images. They look similar but not identical to the predictions on the non-cropped training data. The membrane signal is strong and the connected-component cell segmentations are not too sensitive to the threshold level. The pixelwise accuracy on the test-data was 96.66%, but the cell segmentation accuracy was much worse:
+
+Was able to match $col1 cells out of the $col2 cells in the ground truth and the $col3 cells in the predicted image.
+
+matched  GT   predicted  Image
+=======  ==   =========  =====
+138      222  236        20150127_EVLvsInner01
+139      247  267        20150128_fig10
+187      364  384        20150206_older_stages_test02
+77       128  175        20150211_mex3b_sox19a_domes03
+139      241  236        20150211_mex3b_sox19a_domes04
+136      177  247        20150211_mex3b_sox19a_domes09
+161      246  273        20150211_mex3b_sox19a_domes10
+159      245  300        20150211_mex3b_sox19a_domes19
+113      256  190        20150215_fig3_sphere_repeat02
+68       138  171        20150215_fig3_sphere_repeat07
+117      195  265        20150215_fig3_sphere_repeat09
+123      186  194        20150215_fig3_sphere_repeat11
+137      204  259        20150215_fig3_sphere_repeat16
+137      201  228        20150215_fig3_sphere_repeat17
+79       200  275        20150430_eif4g_dome01
+92       224  184        20150430_eif4g_dome03
+107      189  268        20150430_eif4g_dome06
+160      322  248        20150430_eif4g_dome07
+
+
+*What are the problems?*
+
+To identify the problems we probably want to look at the locations in the images which are not being segmented well. We may also want to look for pixels that are mispredicted, to see if they are spatially correlated (to each other or and (obviously) and to the cell predictions).
+
+- We could use a different segmentation methods (instead of flat threshold)
+- The cells could be grown after they are labeled, until they are within 1px of a neighbor.
+- We could train on the membrane ground truth *inferred* from the cell segmentations!
+- The model could be better! We could continue training it! It wasn't done.
+
+Maybe we want to emphasize the pixels *near* the membrane a little more?
+
+Let's run two simulations, both continuing with the model and param_weights from the end of the halfhalf run.
+1. Continue with the ground truth data (6x downscaled and cropped?)
+2. Continue with the uncropped 6x downscaled data and new associated annotations from cell segmentations directly.
+3. Try with only 3x downscaled data and see what kind of accuracy you can get...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

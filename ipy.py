@@ -71,14 +71,15 @@ def imread(fname, **kwargs):
 def min_pool_downscale():
     from skimage.util import view_as_windows
     def pooled(img):
-        img[img==0] = 3 # so that membrane is 1 is the min value
+        img = img[0]
+        # img[img==0] = 2000 # so that membrane is 1 is the min value
         print("shape: ", img.shape)
-        img = view_as_windows(img, 3, step=3)
+        img = view_as_windows(img, 6, step=6)
         img = np.min(img, axis=(2,3))
         # now permute back
-        img[img==3] = 0
+        # img[img==2000] = 0
         return img
-    util.apply_operation_to_imgdir("data2/labeled_data_100xObj/labels/", pooled)
+    util.apply_operation_to_imgdir("data2/Cell_segmentations_paper/", pooled)
 
 def mean_downscale():
     from skimage.util import view_as_windows
@@ -90,7 +91,7 @@ def mean_downscale():
         img = view_as_windows(img, 6, step=6)
         img = np.mean(img, axis=(2,3)).astype(np.float32)
         return img/img.max()
-    util.apply_operation_to_imgdir("data2/labeled_data_100xObj/originals/", down6x)
+    util.apply_operation_to_imgdir("data2/greyscales/", down6x)
 
 # def rotate():
 #     def rot(img):

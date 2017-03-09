@@ -126,15 +126,37 @@ def match_score_1(img1, img2):
     Faster label-image-comparison by first concatenating id1 and id2 (at same pixel location) into a single number (bitwise?) and then making a histogram, and then undoing the histogram back into a directed graph.
     """
     mat = matching_matrix(img1, img2)
+    # TODO: not 50%, but rather just the max!!! This isn't what we want
     # first map from img1 to img2
     ans = [np.argmax(mat[i,:]) for i in range(mat.shape[0])]
     # then from img2 back to img1
     ans2 = [np.argmax(mat[:,i]) for i in ans]
-    perfect = range(len(ans))
     ans2 = np.array(ans2)
+    perfect = range(mat.shape[0])
     perfect = np.array(perfect)
     matches = ans2 == perfect
-    print("{} Best Matches out of {} cells...".format(len(perfect[matches]), len(perfect)))
-    return len(perfect[matches])
+    n_matched = len(perfect[matches])
+    n_gt = mat.shape[0]-1
+    n_predict = mat.shape[1]-1
+    print("{} Best Matches out of {} GT cells and {} predicted cells...".format(n_matched, n_gt, n_predict))
+    # print("Perfect matches are: ", perfect[matches])
+    return n_matched, n_gt, n_predict
+
+
 
 # or weighted edges with weight corresponding to the number of overlapping pixels
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
