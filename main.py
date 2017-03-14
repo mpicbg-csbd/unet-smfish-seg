@@ -6,9 +6,9 @@ from skimage.io import imread
 import datasets as d
 
 if __name__ == '__main__':
-    greys = sglob("data2/greyscales/down6x/*.tif")
+    greys = sglob("data2/greyscales/down3x/*.tif")
     greys = [d.imread(img) for img in greys]
-    labels = sglob("data2/labels/down6x/*.tif")
+    labels = sglob("data2/labels/down3x/*.tif")
     labels = [d.imread(img) for img in labels]
 
     print("Input greyscale images:")

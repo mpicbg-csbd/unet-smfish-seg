@@ -247,6 +247,9 @@ def train_unet(grey_imgs, label_imgs, model):
     earlystopper = EarlyStopping(patience=patience, verbose=1)
     callbacks = [checkpointer, earlystopper]
 
+    X_vali = theano_ordering(X_vali)
+    Y_vali = theano_ordering_and_labels_to_activations(Y_vali)
+
     # Build and Train
     print("RUN FIT GENERATOR")
     model.fit_generator(
@@ -254,8 +257,8 @@ def train_unet(grey_imgs, label_imgs, model):
               samples_per_epoch=X_train.shape[0],
               nb_epoch=nb_epoch,
               verbose=1,
-              validation_data=batch_generator_patches(X_vali, Y_vali),
-              nb_val_samples=X_vali.shape[0],
+              validation_data=(X_vali, Y_vali),
+              #nb_val_samples=X_vali.shape[0],
               callbacks=callbacks)
 
     score = model.evaluate(X_vali, Y_vali, verbose=1)
@@ -270,6 +273,7 @@ def batch_generator_patches(X,Y, verbose=False):
     count = 0
     while (True):
         print("INSIDE genertor! Loop Count is: ", count)
+        count += 1
         offset = 0
         while offset+batch_size <= X.shape[0]:
             if verbose:
@@ -282,7 +286,7 @@ def batch_generator_patches(X,Y, verbose=False):
 
             Xbatch = theano_ordering(Xbatch)
             Ybatch = theano_ordering_and_labels_to_activations(Ybatch)
-            print("Size and Shape: ")
+            print("Yielding X,Y. Size and Shape: ")
             print(Xbatch.shape, Ybatch.shape)
             yield Xbatch, Ybatch
 
