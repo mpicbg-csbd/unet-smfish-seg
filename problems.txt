@@ -92,7 +92,8 @@ At the moment I take care of things inside my code. But the places I have to cha
 
 -------------------------------------------------------------------------------
 
-# Fri Mar 10 10:47:18 2017 -- Data Generators, Runtime prediction [related to: # GPU memory explodes]
+# Fri Mar 10 10:47:18 2017 -- Data Generators, Runtime prediction
+[related to: # GPU memory explodes]
 
 I tried running two jobs yesterday on two different versions of the labeled data:
 
@@ -149,8 +150,15 @@ We'll apply this to the 6x and 3x downaveraged data.
 
 How much memory will this take? The 160x160 stride 10 patches required 16x coverage, this will only require 3x. Plus if we include the data generator then we can cut it down by another factor of 4x.
 
+# Tue Mar 14 13:53:54 2017 -- Inability to learn -- SOLVED
 
+A couple key realizations... The *Cell_segmentations_paper* folder is not filled with ground truth Annotations! It's filled with the output from the cell segmentation algorithm?! They appear to be the *corrected* output of the cell-segmentation algorithm? Although many bits don't appear to be corrected at all... But in general the output looks quite OK.. Why weren't we able to learn based on these annotations? This is the strangest thing...
 
+Aha! Maybe we couldn't learn because we're not using the generator in the right way! It has to apply the same transformation to both the X AND Y! Does it do that?... hmmmm... yes, it does. We were shuffling the X's and mutating them, but not the ys. the y's were never flipped, etc.
+
+Solution. Related to [[Data Generators]]. Build your own generator! Make sure it transforms both X and Y together.
+
+DONE.
 
 
 

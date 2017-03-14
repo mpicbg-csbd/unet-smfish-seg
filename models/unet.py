@@ -12,16 +12,24 @@ from keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStoppin
 from keras import backend as K
 from keras.utils import np_utils
 # from keras.utils.visualize_util import plot
+from keras.preprocessing.image import ImageDataGenerator
 from keras.optimizers import SGD
 
 import skimage.util as skut
 import util
 
 # global variables for patch dimensions and stride
-x_width = 160
-y_width = 160
-step = 10
+x_width = 120
+y_width = 120
+step = 30
 
+nb_classes = 2
+learning_rate = 0.0005
+membrane_weight_multiplier=10
+batch_size = 12
+nb_epoch = 1
+patience = 5
+savedir="./"
 
 # setup X and Y for feeding into the model
 
@@ -108,18 +116,12 @@ def imglist_to_X(greylist):
     both training and testing."""
 
     coords = map(regular_patch_coords, greylist)
-    f = lambda c_g: sample_patches_from_img(c_g[0],c_g[1])
-    greypatches = map(f, zip(coords, greylist))
+    greypatches = [sample_patches_from_img(c,g) for c,g in zip(coords, greylist)]
     X = np.concatenate(tuple(greypatches), axis=0)
 
-    # reshape into theano dimension ordering
-    a,b,c = X.shape
-    assert K.image_dim_ordering() == 'th'
-    X = X.reshape(a, 1, b, c)
-
     # normalize X per patch
-    mi = np.amin(X,axis = (1,2,3), keepdims = True)
-    ma = np.amax(X,axis = (1,2,3), keepdims = True)+1.e-10
+    mi = np.amin(X,axis = (1,2), keepdims = True)
+    ma = np.amax(X,axis = (1,2), keepdims = True)+1.e-10
     X = (X-mi)/(ma-mi)
     return X.astype(np.float32)
 
@@ -127,22 +129,22 @@ def imglist_to_Y(labellist):
     "turn list of images into ndarray of patches, labels and their coordinates"
 
     coords = map(regular_patch_coords, labellist)
-    f = lambda c_g: sample_patches_from_img(c_g[0],c_g[1])
-    labelpatches = map(f, zip(coords, labellist))
+    labelpatches = [sample_patches_from_img(c,g) for c,g in zip(coords, labellist)]
     Y = np.concatenate(tuple(labelpatches), axis=0)
+    return Y
 
+def theano_ordering(X):
     # reshape into theano dimension ordering
-    a,b,c = Y.shape
+    a,b,c = X.shape
     assert K.image_dim_ordering() == 'th'
-    Y = Y.reshape(a, 1, b, c)
+    X = X.reshape(a, 1, b, c)
+    return X
 
+def theano_ordering_and_labels_to_activations(Y):
     # convert label values to vector of label scores
-    # Y[Y==2] = 1
-    Y[Y!=0] = 3
-    Y[Y==0] = 1
-    Y[Y==3] = 0
     assert Y.min() == 0
-    nb_classes = Y.max()+1
+
+    a,b,c = Y.shape
     Y = Y.reshape(a*b*c)
     Y = np_utils.to_categorical(Y, nb_classes)
     Y = Y.reshape(a, b*c, nb_classes)
@@ -151,35 +153,6 @@ def imglist_to_Y(labellist):
 def imglists_to_XY(greylist, labellist):
     X = imglist_to_X(greylist)
     Y = imglist_to_Y(labellist)
-    return X,Y
-
-def process_XY_for_training(X,Y):
-    assert X.ndim==4 # samples, y, x + channels...
-    a,b,c,d = X.shape
-    X = X.reshape(a,c,d)
-    Y = Y.reshape(a,c,d,2)
-    ylabel = np.argmax(Y, axis=-1)
-    # 0.15 looks like a good value after close image inspection
-    # inds1 = np.mean(X, axis=(1,2)) > 0.15
-    inds = np.any(ylabel==1, axis=(1,2))
-    X = X[inds]
-    Y = Y[inds]
-    a,c,d = X.shape
-    X1 = np.flipud(X)
-    X2 = np.fliplr(X)
-    Y1 = np.flipud(Y)
-    Y2 = np.fliplr(Y)
-    X3 = np.flipud(np.fliplr(X))
-    Y3 = np.flipud(np.fliplr(Y))
-    X = np.concatenate((X, X1, X2, X3), axis=0)
-    Y = np.concatenate((Y, Y1, Y2, Y3), axis=0)
-    # from scipy.ndimage import rotate
-    # x_rotations = [rotate(X, theta, axes=(1,2), reshape=False) for theta in [-10, 0, 10]]
-    # y_rotations = [rotate(Y, theta, axes=(1,2), reshape=False, order=0) for theta in [-10, 0, 10]]
-    # X = np.concatenate(tuple(x_rotations), axis=0)
-    # Y = np.concatenate(tuple(y_rotations), axis=0)
-    X = X.reshape(4*a,1,c,d)
-    Y = Y.reshape(4*a,c*d,2)
     return X,Y
 
 # setup and train the model
@@ -231,123 +204,57 @@ def get_unet():
     model = Model(input=inputs, output=conv7)
     return model
 
-def get_unet_2():
-    inputs = Input((1, y_width, x_width))
-    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(inputs)
-    conv1 = Dropout(0.2)(conv1)
-    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv1)
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-    #
-    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(pool1)
-    conv2 = Dropout(0.2)(conv2)
-    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(conv2)
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-    #
-    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(pool2)
-    conv3 = Dropout(0.2)(conv3)
-    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(conv3)
+# ---- PUBLIC INTERFACE ----
 
-    up1 = merge([UpSampling2D(size=(2, 2))(conv3), conv2], mode='concat', concat_axis=1)
-    conv4 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(up1)
-    conv4 = Dropout(0.2)(conv4)
-    conv4 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(conv4)
-    #
-    up2 = merge([UpSampling2D(size=(2, 2))(conv4), conv1], mode='concat', concat_axis=1)
-    conv5 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(up2)
-    conv5 = Dropout(0.2)(conv5)
-    conv5 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv5)
-    #
-    # here nb_classes used to be just the number 2
-    conv6 = Convolution2D(2, 1, 1, activation='relu',border_mode='same')(conv5)
-    conv6 = core.Reshape((2, y_width*x_width))(conv6)
-    conv6 = core.Permute((2,1))(conv6)
-    ############
-    conv7 = core.Activation('softmax')(conv6)
+def train_unet(grey_imgs, label_imgs, model):
+    "greys and labels are lists of images."
 
-    model = Model(input=inputs, output=conv7)
-    return model
+    # We're training on only the right half of each image!
+    # Then we can easily identify overfitting by eye.
+    grey_imgs_small = []
+    label_imgs_small = []
+    for grey,lab in zip(grey_imgs, label_imgs):
+        a,b = grey.shape
+        grey_imgs_small.append(grey[:,0:b//2])
+        label_imgs_small.append(lab[:,0:b//2])
 
-def trainmodel(X_train, Y_train, X_vali, Y_vali, model=None, batch_size = 128, nb_epoch = 1, patience = 5, savedir=None):
-    """
-    Note: Input X,Y should really just be training data! Not all the labeled data we have!
-    """
+    # create ndarray of patches
+    print("CREATING PATCHES\n\n")
+    X,Y = imglists_to_XY(grey_imgs_small, label_imgs_small)
 
-    # Adjust Sample weights
+    # shuffle the patches
+    print("SHUFFLING PATCHES\n\n")
+    print("X.shape = ", X.shape, " and Y.shape = ", Y.shape)
+    train_ind, test_ind = util.subsample_ind(X, Y, test_fraction=0.2, rand_state=0)
+    print("train_ind = ", train_ind, " and test_ind =", test_ind)
+    np.random.shuffle(train_ind)
+    np.random.shuffle(test_ind)
+    X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
+
+    # Adjust sample weights
+    print("SETUP THE CLASSWEIGHTS\n\n")
     classimg = np.argmax(Y_train, axis=-1).flatten()
     n_zeros = len(classimg[classimg==0])
     n_ones = len(classimg[classimg==1])
     classweights = {0: 1, 1: n_zeros/n_ones}
     print(classweights)
-
-    # Which model?
-    if model is None:
-        model = get_unet()
-
-    # How to optimize?
-    # sgd = SGD(lr=0.01, decay=1e-6, momentum=0.3, nesterov=False)
-    # model.compile(optimizer='sgd',loss='categorical_crossentropy',metrics=['accuracy'])
-    # model.compile(optimizer='sgd',loss=my_categorical_crossentropy((1,30.)),metrics=['accuracy'])
-    # model.compile(optimizer=Adam(lr = 0.001),loss=my_categorical_crossentropy((1,10.)),metrics=['mean_squared_error'])
-    cw = classweights
-    model.compile(optimizer=Adam(lr = 0.0005), loss=my_categorical_crossentropy(weights=(cw[0], 10*cw[1])), metrics=['accuracy'])
-
-    # Callbacks
-    # TODO: IO/Filepaths controlled by single module...
-    if savedir is None:
-        checkpointer = ModelCheckpoint(filepath="./unet_model_weights_checkpoint.h5", verbose=0, save_best_only=True, save_weights_only=True)
-    else:
-        checkpointer = ModelCheckpoint(filepath=savedir + "/unet_model_weights_checkpoint.h5", verbose=0, save_best_only=True, save_weights_only=True)
-    earlystopper = EarlyStopping(patience=patience, verbose=0)
-    callbacks = [checkpointer, earlystopper]
-
-    # Build and Train
-    model.fit(X_train,
-              Y_train,
-              batch_size=batch_size,
-              nb_epoch=nb_epoch,
-              verbose=1,
-              validation_data=(X_vali, Y_vali),
-              callbacks=callbacks)
-
-    score = model.evaluate(X_vali, Y_vali, verbose=0)
-    print('Test score:', score[0])
-    print('Test accuracy:', score[1])
-    return model
-
-
-def trainmodel_generator(X_train, Y_train, X_vali, Y_vali, model, datagen, learning_rate = 0.0005, membrane_weight_multiplier=10, batch_size = 128, nb_epoch = 1, patience = 5, savedir="./"):
-    """
-    Note: Input X,Y should really just be training data! Not all the labeled data we have!
-    """
-
-    # Adjust Sample weights
-    classimg = np.argmax(Y_train, axis=-1).flatten()
-    n_zeros = len(classimg[classimg==0])
-    n_ones = len(classimg[classimg==1])
-    classweights = {0: 1, 1: n_zeros/n_ones}
-    print(classweights)
-
-    # How to optimize?
-    # sgd = SGD(lr=0.01, decay=1e-6, momentum=0.3, nesterov=False)
-    # model.compile(optimizer='sgd',loss='categorical_crossentropy',metrics=['accuracy'])
-    # model.compile(optimizer='sgd',loss=my_categorical_crossentropy((1,30.)),metrics=['accuracy'])
-    # model.compile(optimizer=Adam(lr = 0.001),loss=my_categorical_crossentropy((1,10.)),metrics=['mean_squared_error'])
     cw = classweights
     model.compile(optimizer=Adam(lr = learning_rate), loss=my_categorical_crossentropy(weights=(cw[0], membrane_weight_multiplier*cw[1])), metrics=['accuracy'])
 
-    # Callbacks
-    # TODO: IO/Filepaths controlled by single module...
+    # Setup callbacks
+    print("SETUP CALLBACKS\n\n")
     checkpointer = ModelCheckpoint(filepath=savedir + "/unet_model_weights_checkpoint.h5", verbose=1, save_best_only=True, save_weights_only=True)
     earlystopper = EarlyStopping(patience=patience, verbose=1)
     callbacks = [checkpointer, earlystopper]
 
     # Build and Train
+    print("RUN FIT GENERATOR")
     model.fit_generator(
-              datagen.flow(X_train, Y_train, batch_size=batch_size),
+              batch_generator_patches(X_train, Y_train),
               samples_per_epoch=X_train.shape[0],
               nb_epoch=nb_epoch,
               verbose=1,
-              validation_data=datagen.flow(X_vali, Y_vali),
+              validation_data=batch_generator_patches(X_vali, Y_vali),
               nb_val_samples=X_vali.shape[0],
               callbacks=callbacks)
 
@@ -356,6 +263,28 @@ def trainmodel_generator(X_train, Y_train, X_vali, Y_vali, model, datagen, learn
     print('Test accuracy:', score[1])
     return model
 
+def batch_generator_patches(X,Y, verbose=False):
+    inds = np.arange(X.shape[0])
+    np.random.shuffle(inds)
+    X = X[inds]
+    count = 0
+    while (True):
+        print("INSIDE genertor! Loop Count is: ", count)
+        offset = 0
+        while offset+batch_size <= X.shape[0]:
+            if verbose:
+                print("yielding")
+            Xbatch, Ybatch = X[offset:offset+batch_size].copy(), Y[offset:offset+batch_size].copy()
+            offset += batch_size
+            
+            # if we're gonna augment, do it here... (applied to both training and validation patches!)
+            # e.g. flip and rotate images randomly
+
+            Xbatch = theano_ordering(Xbatch)
+            Ybatch = theano_ordering_and_labels_to_activations(Ybatch)
+            print("Size and Shape: ")
+            print(Xbatch.shape, Ybatch.shape)
+            yield Xbatch, Ybatch
 
 
 # use the model for prediction
