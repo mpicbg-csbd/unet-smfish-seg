@@ -25,6 +25,34 @@ step = 10
 
 # setup X and Y for feeding into the model
 
+def sample_patches(data, patch_size, n_samples=100, verbose=False):
+    """
+    sample 2d patches of size patch_size from data
+    """
+
+    assert np.all([s <= d for d, s in zip(data.shape, patch_size)])
+
+    # change filter_mask to something different if needed
+    filter_mask = np.ones_like(data)
+
+    # get the valid indices
+    border_slices = tuple([slice(s // 2, d - s + s // 2 + 1) for s, d in zip(patch_size, data.shape)])
+    valid_inds = np.where(filter_mask[border_slices])
+
+    if len(valid_inds[0]) == 0:
+        raise Exception("could not find anything to sample from...")
+
+    valid_inds = [v + s.start for s, v in zip(border_slices, valid_inds)]
+
+    # sample
+    sample_inds = np.random.randint(0, len(valid_inds[0]), n_samples)
+
+    rand_inds = [v[sample_inds] for v in valid_inds]
+
+    res = np.stack([data[r[0] - patch_size[0] // 2:r[0] + patch_size[0] - patch_size[0] // 2, r[1] - patch_size[1] // 2:r[1] + patch_size[1] - patch_size[1] // 2] for r in zip(*rand_inds)])
+
+    return res
+
 def sample_patches_from_img(coords, img):
     assert coords[:,0].max() <= img.shape[0]-x_width
     assert coords[:,1].max() <= img.shape[1]-y_width
@@ -165,6 +193,9 @@ def my_categorical_crossentropy(weights =(1., 1.)):
     return catcross
 
 def get_unet():
+    """
+    The information travel distance gives a window of 29 pixels square.
+    """
     inputs = Input((1, y_width, x_width))
     conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(inputs)
     conv1 = Dropout(0.2)(conv1)
@@ -282,6 +313,50 @@ def trainmodel(X_train, Y_train, X_vali, Y_vali, model=None, batch_size = 128, n
     print('Test score:', score[0])
     print('Test accuracy:', score[1])
     return model
+
+
+def trainmodel_generator(X_train, Y_train, X_vali, Y_vali, model, datagen, learning_rate = 0.0005, membrane_weight_multiplier=10, batch_size = 128, nb_epoch = 1, patience = 5, savedir="./"):
+    """
+    Note: Input X,Y should really just be training data! Not all the labeled data we have!
+    """
+
+    # Adjust Sample weights
+    classimg = np.argmax(Y_train, axis=-1).flatten()
+    n_zeros = len(classimg[classimg==0])
+    n_ones = len(classimg[classimg==1])
+    classweights = {0: 1, 1: n_zeros/n_ones}
+    print(classweights)
+
+    # How to optimize?
+    # sgd = SGD(lr=0.01, decay=1e-6, momentum=0.3, nesterov=False)
+    # model.compile(optimizer='sgd',loss='categorical_crossentropy',metrics=['accuracy'])
+    # model.compile(optimizer='sgd',loss=my_categorical_crossentropy((1,30.)),metrics=['accuracy'])
+    # model.compile(optimizer=Adam(lr = 0.001),loss=my_categorical_crossentropy((1,10.)),metrics=['mean_squared_error'])
+    cw = classweights
+    model.compile(optimizer=Adam(lr = learning_rate), loss=my_categorical_crossentropy(weights=(cw[0], membrane_weight_multiplier*cw[1])), metrics=['accuracy'])
+
+    # Callbacks
+    # TODO: IO/Filepaths controlled by single module...
+    checkpointer = ModelCheckpoint(filepath=savedir + "/unet_model_weights_checkpoint.h5", verbose=1, save_best_only=True, save_weights_only=True)
+    earlystopper = EarlyStopping(patience=patience, verbose=1)
+    callbacks = [checkpointer, earlystopper]
+
+    # Build and Train
+    model.fit_generator(
+              datagen.flow(X_train, Y_train, batch_size=batch_size),
+              samples_per_epoch=X_train.shape[0],
+              nb_epoch=nb_epoch,
+              verbose=1,
+              validation_data=datagen.flow(X_vali, Y_vali),
+              nb_val_samples=X_vali.shape[0],
+              callbacks=callbacks)
+
+    score = model.evaluate(X_vali, Y_vali, verbose=1)
+    print('Test score:', score[0])
+    print('Test accuracy:', score[1])
+    return model
+
+
 
 # use the model for prediction
 

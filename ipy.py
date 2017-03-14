@@ -15,9 +15,11 @@ import timeit
 import sklearn
 from scipy.ndimage import label, zoom
 from skimage.filter import threshold_isodata, threshold_otsu
+from keras.preprocessing.image import ImageDataGenerator
 
 import sys
 sys.path.append("./models/")
+import os
 
 import label_imgs
 import util
@@ -70,28 +72,28 @@ def imread(fname, **kwargs):
 
 def min_pool_downscale():
     from skimage.util import view_as_windows
-    def pooled(img):
+    def pooled3(img):
         img = img[0]
         # img[img==0] = 2000 # so that membrane is 1 is the min value
         print("shape: ", img.shape)
-        img = view_as_windows(img, 6, step=6)
+        img = view_as_windows(img, 3, step=3)
         img = np.min(img, axis=(2,3))
         # now permute back
         # img[img==2000] = 0
         return img
-    util.apply_operation_to_imgdir("data2/Cell_segmentations_paper/", pooled)
+    util.apply_operation_to_imgdir("data2/Cell_segmentations_paper/", pooled3)
 
 def mean_downscale():
     from skimage.util import view_as_windows
-    def down6x(img):
+    def down3x(img):
         s = img.shape
         print("shape: ", img.shape)
         # if s[0] > s[1]:
         # img = np.transpose(img)
-        img = view_as_windows(img, 6, step=6)
+        img = view_as_windows(img, 3, step=3)
         img = np.mean(img, axis=(2,3)).astype(np.float32)
         return img/img.max()
-    util.apply_operation_to_imgdir("data2/greyscales/", down6x)
+    util.apply_operation_to_imgdir("data2/greyscales/", down3x)
 
 # def rotate():
 #     def rot(img):
@@ -108,6 +110,64 @@ def mean_downscale():
 # rotated/flipped differently.
 
 # ---- Try with a UNet
+
+def batch_generator_patches(indir,
+                            n_batch=128,
+                            shuffle=True,
+                            verbose=False,
+                            prefix="*.npz"):
+    """
+    generator that returns n_batch patches from all the npz files in indir infinetly 
+    (each containing the field "X" and "Y")
+    returns X,Y
+    """
+    files = sglob(os.path.join(os.path.expanduser(indir), prefix))
+
+    if verbose:
+        print(files)
+
+    if len(files) == 0:
+        raise ValueError("no files found in %s" % indir)
+
+    files.sort()
+
+    X_acc, Y_acc = None, None
+
+    count = 0
+    while (True):
+        if shuffle:
+            fname = files[np.random.randint(0, len(files))]
+        else:
+            fname = files[count]
+
+        count = (count + 1) % len(files)
+
+        if verbose:
+            print("loading from %s ..." % fname)
+
+        # f = np.load(fname)
+        f = io.imread(fname)
+
+        X, Y = f["X"], f["Y"]
+
+        if verbose:
+            print("found %s patches ..." % len(X))
+
+        if X_acc is None:
+            X_acc = X.copy()
+            Y_acc = Y.copy()
+        else:
+            X_acc = np.concatenate([X_acc, X], axis = 0)
+            Y_acc = np.concatenate([Y_acc, Y], axis = 0)
+
+        offset = 0
+        while offset+n_batch <= len(X_acc):
+            if verbose:
+                print("yielding")
+
+            yield X_acc[offset:offset+n_batch].copy(), Y_acc[offset:offset+n_batch].copy()
+            offset += n_batch
+        X_acc, Y_acc = X_acc[offset:].copy(), Y_acc[offset:].copy()
 
 def upscale_and_compare(labeling, annotated):
     a,b = labeling.shape
@@ -166,11 +226,11 @@ def train_unet(greys, labels, model, savedir=None):
     # Then we can easily identify overfitting by eye.
 
     grey_imgs = [imread(x) for x in greys]
-    label_imgs = [imread(x)[0] for x in labels]
+    label_imgs = [imread(x) for x in labels]
     grey_imgs_small = []
     label_imgs_small = []
     for grey,lab in zip(grey_imgs, label_imgs):
-        a,b = grey.shape    
+        a,b = grey.shape
         grey_imgs_small.append(grey[:,0:b//2])
         label_imgs_small.append(lab[:,0:b//2])
 
@@ -187,7 +247,7 @@ def train_unet(greys, labels, model, savedir=None):
         print(grey.shape, lab.shape)
 
     X,Y = unet.imglists_to_XY(grey_imgs, label_imgs)
-    X,Y = unet.process_XY_for_training(X, Y)
+    # X,Y = unet.process_XY_for_training(X, Y)
     # this shuffles the data (if we're gonna augment data, do it now)
     print("X.shape = ", X.shape, " and Y.shape = ", Y.shape)
     train_ind, test_ind = util.subsample_ind(X, Y, test_fraction=0.2, rand_state=0)
@@ -196,7 +256,16 @@ def train_unet(greys, labels, model, savedir=None):
     np.random.shuffle(test_ind)
     X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
 
-    model = unet.trainmodel(X_train, Y_train, X_vali, Y_vali, model, batch_size = 1, nb_epoch = 300, savedir=savedir)
+    datagen = ImageDataGenerator(
+    # featurewise_center=False,
+    # featurewise_std_normalization=False,
+    rotation_range=20,
+    horizontal_flip=True,
+    vertical_flip=True)
+    # width_shift_range=0.2,
+    # height_shift_range=0.2,
+
+    model = unet.trainmodel_generator(X_train, Y_train, X_vali, Y_vali, model, datagen, learning_rate = 0.0005, membrane_weight_multiplier=10, batch_size = 10, nb_epoch = 300, savedir=savedir)
     return model
 
 def predict_unet(greys, model, savedir=None):

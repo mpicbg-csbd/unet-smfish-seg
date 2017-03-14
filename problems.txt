@@ -1,5 +1,8 @@
 problems
 
+# GPU memory explodes
+
+
 # Thu Mar  9 13:28:55 2017 -- Early stopping, weak models & proper scaling
 
 I submitted a job to the cluster last night: `results/bigim3/`. It was supposed to run for 300 epochs, but only ran for 18. There were no signs of error in the stderr log, or in stdout.
@@ -66,12 +69,86 @@ To identify the problems we probably want to look at the locations in the images
 - We could train on the membrane ground truth *inferred* from the cell segmentations!
 - The model could be better! We could continue training it! It wasn't done.
 
-Maybe we want to emphasize the pixels *near* the membrane a little more?
+Maybe we want to emphasize the pixels *near* the membrane a little more? By using the weighting scheme from original U-net paper?
 
 Let's run two simulations, both continuing with the model and param_weights from the end of the halfhalf run.
 1. Continue with the ground truth data (6x downscaled and cropped?)
 2. Continue with the uncropped 6x downscaled data and new associated annotations from cell segmentations directly.
 3. Try with only 3x downscaled data and see what kind of accuracy you can get...
+
+-------------------------------------------------------------------------------
+
+# Thu Mar  9 18:53:52 2017 -- Image Metadata, API consistency
+
+I've got an api problem.
+
+I've got different labelings all stored in different ways, with different pixel sizes and different meanings for 0,1,2,etc labels. I have to treat these things differently inside my code! Or I have to make (many) copies of all the data to convert everything to a standard format.
+
+At the moment I take care of things inside my code. But the places I have to change are all spread around. I must either:
+
+- move the critical bits that require data-specific changing to a single accessible place.
+- Make copies of all the data to a single standardized format.
+- Design a tiny description language / metadata format that lives in the folder with the images and is loaded by your program. It will have pixel sizes, intensity-image, pixel-labeling image, segmentation-image, etc. And it will be a data format, so that it can live *with* your images, and doesn't die every time your runtime / program stops. It can also tell us the meaning of the axes in the images! This is better than the metadata that lives inside an individual image, because it can know about the relationship between images inside a folder, and most of the time large microscopy datasets are not stored as a single image file.
+
+-------------------------------------------------------------------------------
+
+# Fri Mar 10 10:47:18 2017 -- Data Generators, Runtime prediction [related to: # GPU memory explodes]
+
+I tried running two jobs yesterday on two different versions of the labeled data:
+
+- 3x downscaled copies of the uncropped data. I make 160 x 160 patches with stride 10. This was way too much training data and the first epoch never even began.
+- 6x downscaled data with the same 160 x 160 x 10 windowing, which began but required 5000sec for an epoch, so it had only done 10 epochs by the time I came back. AND another funny thing! It had stopped! Because we had the early stopping callback on! We started the learning with the old model and params, and the loss appeared to increase after every round, with the accuracy decreasing all the way down to 89%/86% training/testing.
+
+Potential solutions:
+- We need a way of predicting the epoch time and setup time from the windowing. Then we can just keep the windows a reasonable size.
+- We use data generators, which allow us to train without building all of X at once and holding it in memory.
+- Since running a single 160x160 patch through the net takes about 0.05 secs, we want to load just enough patches in memory that the overhead from repeating this procedure is negligible.
+
+Let's go with the generating-data-as-we-go fix, which is the only way we're going to increase our datasize for working on the fly *anyways*!
+
+We have a few options with the ImageDataGenerator class. When we instantiate one of these objects we tell it which out of a list of potential augmentation methods we want to use, but we can't add our own. Since elastic deformations are *not* available, we won't be able to use them this way. But we can use the 
+`model.fit_generator` method which is very similar to our existing `model.fit`.
+
+*How does the generator know what to do with our Y-images?*
+*Does the generator know how to tile our images into windows?*
+
+There is `datagen.flow` which takes an unaugmented X,Y and dynamically augemnts them before passing them into the fit_generator method. But there is also the `flow_from_directory` method, which doesn't work for us, because it's expecting the task to be whole-image classification, so it expects one directory full of images per class, and then the labels are inferred from the directory structure. Of course this doesn't work for us.
+
+So we have to first build X,Y and use `datagen.flow` to get dynamic augmentation. Of course, if your dataset is too big already before you even start augmenting it, then you don't avoid any of the memory issues.
+
+Here's what would be ideal:
+Dynamically build X,Y in *batches* and perform augmentation dynamically as well... Let's ask Martin/Laurent if they run into this problem.
+
+You can use any generator function you want as long as it returns a full batch each time! That's easy.
+
+We'll build one that samples n patches of size (m,n) from a dataset (a list of heterogeneously-sized images) (optionally with some distribution over the postions i.e. flat across images & flat across locations within an image? or just flat across *all* locations, or weighted to be near membrane? or zero in patches that *don't* include any membrane?)
+
+Aside: The number of generators we want to use maps exactly to our hardware's memory layout! We want a generator for loading from disk → RAM and another generator for loading from RAM → GPU memory!
+
+Martin gave me two functions that I need to test.
+Of course they don't work with my current workflow.
+
+I have to save all my X,Y patches to disk to use them... which I could do. But do i want to save them to disk? If I want to sample evenly across all possible 160x160 patches (and then save those to disk) I could. But there may be an advantage to doing it with a perfectly even distribution of points across space, because that's what we want and the model doesn't know anything about space anyways... Of course we could programmatically generate X,Y AND save it to disk every time we run the program. This might be fast! And we can even combine them into a single numpy array with named axes...
+
+# Tue Mar 14 00:04:42 2017 -- Patch Size
+
+I don't know how to choose a patch size.
+
+- It should be as large as possible, to minimize the border effects.
+- Or we could only keep the valid region of the convolutions.
+
+How large can they be? What limits the size? Just GPU memory? [[GPU memory explodes]]
+Another problem I had was that preprocessing took too long (see previous issue) which depends on the image patch size. Do we really need 16x coverage? 
+
+**I bet the correct patch size is just 3x our model information travel size.** 
+**I bet the correct stride is just the information travel size.**
+
+The information travel distance is 29 pixels window size (14 on a side. 2x1 + 2x2 + 2x4 = 14. 14x2 + 1 = 29.) Let's round that to 30 and say 120x120 square patches with stride 30...
+
+We'll apply this to the 6x and 3x downaveraged data.
+
+How much memory will this take? The 160x160 stride 10 patches required 16x coverage, this will only require 3x. Plus if we include the data generator then we can cut it down by another factor of 4x.
+
 
 
 
