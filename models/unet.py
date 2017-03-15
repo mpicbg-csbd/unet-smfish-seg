@@ -27,7 +27,7 @@ nb_classes = 2
 learning_rate = 0.0005
 membrane_weight_multiplier=10
 batch_size = 12
-nb_epoch = 1
+nb_epoch = 300
 patience = 5
 savedir="./"
 
@@ -286,8 +286,8 @@ def batch_generator_patches(X,Y, verbose=False):
 
             Xbatch = theano_ordering(Xbatch)
             Ybatch = theano_ordering_and_labels_to_activations(Ybatch)
-            print("Yielding X,Y. Size and Shape: ")
-            print(Xbatch.shape, Ybatch.shape)
+            #print("Yielding X,Y. Size and Shape: ")
+            #print(Xbatch.shape, Ybatch.shape)
             yield Xbatch, Ybatch
 
 
@@ -296,6 +296,7 @@ def batch_generator_patches(X,Y, verbose=False):
 def predict_single_image(model, img, batch_size=4):
     "unet predict on a greyscale img"
     X = imglist_to_X([img])
+    X = theano_ordering(X)
     Y_pred = model.predict(X, batch_size=batch_size)
     a,b,c = Y_pred.shape
     assert c==2

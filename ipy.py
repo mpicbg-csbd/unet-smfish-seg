@@ -27,18 +27,6 @@ import unet
 
 
 
-def predict_unet(greys, model, savedir=None):
-    # for name, img in zip(unseen_greyscale_files(), unseen_greys()):
-    images = map(imread, greys)
-    for name, img in zip(greys, images):
-        res = unet.predict_single_image(model, img, batch_size=4)
-        # print("There are {} nans!".format(np.count_nonzero(~np.isnan(res))))
-        path, base, ext =  util.path_base_ext(name)
-        if savedir is None:
-            imsave(base + '_predict' + ext, res.astype(np.float32))
-        else:
-            imsave(savedir + "/" + base + '_predict' + ext, res.astype(np.float32))
-
 
 # ---- Try with a UNet
 
