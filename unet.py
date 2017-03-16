@@ -250,8 +250,27 @@ def train_unet(grey_imgs, label_imgs, model):
     X_vali = theano_ordering(X_vali)
     Y_vali = theano_ordering_and_labels_to_activations(Y_vali)
 
-    # Build and Train
-    print("RUN FIT GENERATOR")
+    # import datasets as d
+
+    # g = batch_generator_patches(X_train, Y_train)
+    # for i in range(10):
+    #     xbatch, ybatch = X_train[i], Y_train[i]
+    #     d.imsave("xbatch{}.tif".format(i), xbatch)
+    #     d.imsave("ybatch{}.tif".format(i), ybatch)
+
+    # return "poopy"
+
+    # # Build and Train
+    # print("RUN FIT GENERATOR")
+
+    # g = batch_generator_patches(X_train, Y_train)
+    # for i in range(10):
+    #     xbatch, ybatch = next(g)
+    #     d.imsave("xbatch{}.tif".format(i), xbatch)
+    #     d.imsave("ybatch{}.tif".format(i), ybatch)
+
+    # return "nothing"
+
     model.fit_generator(
               batch_generator_patches(X_train, Y_train),
               samples_per_epoch=X_train.shape[0],
@@ -267,9 +286,10 @@ def train_unet(grey_imgs, label_imgs, model):
     return model
 
 def batch_generator_patches(X,Y, verbose=False):
-    inds = np.arange(X.shape[0])
-    np.random.shuffle(inds)
-    X = X[inds]
+    # inds = np.arange(X.shape[0])
+    # np.random.shuffle(inds)
+    # X = X[inds]
+    # Y = Y[inds]
     count = 0
     while (True):
         print("INSIDE genertor! Loop Count is: ", count)

@@ -30,7 +30,7 @@ def main(direct):
     #   velocities = np.random.normal(scale=1.0/np.sqrt(2), size=(N,D))
 
     os.makedirs(direct)
-    filesToMove = ["ipy.py", "models/unet.py", "main.py"]
+    filesToMove = ["ipy.py", "unet.py", "main.py"]
     for f in filesToMove:
         shutil.copy(f, direct)
     # START JOBS FROM MAIN DIR

@@ -1,18 +1,17 @@
 import sys
-sys.path.append("./models/")
+# sys.path.append("./models/")
 import unet
 from skimage.io import imread
 import datasets as d
 import util
 
 def main(saveDir):
-    # greys = util.sglob("data2/greyscales/down3x/*.tif")
     greys = util.sglob("data3/labeled_data_membranes/images_big/smaller6x/*.tif")
-    greys = [d.imread(img) for img in greys]
-    # labels = util.sglob("data2/labeled_data_100xObj/labels/*.tif")
+    greys_imgs = [d.imread(img) for img in greys]
     labels = util.sglob("data3/labeled_data_membranes/labels_big/smaller6x/*.tif")
-    labels = [d.imread(img) for img in labels]
-    for img in labels:
+    labels_imgs = [d.imread(img) for img in labels]
+
+    for img in labels_imgs:
         img[img==2]=1
 
     print("Input greyscale images:")
@@ -37,7 +36,8 @@ def main(saveDir):
     # model.load_weights("results/halfhalf/unet_model_weights_checkpoint.h5")
     # model.load_weights("results/lr_continued/unet_model_weights_checkpoint.h5")
     # model.load_weights("results/lr_0005/unet_model_weights_checkpoint.h5")
-    # unet.train_unet(greys, labels, model)
+    model.load_weights("results/a3/unet_model_weights_checkpoint.h5")
+    # unet.train_unet(greys_imgs, labels_imgs, model)
     predict_unet(greys, model, saveDir)
 
 
