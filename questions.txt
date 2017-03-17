@@ -1,0 +1,25 @@
+Questions
+
+What is the right size for patches? The right scale for images?
+
+Should I group all my training data together, even though they have different sorts of annotations?
+
+Will our predictions be limited by the quality of the annotated ground truth? By the quality of our segmentation pipeline used in making that ground truth?
+
+
+----------
+
+With the same learning rate, the same model and the same patches *do we get better accuracy learning from large images or small*? (The same images, but downscaled 3 or 6 x) As usual, run until the validation loss stops improving.
+Try with each of the various datasets we have: Each size of labeled_data_cellseg and both versions of labeled_data_membranes, in both of their sizes.
+
+To compare we want to look at the validation and test accuracy/loss/etc. Do we want to see which is more capable of generalizing by having them predict on each other?
+
+Do we need to fix the labels for cellseg? We can answer that question with results2/b*. Then we'll see the improvement we get from using the annotation info.
+
+We do. We need to use the annnotation info regarding cell type for help with training.
+
+DATASETS: results2/a* results2/b*
+
+----------
+
+
