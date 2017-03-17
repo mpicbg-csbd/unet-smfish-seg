@@ -35,14 +35,14 @@ def train(savedir):
     predict_unet(greys, model, savedir)
 
 def predict(savedir):
-    greys = util.sglob("data3/labeled_data_cellseg/greyscales/down6x/*.tif")
+    greys = util.sglob("data3/labeled_data_cellseg/greyscales/down3x/*.tif")
     greys_imgs = [d.imread(img) for img in greys]
     model = unet.get_unet()
     unet.savedir = savedir
     unet.x_width = 120
     unet.y_width = 120
-    unet.step = 30
-    model.load_weights("results2/b3/unet_model_weights_checkpoint.h5")
+    unet.step = 20
+    model.load_weights("results2/b2/unet_model_weights_checkpoint.h5")
 
     print("Input greyscale images:")
     for name,img in zip(greys, greys_imgs):
@@ -53,7 +53,6 @@ def predict(savedir):
         # print("There are {} nans!".format(np.count_nonzero(~np.isnan(res))))
         path, base, ext =  util.path_base_ext(name)
         d.imsave(savedir + "/" + base + '_predict' + ext, res.astype('float32'))
-    predict_unet(greys, model, savedir)
 
 if __name__ == '__main__':
     predict(sys.argv[1])

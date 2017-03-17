@@ -100,11 +100,12 @@ def rebuild_img_from_patch_activations(x_y, patchact, coords):
     print("This image contains Nans: ", np.sum(map(util.count_nans, patchact)))
     
     # ignore parts of the image with boundary effects
-    mask = np.ones(patchact[0])
-    mask[:,0:2] = 0
-    mask[:,-2:] = 0
-    mask[0:2,:] = 0
-    mask[-2:,:] = 0
+    mask = np.ones(patchact[0].shape)
+    mm = 10
+    mask[:,0:mm] = 0
+    mask[:,-mm:] = 0
+    mask[0:mm,:] = 0
+    mask[-mm:,:] = 0
 
     for cord,patch in zip(coords, patchact):
         x,y = cord

@@ -30,7 +30,7 @@ def main(direct):
     #   velocities = np.random.normal(scale=1.0/np.sqrt(2), size=(N,D))
 
     os.makedirs(direct)
-    filesToMove = ["ipy.py", "unet.py", "main.py"]
+    filesToMove = ["unet.py", "main.py"]
     for f in filesToMove:
         shutil.copy(f, direct)
     # START JOBS FROM MAIN DIR
@@ -62,8 +62,8 @@ def main(direct):
               '/sw/apps/cuda/7.5.18/bin:/sw/apps/gcc/4.9.2/bin:/sw/apps/hdf5/1.8.11/bin:/home/broaddus/bin:/projects/project-broaddus/anaconda3/bin/:/sw/bin:/usr/lib64/qt-3.3/bin:/opt/lsf/7.0/linux2.6-glibc2.3-x86_64/etc:/opt/lsf/7.0/linux2.6-glibc2.3-x86_64/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin:/usr/local/cuda/bin/',
               '/sw/apps/cuda/7.5.18/include',
               '/sw/apps/hdf5/1.8.11/include']
-      for k,v in zip(keys, vals):
-        os.environ[k] = v
+      # for k,v in zip(keys, vals):
+      #   os.environ[k] = v
       # job = "bsub -J {1} -n 1 -q gpu -W 24:00 -M 16384 -e {0}/stderr -o {0}/stdout time python main.py {0} &".format(direct, os.path.basename(direct)[-8:])
       job = "bsub -J {1} -n 1 -q gpu -W 24:00 -e {0}/stderr -o {0}/stdout time python main.py {0} &".format(direct, os.path.basename(direct)[-8:])
       subprocess.call(job, shell=True)
