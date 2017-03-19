@@ -23,7 +23,7 @@ x_width = 120
 y_width = 120
 step = 30
 
-nb_classes = 2
+b_classes = 2
 learning_rate = 0.0005
 membrane_weight_multiplier=10
 batch_size = 12
@@ -119,7 +119,6 @@ def rebuild_img_from_patch_activations(x_y, patchact, coords):
     # res = zeros_img/count_img
     # res[res==np.nan] = -1
     return zeros_img/count_img
-    # return zeros_img
 
 def imglist_to_X(greylist):
     """turn list of images into ndarray of patches, labels and their coordinates. Used for
@@ -164,6 +163,7 @@ def imglists_to_XY(greylist, labellist):
     X = imglist_to_X(greylist)
     Y = imglist_to_Y(labellist)
     return X,Y
+
 
 # setup and train the model
 
@@ -213,6 +213,7 @@ def get_unet():
 
     model = Model(input=inputs, output=conv7)
     return model
+
 
 # ---- PUBLIC INTERFACE ----
 
