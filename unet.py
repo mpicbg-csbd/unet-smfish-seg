@@ -30,6 +30,7 @@ batch_size = 12
 nb_epoch = 300
 patience = 5
 savedir="./"
+samples_per_epoch = 6000
 
 # setup X and Y for feeding into the model
 
@@ -165,6 +166,7 @@ def imglists_to_XY(greylist, labellist):
     Y = imglist_to_Y(labellist)
     return X,Y
 
+
 # setup and train the model
 
 def my_categorical_crossentropy(weights =(1., 1.)):
@@ -214,6 +216,7 @@ def get_unet():
     model = Model(input=inputs, output=conv7)
     return model
 
+
 # ---- PUBLIC INTERFACE ----
 
 def train_unet(grey_imgs, label_imgs, model):
@@ -255,7 +258,8 @@ def train_unet(grey_imgs, label_imgs, model):
     print("SETUP CALLBACKS\n\n")
     checkpointer = ModelCheckpoint(filepath=savedir + "/unet_model_weights_checkpoint.h5", verbose=1, save_best_only=True, save_weights_only=True)
     earlystopper = EarlyStopping(patience=patience, verbose=1)
-    callbacks = [checkpointer, earlystopper]
+    # callbacks = [checkpointer, earlystopper]
+    callbacks = [checkpointer]
 
     X_vali = theano_ordering(X_vali)
     Y_vali = theano_ordering_and_labels_to_activations(Y_vali)
@@ -283,7 +287,8 @@ def train_unet(grey_imgs, label_imgs, model):
 
     model.fit_generator(
               batch_generator_patches(X_train, Y_train),
-              samples_per_epoch=X_train.shape[0],
+              samples_per_epoch=samples_per_epoch,
+              #samples_per_epoch=X_train.shape[0],
               nb_epoch=nb_epoch,
               verbose=1,
               validation_data=(X_vali, Y_vali),
@@ -305,7 +310,11 @@ def batch_generator_patches(X,Y, verbose=False):
         print("INSIDE genertor! Loop Count is: ", count)
         count += 1
         offset = 0
-        while offset+batch_size <= X.shape[0]:
+        inds = np.arange(X.shape[0])
+        np.random.shuffle(inds)
+        X = X[inds]
+        Y = Y[inds]
+        while offset+batch_size <= samples_per_epoch:
             if verbose:
                 print("yielding")
             Xbatch, Ybatch = X[offset:offset+batch_size].copy(), Y[offset:offset+batch_size].copy()
