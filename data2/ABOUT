@@ -1,2 +1,0 @@
-This directory contains the full-size fluorescence intensity images and ground truth in `./greyscales/` and `./Cell_segmentations_paper/` respectively. The remaining directories are kept because have the images in their original combinations.
-

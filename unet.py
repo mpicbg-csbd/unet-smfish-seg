@@ -214,6 +214,31 @@ def get_unet():
     model = Model(input=inputs, output=conv7)
     return model
 
+def batch_generator_patches(X,Y, verbose=False):
+    # inds = np.arange(X.shape[0])
+    # np.random.shuffle(inds)
+    # X = X[inds]
+    # Y = Y[inds]
+    count = 0
+    while (True):
+        print("INSIDE genertor! Loop Count is: ", count)
+        count += 1
+        offset = 0
+        while offset+batch_size <= X.shape[0]:
+            if verbose:
+                print("yielding")
+            Xbatch, Ybatch = X[offset:offset+batch_size].copy(), Y[offset:offset+batch_size].copy()
+            offset += batch_size
+
+            # if we're gonna augment, do it here... (applied to both training and validation patches!)
+            # e.g. flip and rotate images randomly
+
+            Xbatch = theano_ordering(Xbatch)
+            Ybatch = theano_ordering_and_labels_to_activations(Ybatch)
+            #print("Yielding X,Y. Size and Shape: ")
+            #print(Xbatch.shape, Ybatch.shape)
+            yield Xbatch, Ybatch
+
 
 # ---- PUBLIC INTERFACE ----
 
@@ -295,31 +320,6 @@ def train_unet(grey_imgs, label_imgs, model):
     print('Test score:', score[0])
     print('Test accuracy:', score[1])
     return model
-
-def batch_generator_patches(X,Y, verbose=False):
-    # inds = np.arange(X.shape[0])
-    # np.random.shuffle(inds)
-    # X = X[inds]
-    # Y = Y[inds]
-    count = 0
-    while (True):
-        print("INSIDE genertor! Loop Count is: ", count)
-        count += 1
-        offset = 0
-        while offset+batch_size <= X.shape[0]:
-            if verbose:
-                print("yielding")
-            Xbatch, Ybatch = X[offset:offset+batch_size].copy(), Y[offset:offset+batch_size].copy()
-            offset += batch_size
-            
-            # if we're gonna augment, do it here... (applied to both training and validation patches!)
-            # e.g. flip and rotate images randomly
-
-            Xbatch = theano_ordering(Xbatch)
-            Ybatch = theano_ordering_and_labels_to_activations(Ybatch)
-            #print("Yielding X,Y. Size and Shape: ")
-            #print(Xbatch.shape, Ybatch.shape)
-            yield Xbatch, Ybatch
 
 
 # use the model for prediction

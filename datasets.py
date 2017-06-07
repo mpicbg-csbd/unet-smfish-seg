@@ -18,7 +18,7 @@ unseen_labels = lambda : sglob("data/unseen_labels/pooled/*.tif")
 unseen_mem_predict = lambda : sglob("data/2015*predict.tif")
 unseen_seg = lambda : sglob("data/2015*seg.tif")
 
-# --- NEW DATA BELOW [only use this] ---
+# --- data2 directory
 
 greyscales = lambda : sglob("data2/greyscales/*.tif")
 labels = lambda : sglob("data2/Cell_segmentations_paper/*.tif")
@@ -32,6 +32,11 @@ labels6x = lambda : sglob("data2/labels/down6x/*.tif")
 # newgreys = lambda : sglob("data2/20150513_New_data/*.tif")
 # greyscales_down3x = lambda : sglob("data2/labeled_data_100xObj/images/down3x/*.tif")
 # labels_down3x = lambda : sglob("data2/labeled_data_100xObj/labels/pooled/*.tif")
+
+# --- data3 directory
+
+# Here we've split the data into cell segmentation data and membrane prob map data
+
 
 def imsave(fname, img, **kwargs):
     io.imsave(fname, img, compress=6, plugin='tifffile', **kwargs)

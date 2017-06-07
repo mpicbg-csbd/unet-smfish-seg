@@ -12,11 +12,14 @@ def check_against_spec(path):
     # tif only has one 'f'
 
     # The names in the various directories must all align. And the images must be the
-    # same size if they share a name.
+    # same size if they share a name. The postfixes like '_label', '_masks' or '_prob'
+    # should probably be removed?
 
     # Images *should* have metadata like voxel size and microscopy info. We should be able
     # to include this information in our classifiers. If we want to include this data in
     # our tifs, then it must *also* have its own spec. (essentially a dictionary spec)
+    # metadata format should follow the ImageJ conventions? Because we can save them that
+    # way with skimage.io...
 
     # featurestacks should include the greyscale image. *What about data augmentation?*
 
@@ -51,7 +54,6 @@ def check_against_spec(path):
 
     # x vs y, dim 2 vs dim 1, height vs width, and (left to right vs right left)
     # where is (x,y) = (0,0) ? top right? bottom left? 
-
 
     # The label values for pixels that we use with membrane=1/background=0/vertex=2 label images
     # assigns different values to membrane and background than the images with labeled cells

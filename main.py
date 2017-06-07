@@ -36,6 +36,7 @@ def train(savedir):
 
 def predict(savedir):
     greys = util.sglob("data3/labeled_data_cellseg/greyscales/down3x/*.tif")
+    greys = greys[:2]
     greys_imgs = [d.imread(img) for img in greys]
     model = unet.get_unet()
     unet.savedir = savedir
