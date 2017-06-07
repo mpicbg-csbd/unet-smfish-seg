@@ -52,9 +52,9 @@ def apply_operation_to_imgdir(imgdir, func, dtype='input', ext='.tif', inplace=F
             new_img_name = newpath + base + ext
         print("Saving to: ", new_img_name)
         if dtype == 'input':
-            io.imsave(new_img_name, result_img)
+            io.imsave(new_img_name, result_img, compress=1)
         else:
-            io.imsave(new_img_name, result_img.astype(dtype))
+            io.imsave(new_img_name, result_img.astype(dtype), compress=1)
 
 def count_nans(img):
     return np.count_nonzero(np.isnan(img))
