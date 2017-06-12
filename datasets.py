@@ -29,13 +29,34 @@ labels3x = lambda : sglob("data2/labels/down3x/*.tif")
 greyscales6x = lambda : sglob("data2/greyscales/down6x/*.tif")
 labels6x = lambda : sglob("data2/labels/down6x/*.tif")
 
-# newgreys = lambda : sglob("data2/20150513_New_data/*.tif")
-# greyscales_down3x = lambda : sglob("data2/labeled_data_100xObj/images/down3x/*.tif")
-# labels_down3x = lambda : sglob("data2/labeled_data_100xObj/labels/pooled/*.tif")
-
 # --- data3 directory
 
-# Here we've split the data into cell segmentation data and membrane prob map data
+# Here we've split the data into cell segmentation data and membrane prob map data and segregated by downscaling size
+
+# greyscale images with membrane labelings (by hand)
+mem_images = lambda : sglob("data3/labeled_data_membranes/images/*.tif")
+mem_images_small3x = lambda : sglob("data3/labeled_data_membranes/images/small3x/*.tif")
+mem_images_big = lambda : sglob("data3/labeled_data_membranes/images_big/*.tif/")
+mem_images_big2x = lambda : sglob("data3/labeled_data_membranes/images_big/smaller2x/*.tif")
+mem_images_big6x = lambda : sglob("data3/labeled_data_membranes/images_big/smaller6x/*.tif")
+
+# label images drawn by hand on cell boundaries
+mem_labels = lambda : sglob("data3/labeled_data_membranes/labels/*.tif")
+mem_labels_small3x = lambda : sglob("data3/labeled_data_membranes/labels/small3x/*.tif")
+mem_labels_big = lambda : sglob("data3/labeled_data_membranes/labels_big/*.tif")
+mem_labels_big2x = lambda : sglob("data3/labeled_data_membranes/labels_big/smaller2x/*.tif")
+mem_labels_big6x = lambda : sglob("data3/labeled_data_membranes/labels_big/smaller6x/*.tif")
+
+# greyscale and label images resulting from cell segmentation pipeline
+seg_images = lambda : sglob("data3/labeled_data_cellseg/greyscales/*.tif")
+seg_images_small3x = lambda : sglob("data3/labeled_data_cellseg/greyscales/down3x/*.tif")
+seg_images_small6x = lambda : sglob("data3/labeled_data_cellseg/greyscales/down6x/*.tif")
+seg_labels = lambda : sglob("data3/labeled_data_cellseg/labels/*.tif")
+seg_labels_small3x = lambda : sglob("data3/labeled_data_cellseg/labels/down3x/*.tif")
+seg_labels_small6x = lambda : sglob("data3/labeled_data_cellseg/labels/down6x/*.tif")
+
+
+
 
 
 def imsave(fname, img, **kwargs):

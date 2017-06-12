@@ -14,16 +14,17 @@ import skimage.io as io
 import timeit
 import sklearn
 from scipy.ndimage import label, zoom
-from skimage.filter import threshold_isodata, threshold_otsu
+# from skimage.filter import threshold_isodata, threshold_otsu
 
 import sys
-sys.path.append("./models/")
+# sys.path.append("./models/")
 import os
 
 import label_imgs
 import util
 from util import sglob
 import unet
+import datasets
 
 
 

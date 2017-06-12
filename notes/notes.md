@@ -784,6 +784,7 @@ Aha! Maybe we couldn't learn because we're not using the generator in the right 
 Solution. Related to [[Data Generators]]. Build your own generator! Make sure it transforms both X and Y together.
 
 DONE.
+
 # Sat Mar 18 15:19:16 2017 -- Membranes too thick
 
 Now we mask the data during predictions to remove the worst part of the boundary effects without throwing away all of the partially-valid patch regions.
@@ -793,4 +794,65 @@ The predictions look ok, but the membranes are often too wide and we don't seem 
 :TODO:
 1. Generate cell and membrane predictions automatically.
 2. 
+
+# results4/ Summary -- Inability to learn on some types of data...
+
+1. Training on full size data and predicting on 6x downscaled data did not work at all. see seg_full and seg_full_2
+2. 
+
+Why does the same net fail to learn on some types of training data in results4/?
+
+Not sure. But the answer to all our problems is to make a database of results. We need to make the parameters and results easily accessible to analysis tools.
+
+# ipython doesn't work on furiosa
+
+Oscar doesn't know why.
+
+# PyOpenCL doesn't install with pip3 on my local machine
+
+Something to do with architecture problems. I expect the command `pip3 install pyopencl` to install pyopencl. But it fails with the error 
+
+```
+ld: warning: ignoring file /usr/local/opt/llvm/lib/libc++.dylib, file was built for x86_64 which is not the architecture being linked (i386): /usr/local/opt/llvm/lib/libc++.dylib
+    ld: in '/usr/local/opt/llvm/lib/libunwind.dylib', file was built for x86_64 which is not the architecture being linked (i386): /usr/local/opt/llvm/lib/libunwind.dylib for architecture i386
+    clang: error: linker command failed with exit code 1 (use -v to see invocation)
+    error: command 'g++' failed with exit status 1
+```
+
+I thought it might have something to do with my architecture flags. I tried:
+ARCHFLAGS="-arch x86_64"
+ARCHFLAGS="-arch x86-64"
+ARCHFLAGS="-arch=x86_64"
+unset ARCHFLAGS
+
+and since none of that changed any of the output I tried it with bash (which seemed to help when I had a similar problem last time I tried to re-install pyopencl on my machine with python2), but using bash didn't help either.
+
+So I'm currently stuck with no good ideas.
+
+# Indentation Fix for python in vim on the cluster
+
+Fix the indentation and code folding issue on the cluster by changing shiftwidth to 4 `:set sw=4` and setting `:set fdm=indent`.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

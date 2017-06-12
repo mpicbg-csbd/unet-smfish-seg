@@ -100,7 +100,7 @@ def rebuild_img_from_patch_activations(x_y, patchact, coords):
     zeros_img = np.zeros(shape=(x,y,nclasses))
     count_img = np.zeros(shape=(x,y,nclasses))
     print("This image contains Nans: ", np.sum(map(util.count_nans, patchact)))
-    
+
     # ignore parts of the image with boundary effects
     mask = np.ones(patchact[0].shape)
     mm = 10
@@ -335,7 +335,7 @@ def batch_generator_patches(X,Y, verbose=False):
                 print("yielding")
             Xbatch, Ybatch = X[current_idx:current_idx+batch_size].copy(), Y[current_idx:current_idx+batch_size].copy()
             current_idx += batch_size
-            
+
             # if we're gonna augment, do it here... (applied to both training and validation patches!)
             # e.g. flip and rotate images randomly
 
