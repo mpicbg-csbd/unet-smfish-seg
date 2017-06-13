@@ -621,7 +621,8 @@ Now we really have ALL the labeled data AND the full size input images.
 
 
 
-Problems. In chronological order.
+
+PROBLEMS. IN CHRONOLOGICAL ORDER.
 
 # GPU memory explodes
 
@@ -833,7 +834,9 @@ So I'm currently stuck with no good ideas.
 
 Fix the indentation and code folding issue on the cluster by changing shiftwidth to 4 `:set sw=4` and setting `:set fdm=indent`.
 
+# Problem: My tensor shape is not what I think it should be.
 
+I'm expecting the "channels" dimension to be after "samples" but before "x", "y" in the theano dimension-ordering configuration.... But it's not! Apparently...
 
 
 
