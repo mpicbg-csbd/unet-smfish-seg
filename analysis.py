@@ -1,4 +1,4 @@
-# shell business
+
 
 import skimage.io as io
 
@@ -55,6 +55,11 @@ def explain_results(dir):
 	"Look at the success rate of jobs as a function of X.shape"
 	for d, sub_ds, files in os.walk(dir, topdown=True):
 		print d
+                try:
+                   for line in open(d + '/rational.txt','r'):
+                       print line,
+                except:
+                    print "no rational.txt"
 		try:
 			epochNum = ""
 			for line in open(d + '/stdout','r'):
@@ -105,3 +110,5 @@ def movefiles():
          print nd1
          shutil.move(nd1, nd)
 
+if __name__ == '__main__':
+    explain_results(sys.argv[1])

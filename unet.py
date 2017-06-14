@@ -4,12 +4,15 @@ UNET architecture for pixelwise classification
 
 import numpy as np
 import skimage.io as io
+import json
 
+from keras.activations import softmax
 from keras.models import Model
-from keras.layers import Input, Convolution2D, MaxPooling2D, UpSampling2D, Reshape, core, Dropout
+from keras.layers import Input, MaxPooling2D, UpSampling2D, Reshape, core, Dropout
+from keras.layers.convolutional import Conv2D
 from keras.layers.merge import Concatenate
 from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStopping
+from keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStopping, TensorBoard
 from keras import backend as K
 from keras.utils import np_utils
 # from keras.utils.visualize_util import plot
@@ -184,6 +187,7 @@ def get_unet():
     The information travel distance gives a window of 29 pixels square.
     """
 
+    print "\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n"
     if K.image_dim_ordering() == 'th':
       inputs = Input((1, y_width, x_width))
       concatax = 1
@@ -191,38 +195,39 @@ def get_unet():
       inputs = Input((y_width, x_width, 1))
       concatax = 3
 
-    conv1 = Convolution2D(32, (3, 3), padding='same', activation='relu')(inputs)
+    conv1 = Conv2D(32, (3, 3), padding='same', activation='relu')(inputs)
     conv1 = Dropout(0.2)(conv1)
-    conv1 = Convolution2D(32, (3, 3), padding='same', activation='relu')(conv1)
+    conv1 = Conv2D(32, (3, 3), padding='same', activation='relu')(conv1)
     pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
 
-    conv2 = Convolution2D(64, (3, 3), padding='same', activation='relu')(pool1)
+    conv2 = Conv2D(64, (3, 3), padding='same', activation='relu')(pool1)
     conv2 = Dropout(0.2)(conv2)
-    conv2 = Convolution2D(64, (3, 3), padding='same', activation='relu')(conv2)
+    conv2 = Conv2D(64, (3, 3), padding='same', activation='relu')(conv2)
     pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
 
-    conv3 = Convolution2D(128, (3, 3), padding='same', activation='relu')(pool2)
+    conv3 = Conv2D(128, (3, 3), padding='same', activation='relu')(pool2)
     conv3 = Dropout(0.2)(conv3)
-    conv3 = Convolution2D(128, (3, 3), padding='same', activation='relu')(conv3)
+    conv3 = Conv2D(128, (3, 3), padding='same', activation='relu')(conv3)
 
     up1 = UpSampling2D(size=(2,2))(conv3)
     cat1 = Concatenate(axis=concatax)([up1, conv2])
-    conv4 = Convolution2D(64, (3, 3), padding='same', activation='relu')(cat1)
+    conv4 = Conv2D(64, (3, 3), padding='same', activation='relu')(cat1)
     conv4 = Dropout(0.2)(conv4)
-    conv4 = Convolution2D(64, (3, 3), padding='same', activation='relu')(conv4)
+    conv4 = Conv2D(64, (3, 3), padding='same', activation='relu')(conv4)
 
     up2 = UpSampling2D(size=(2, 2))(conv4)
     cat2 = Concatenate(axis=concatax)([up2, conv1])
-    conv5 = Convolution2D(32, (3, 3), padding='same', activation='relu')(cat2)
+    conv5 = Conv2D(32, (3, 3), padding='same', activation='relu')(cat2)
     conv5 = Dropout(0.2)(conv5)
-    conv5 = Convolution2D(32, (3, 3), padding='same', activation='relu')(conv5)
+    conv5 = Conv2D(32, (3, 3), padding='same', activation='relu')(conv5)
 
     # here nb_classes used to be just the number 2
-    conv6 = Convolution2D(2, (1, 1), padding='same', activation='relu')(conv5)
+    conv6 = Conv2D(2, (1, 1), padding='same', activation='relu')(conv5)
     # conv6 = core.Permute((2,3,1))(conv6)
-    conv7 = core.Activation('softmax')(conv6)
+    softm = lambda x: softmax(x, axis=concatax)
+    conv7 = core.Activation(softm)(conv6)
 
-    model = Model(input=inputs, output=conv7)
+    model = Model(inputs=inputs, outputs=conv7)
     return model
 
 
@@ -267,6 +272,8 @@ def train_unet(grey_imgs, label_imgs, model):
     print("SETUP CALLBACKS\n\n")
     checkpointer = ModelCheckpoint(filepath=savedir + "/unet_model_weights_checkpoint.h5", verbose=1, save_best_only=True, save_weights_only=True)
     earlystopper = EarlyStopping(patience=patience, verbose=1)
+    # tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0, batch_size=32, write_graph=True, write_grads=False, write_images=False, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None)
+
     # callbacks = [checkpointer, earlystopper]
     callbacks = [checkpointer]
 
@@ -298,16 +305,17 @@ def train_unet(grey_imgs, label_imgs, model):
     if samples_per_epoch == 'auto':
         samples_per_epoch, _ = divmod(X_train.shape[0], batch_size)
 
-    model.fit_generator(
-              batch_generator_patches(X_train, Y_train),
-              samples_per_epoch=samples_per_epoch,
-              #samples_per_epoch=X_train.shape[0],
-              nb_epoch=nb_epoch,
-              verbose=1,
-              validation_data=(X_vali, Y_vali),
-              #nb_val_samples=X_vali.shape[0],
-              callbacks=callbacks)
+    history = model.fit_generator(
+                batch_generator_patches(X_train, Y_train),
+                samples_per_epoch=samples_per_epoch,
+                #samples_per_epoch=X_train.shape[0],
+                nb_epoch=nb_epoch,
+                verbose=1,
+                validation_data=(X_vali, Y_vali),
+                #nb_val_samples=X_vali.shape[0],
+                callbacks=callbacks)
 
+    json.dump(history.history, open(savedir + '/history.json', 'w'))
     score = model.evaluate(X_vali, Y_vali, verbose=1)
     print('Test score:', score[0])
     print('Test accuracy:', score[1])
@@ -320,7 +328,7 @@ def batch_generator_patches(X,Y, verbose=False):
     # Y = Y[inds]
     epoch = 0
     while (True):
-        print("INSIDE genertor! Loop Count is: ", epoch)
+        print("INSIDE genertor! Loop Count is: ", epoch, '\n\n')
         epoch += 1
         current_idx = 0
         batchnum = 0
