@@ -5,8 +5,7 @@
 # %autoreload 2
 
 # global python
-from __future__ import print_function, division
-from glob import glob
+# from __future__ import print_function, division
 
 # global scikit
 import numpy as np
@@ -16,18 +15,18 @@ import sklearn
 from scipy.ndimage import label, zoom
 # from skimage.filter import threshold_isodata, threshold_otsu
 
+from glob import glob
 import sys
 # sys.path.append("./models/")
 import os
+import re
 
 import label_imgs
 import util
-from util import sglob
 import unet
 import datasets
-
-
-
+import train
+import predict
 
 # ---- Try with a UNet
 
@@ -77,7 +76,7 @@ def train_and_test_rafo_gabor(greys, labels):
 def train_and_test_rafo_weka():
     import rf
 
-    knime_list = sglob("data/knime_test_data/data/train/features/features_?.tif")
+    knime_list = util.sglob("data/knime_test_data/data/train/features/features_?.tif")
     knime_list = map(imread, knime_list)
 
     X,Y = rf.imglist_to_XY(knime_list, labels_list)

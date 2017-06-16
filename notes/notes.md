@@ -805,11 +805,12 @@ Why does the same net fail to learn on some types of training data in results4/?
 
 Not sure. But the answer to all our problems is to make a database of results. We need to make the parameters and results easily accessible to analysis tools.
 
-# ipython doesn't work on furiosa
+# TEMPFIX: ipython doesn't work on furiosa
 
-Oscar doesn't know why.
+It throws some sort of 
+Oscar doesn't know why. Installed local ipython with pip --user flag.
 
-# PyOpenCL doesn't install with pip3 on my local machine
+# SOLVED: PyOpenCL doesn't install with pip3 on my local machine
 
 Something to do with architecture problems. I expect the command `pip3 install pyopencl` to install pyopencl. But it fails with the error 
 
@@ -830,15 +831,45 @@ and since none of that changed any of the output I tried it with bash (which see
 
 So I'm currently stuck with no good ideas.
 
-# Indentation Fix for python in vim on the cluster
+SOLVED! We have to install pyopencl by hand, and remove the -arch i386 item from the list of flags. AND we have to install with clang. (which i guess is also what we used to install python3 in the first place...)
+
+
+# DONE. Indentation Fix for python in vim on the cluster
 
 Fix the indentation and code folding issue on the cluster by changing shiftwidth to 4 `:set sw=4` and setting `:set fdm=indent`.
 
-# Problem: My tensor shape is not what I think it should be.
+# Problem: My tensor shape is not what I think it should be. I can't run Theano with channels_first setting.
 
 I'm expecting the "channels" dimension to be after "samples" but before "x", "y" in the theano dimension-ordering configuration.... But it's not! Apparently...
 
+Fixed: They changed the config file args without warning me in Keras2. Now I can only run my script with theano backend, but "image_data_format": "channels_last".
 
+_what's wrong with channels first_ ?
+
+Maybe something is wrong with my loss function?
+
+What is a loss function supposed to take as args? A single patch? or a batch of patches? According to keras, a loss is supposed to take a pair of patches:
+(y_true, y_pred). I guess the dimension of each patch is like the dimensionality of Y, but with the samples axis removed... I haven't changed my loss function since the refactor, and I've removed the reshape call... I guess I must have done a reshape both before and after calling the activation softmax? So i guess the problem is not in the loss function. Where is the error coming from?
+
+# The test score after the re-factor isn't as good as it was pre-refactor. Even though the train score is good.
+
+Don't worry about recreating old stuff. Your new stuff will be better, after a little work, which you have to put in either way! You should change the loss function so that the pixel weight is a function of the pixels distance from the membrane.
+
+# I can't see all my data or make the plots I want.
+
+I want to be able to make plots of test and train score & accuracy for each model as a function of input params, dataset, everything!
+I need to save these scores in an easily accessible way. Also, I need to make the differences between models very clear.
+I want to use something like tensorboard to see the results of my training. Or do i just want to use the history object? And save it?
+
+- Save the test and train patches and predictions to a directory where you can browse and plot them!
+- Save the history object so you can make plots of the score over time!
+- 
+
+# I can't use tensorflow.
+When i try to load tensorflow on falcon I get a libcuda not available error.
+When I srun myself onto a machine with a gpu on furiosa and do ipython; then import tensorflow; I get a very different error.
+`AttributeError: 'module' object has no attribute 'Message'`
+from deep inside the core of tensorflow. in resource_handle_pb2.py
 
 
 

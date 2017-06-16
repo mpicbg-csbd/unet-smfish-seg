@@ -319,7 +319,7 @@ def train_unet(grey_imgs, label_imgs, model):
     score = model.evaluate(X_vali, Y_vali, verbose=1)
     print('Test score:', score[0])
     print('Test accuracy:', score[1])
-    return model
+    return history
 
 def batch_generator_patches(X,Y, verbose=False):
     # inds = np.arange(X.shape[0])

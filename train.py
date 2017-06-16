@@ -22,7 +22,6 @@ train_params = {
 }
 
 
-
 def train(train_params):
     train_grey_names = []
     train_grey_imgs = []
@@ -72,7 +71,8 @@ def train(train_params):
     model = unet.get_unet()
     if train_params['initial_model_params']:
         model.load_weights(train_params['initial_model_params'])
-    unet.train_unet(train_grey_imgs, train_label_imgs, model)
+    history = unet.train_unet(train_grey_imgs, train_label_imgs, model)
+    return history
 
 
 if __name__ == '__main__':
