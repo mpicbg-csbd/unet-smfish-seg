@@ -805,10 +805,11 @@ Why does the same net fail to learn on some types of training data in results4/?
 
 Not sure. But the answer to all our problems is to make a database of results. We need to make the parameters and results easily accessible to analysis tools.
 
-# TEMPFIX: ipython doesn't work on furiosa
+# TEMPFIX/AVOIDED: ipython doesn't work on furiosa
 
 It throws some sort of 
 Oscar doesn't know why. Installed local ipython with pip --user flag.
+Now I'm using python3 and I can use the system-provided version.
 
 # SOLVED: PyOpenCL doesn't install with pip3 on my local machine
 
@@ -838,7 +839,7 @@ SOLVED! We have to install pyopencl by hand, and remove the -arch i386 item from
 
 Fix the indentation and code folding issue on the cluster by changing shiftwidth to 4 `:set sw=4` and setting `:set fdm=indent`.
 
-# Problem: My tensor shape is not what I think it should be. I can't run Theano with channels_first setting.
+# SOLVED/AVOIDED. Problem: My tensor shape is not what I think it should be. I can't run Theano with channels_first setting.
 
 I'm expecting the "channels" dimension to be after "samples" but before "x", "y" in the theano dimension-ordering configuration.... But it's not! Apparently...
 
@@ -850,6 +851,8 @@ Maybe something is wrong with my loss function?
 
 What is a loss function supposed to take as args? A single patch? or a batch of patches? According to keras, a loss is supposed to take a pair of patches:
 (y_true, y_pred). I guess the dimension of each patch is like the dimensionality of Y, but with the samples axis removed... I haven't changed my loss function since the refactor, and I've removed the reshape call... I guess I must have done a reshape both before and after calling the activation softmax? So i guess the problem is not in the loss function. Where is the error coming from?
+
+IGNORE THIS PROBLEM. Just use tensorflow and python3!
 
 # The test score after the re-factor isn't as good as it was pre-refactor. Even though the train score is good.
 
@@ -865,14 +868,26 @@ I want to use something like tensorboard to see the results of my training. Or d
 - Save the history object so you can make plots of the score over time!
 - 
 
-# I can't use tensorflow.
+# SOLVED: I can't use tensorflow.
 When i try to load tensorflow on falcon I get a libcuda not available error.
 When I srun myself onto a machine with a gpu on furiosa and do ipython; then import tensorflow; I get a very different error.
 `AttributeError: 'module' object has no attribute 'Message'`
 from deep inside the core of tensorflow. in resource_handle_pb2.py
 
+Tensorflow is only provided systemwide on furiosa with python3 and you have to be on one of the GPU nodes to avoid the libcuda error.
 
+# PROBLEM: SOLVED: PROBLEM: trying to import train crashes ipython
 
+This problem is still a pain in the ass. I can't import skimage.io on ipython because it crashes my X server.
+
+SOLVED: I can avoid this problem (at the cost of very slow startup time) by using -X in my ssh login.
+
+BUT then I run into another problem. I want to connect with -X to a remote node with a GPU via the srun command (queueing system), but I don't know where to put the -X since it's not an ssh call... So I get the same crash as before.
+And if I'm NOT on a GPU node, then I cant load tensorflow.
+
+ALSO!!! my jobs fail when I run job_starter.py !!! see training/python3test3/stderr
+
+# How should 
 
 
 

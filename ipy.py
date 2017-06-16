@@ -13,6 +13,7 @@ import skimage.io as io
 import timeit
 import sklearn
 from scipy.ndimage import label, zoom
+import matplotlib.pyplot as plt
 # from skimage.filter import threshold_isodata, threshold_otsu
 
 from glob import glob
@@ -27,6 +28,7 @@ import unet
 import datasets
 import train
 import predict
+    
 
 # ---- Try with a UNet
 
@@ -45,7 +47,6 @@ def save_patches(X,Y,Ypred):
     y_pre = Ypred[idx,:,0].reshape((a,b))
     # imsho(y_pre)
     imsave('randstack.tif', np.stack((x,y_gt,y_pre), axis=0))
-
 
 # ---- BUILD/IMPORT FEATURESTACKS for RANDOM FOREST TRAINING
 
