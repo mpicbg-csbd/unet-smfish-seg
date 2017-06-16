@@ -120,7 +120,7 @@ def rebuild_img_from_patch_activations(x_y, patchact, coords):
         # zeros_img[x:x+dx, y:y+dy] = np.where(z>patch, z, patch)
         # assert 0>1
 
-    print(map(util.count_nans, [zeros_img, count_img]))
+    print(list(map(util.count_nans, [zeros_img, count_img])))
     # res = zeros_img/count_img
     # res[res==np.nan] = -1
     return zeros_img/count_img
@@ -130,7 +130,7 @@ def imglist_to_X(greylist):
     """turn list of images into ndarray of patches, labels and their coordinates. Used for
     both training and testing."""
 
-    coords = map(regular_patch_coords, greylist)
+    coords = list(map(regular_patch_coords, greylist))
     greypatches = [sample_patches_from_img(c,g) for c,g in zip(coords, greylist)]
     X = np.concatenate(tuple(greypatches), axis=0)
 
@@ -143,13 +143,13 @@ def imglist_to_X(greylist):
 def imglist_to_Y(labellist):
     "turn list of images into ndarray of patches, labels and their coordinates"
 
-    coords = map(regular_patch_coords, labellist)
+    coords = list(map(regular_patch_coords, labellist))
     labelpatches = [sample_patches_from_img(c,g) for c,g in zip(coords, labellist)]
     Y = np.concatenate(tuple(labelpatches), axis=0)
     return Y
 
 def labels_to_activations(Y):
-    # print "Ymin is :", Y.min()
+    # print("Ymin is :", Y.min())
     assert Y.min() == 0
     a,b,c = Y.shape
     Y = Y.reshape(a*b*c)
@@ -187,7 +187,7 @@ def get_unet():
     The information travel distance gives a window of 29 pixels square.
     """
 
-    print "\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n"
+    print("\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n")
     if K.image_dim_ordering() == 'th':
       inputs = Input((1, y_width, x_width))
       concatax = 1
