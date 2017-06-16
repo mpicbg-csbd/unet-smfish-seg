@@ -31,10 +31,9 @@ nb_classes = 2
 learning_rate = 0.0005
 membrane_weight_multiplier=10
 batch_size = 32
-nb_epoch = 100
+epochs = 100
 patience = 5
 savedir="./"
-samples_per_epoch = 'auto' # 6000
 
 # setup X and Y for feeding into the model
 
@@ -301,27 +300,27 @@ def train_unet(grey_imgs, label_imgs, model):
 
     # return "nothing"
 
-    global samples_per_epoch
-    if samples_per_epoch == 'auto':
-        samples_per_epoch, _ = divmod(X_train.shape[0], batch_size)
+    steps_per_epoch, _ = divmod(X_train.shape[0], batch_size)
 
     history = model.fit_generator(
-                batch_generator_patches(X_train, Y_train),
-                samples_per_epoch=samples_per_epoch,
-                #samples_per_epoch=X_train.shape[0],
-                nb_epoch=nb_epoch,
+                batch_generator_patches(X_train, Y_train, steps_per_epoch),
+                steps_per_epoch=steps_per_epoch,
+                epochs=epochs,
                 verbose=1,
-                validation_data=(X_vali, Y_vali),
-                #nb_val_samples=X_vali.shape[0],
-                callbacks=callbacks)
+                callbacks=callbacks,
+                validation_data=(X_vali, Y_vali))
 
-    json.dump(history.history, open(savedir + '/history.json', 'w'))
     score = model.evaluate(X_vali, Y_vali, verbose=1)
     print('Test score:', score[0])
     print('Test accuracy:', score[1])
+
+    history.history['steps_per_epoch'] = steps_per_epoch
+    history.history['X_train_shape'] = X_train.shape
+    history.history['X_vali_shape'] = X_vali.shape
+
     return history
 
-def batch_generator_patches(X,Y, verbose=False):
+def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
     # inds = np.arange(X.shape[0])
     # np.random.shuffle(inds)
     # X = X[inds]
@@ -336,9 +335,7 @@ def batch_generator_patches(X,Y, verbose=False):
         np.random.shuffle(inds)
         X = X[inds]
         Y = Y[inds]
-        # while current_idx+batch_size <= X.shape[0]:
-        # while current_idx+batch_size <= samples_per_epoch*batch_size:
-        while batchnum < samples_per_epoch:
+        while batchnum < steps_per_epoch:
             if verbose:
                 print("yielding")
             Xbatch, Ybatch = X[current_idx:current_idx+batch_size].copy(), Y[current_idx:current_idx+batch_size].copy()
@@ -350,8 +347,6 @@ def batch_generator_patches(X,Y, verbose=False):
             Xbatch = add_singleton_dim(Xbatch)
             Ybatch = labels_to_activations(Ybatch)
 
-            #print("Yielding X,Y. Size and Shape: ")
-            #print(Xbatch.shape, Ybatch.shape)
             batchnum += 1
             yield Xbatch, Ybatch
 

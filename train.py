@@ -3,7 +3,11 @@ import unet
 from skimage.io import imread
 import datasets as d
 import util
+import time
 
+rationale = """
+Same as m3, but with batch size of 3 instead of 32.
+"""
 
 train_params = {
  'savedir' : './',
@@ -11,18 +15,20 @@ train_params = {
  # 'label_tif_folder' : "data3/labeled_data_cellseg/labels/down6x/",
  'grey_tif_folder' : "data3/labeled_data_membranes/images/small3x/",
  'label_tif_folder' : "data3/labeled_data_membranes/labels/small3x/",
- 'initial_model_params' : "training/test3/unet_model_weights_checkpoint.h5",
+ 'initial_model_params' : None, # "training/m1/unet_model_weights_checkpoint.h5",
  'x_width' : 120,
  'y_width' : 120,
- 'step' : 30,
- 'batch_size' : 32,
- 'learning_rate' : 0.0005,
- 'nb_epoch' : 100,
- 'steps_per_epoch' : 'auto'
+ 'step' : 20,
+ 'batch_size' : 3,
+ 'learning_rate' : 0.00005,
+ 'epochs' : 500
+ # 'steps_per_epoch' : 100 #'auto'
 }
 
 
 def train(train_params):
+    start_time = time.time()
+
     train_grey_names = []
     train_grey_imgs = []
     train_label_imgs = []
@@ -65,13 +71,20 @@ def train(train_params):
     # just training params
     unet.batch_size = train_params['batch_size']
     unet.learning_rate = train_params['learning_rate']
-    unet.nb_epoch = train_params['nb_epoch']
-    unet.steps_per_epoch = train_params['steps_per_epoch']
+    unet.epochs = train_params['epochs']
+    # unet.steps_per_epoch = train_params['steps_per_epoch']
 
     model = unet.get_unet()
     if train_params['initial_model_params']:
         model.load_weights(train_params['initial_model_params'])
+
+    begin_training_time = time.time()
     history = unet.train_unet(train_grey_imgs, train_label_imgs, model)
+    finished_time = time.time()
+
+    history.history['warm_up_time'] = begin_training_time - start_time
+    history.history['train_time'] = finished_time - begin_training_time
+    json.dump(history.history, open(train_params['savedir'] + '/history.json', 'w'))
     return history
 
 
