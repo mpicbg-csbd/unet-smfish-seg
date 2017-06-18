@@ -4,22 +4,23 @@ from skimage.io import imread
 import datasets as d
 import util
 import time
+import json
 
 rationale = """
-Same as m3, but with batch size of 3 instead of 32.
+Same as m7, but with step=60 and batch_size=9. Does it go faster?
 """
 
 train_params = {
  'savedir' : './',
- # 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down6x/",
- # 'label_tif_folder' : "data3/labeled_data_cellseg/labels/down6x/",
- 'grey_tif_folder' : "data3/labeled_data_membranes/images/small3x/",
- 'label_tif_folder' : "data3/labeled_data_membranes/labels/small3x/",
+ 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down3x/",
+ 'label_tif_folder' : "data3/labeled_data_cellseg/labels/down3x/",
+ # 'grey_tif_folder' : "data3/labeled_data_membranes/images/small3x/",
+ # 'label_tif_folder' : "data3/labeled_data_membranes/labels/small3x/",
  'initial_model_params' : None, # "training/m1/unet_model_weights_checkpoint.h5",
  'x_width' : 120,
  'y_width' : 120,
- 'step' : 20,
- 'batch_size' : 3,
+ 'step' : 60,
+ 'batch_size' : 9,
  'learning_rate' : 0.00005,
  'epochs' : 500
  # 'steps_per_epoch' : 100 #'auto'

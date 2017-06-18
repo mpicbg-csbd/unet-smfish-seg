@@ -1,6 +1,4 @@
-
-
-import skimage.io as io
+# import skimage.io as io
 import matplotlib.pyplot as plt
 
 import glob as g
@@ -79,10 +77,10 @@ def explain_results(dir):
     for d, sub_ds, files in os.walk(dir, topdown=True):
         print(d)
         try:
-           for line in open(d + '/rational.txt','r'):
+           for line in open(d + '/rationale.txt','r'):
                print(line, end=' ')
         except:
-            print("no rational.txt")
+            print("no rationale.txt")
         try:
             epochNum = ""
             for line in open(d + '/stdout','r'):
