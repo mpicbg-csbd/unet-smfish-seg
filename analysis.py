@@ -10,6 +10,7 @@ import numpy as np
 
 import importlib.util
 import json
+import tabulate
 
 
 def explain_training_dir(dr):
@@ -31,6 +32,39 @@ def explain_training_dir(dr):
     plt.savefig(dr + '/accuracy.pdf')
     return rationale, train_params, history
 
+
+def explain_dir_2(basedir):
+    for d in sorted(g.glob(basedir + '*/')):
+        try:
+            r,t,h = explain_training_dir_no_plt(d)
+            print("\n\n")
+            print(d)
+            print(r)
+            print(t)
+            print(h['loss'][-1], h['val_loss'][-1])
+            print(h['acc'][-1], h['val_acc'][-1])
+        except (FileNotFoundError, AttributeError):
+            pass #print("file|attribute not found")
+
+def explain_training_dir_no_plt(dr):
+    spec = importlib.util.spec_from_file_location("train", dr + '/train.py')
+    foo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(foo)
+    rationale = foo.rationale
+    train_params = foo.train_params
+    history = json.load(open(dr + '/history.json'))
+    return rationale, train_params, history
+
+
+def show_files_gt_1MB(topdir):
+    table = []
+    for d, ds, fs in os.walk(topdir):
+        for f in fs:
+            name = d + '/' + f
+            size = os.path.getsize(name)/1000/1000 # we're using the metric=ISO standard here
+            if size > 1.0:
+                table.append([name, '\t', size, "MB"])
+    print(tabulate.tabulate(table))
 
 def walkfiles():
     "Walk through data3/ directories and explain them."

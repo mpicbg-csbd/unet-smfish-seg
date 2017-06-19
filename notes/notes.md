@@ -834,7 +834,6 @@ So I'm currently stuck with no good ideas.
 
 SOLVED! We have to install pyopencl by hand, and remove the -arch i386 item from the list of flags. AND we have to install with clang. (which i guess is also what we used to install python3 in the first place...)
 
-
 # DONE. Indentation Fix for python in vim on the cluster
 
 Fix the indentation and code folding issue on the cluster by changing shiftwidth to 4 `:set sw=4` and setting `:set fdm=indent`.
@@ -854,9 +853,13 @@ What is a loss function supposed to take as args? A single patch? or a batch of 
 
 IGNORE THIS PROBLEM. Just use tensorflow and python3!
 
-# The test score after the re-factor isn't as good as it was pre-refactor. Even though the train score is good.
+# The test score after the re-factor isn't as good as it was pre-refactor. Even though the train score is good!!
 
 Don't worry about recreating old stuff. Your new stuff will be better, after a little work, which you have to put in either way! You should change the loss function so that the pixel weight is a function of the pixels distance from the membrane.
+
+Is this true? Or just a result of switching from hand-labeled membrane to the output of the cellseg pipeline?
+
+
 
 # I can't see all my data or make the plots I want.
 
@@ -869,6 +872,7 @@ I want to use something like tensorboard to see the results of my training. Or d
 - 
 
 # SOLVED: I can't use tensorflow.
+
 When i try to load tensorflow on falcon I get a libcuda not available error.
 When I srun myself onto a machine with a gpu on furiosa and do ipython; then import tensorflow; I get a very different error.
 `AttributeError: 'module' object has no attribute 'Message'`
@@ -887,10 +891,20 @@ And if I'm NOT on a GPU node, then I cant load tensorflow.
 
 ALSO!!! my jobs fail when I run job_starter.py !!! see training/python3test3/stderr
 
-# How should 
+# What should loss be? (roughly. numerically. e.g. 3.0 ?)
 
+1. independent of patch size (avg over pixels)
+2. independent of number of samples (avg over samples)
+3. depends on number of classes (which is usually fixed at 2)
+4. Always positive? Its a minus-log-of-a-probability... so it must be positive.
 
+y[samples,x,y,class]
 
+cc = -ytrue * log(ypred)
+
+crossentropy = avg cc across samples,x,y sum across classes.
+
+We should be expecting scores that are more in the 0.01x range (if our accuracy is ~= 95%)!!!
 
 
 

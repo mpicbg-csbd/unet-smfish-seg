@@ -85,6 +85,8 @@ def train(train_params):
     history.history['warm_up_time'] = begin_training_time - start_time
     history.history['train_time'] = finished_time - begin_training_time
     json.dump(history.history, open(train_params['savedir'] + '/history.json', 'w'))
+    train_params['rationale'] = rationale
+    json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
     return history
 
 
