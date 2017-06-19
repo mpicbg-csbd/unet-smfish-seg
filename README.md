@@ -1,7 +1,5 @@
 # Readme
 
-The most important thing is [Footnotes](#footnotes).
-
 Performs automatic pixelwise membrane labeling and cell segmentation in 2D fluorescence microscopy images of early embryos.
 
 Pic is worth 10^3 words:
@@ -32,5 +30,8 @@ TBD
 
 # Footnotes
 
-<a name="f1">[Stapel et al]:</a>  
+<a name="f1">
+[Stapel et al]:
+
 Stapel, L. Carine, et al. "Automated detection and quantification of single RNAs at cellular resolution in zebrafish embryos."Development 143.3 (2016): 540-546.
+</a>
