@@ -7,22 +7,21 @@ import time
 import json
 
 rationale = """
-Same as m7, but with step=60 and batch_size=9. Does it go faster?
+Now I have to re-re-fix the early trials [m13, m14, m16] because I got the weighting system backwards in [m17..m19]. ooops.
+This is m16.
 """
 
 train_params = {
  'savedir' : './',
  'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down3x/",
  'label_tif_folder' : "data3/labeled_data_cellseg/labels/down3x/",
- # 'grey_tif_folder' : "data3/labeled_data_membranes/images/small3x/",
- # 'label_tif_folder' : "data3/labeled_data_membranes/labels/small3x/",
- 'initial_model_params' : None, # "training/m1/unet_model_weights_checkpoint.h5",
+ 'initial_model_params' : "training/m16/unet_model_weights_checkpoint.h5",
  'x_width' : 120,
  'y_width' : 120,
  'step' : 60,
  'batch_size' : 9,
- 'learning_rate' : 0.00005,
- 'epochs' : 500
+ 'learning_rate' : 5e-5,
+ 'epochs' : 10
  # 'steps_per_epoch' : 100 #'auto'
 }
 

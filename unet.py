@@ -29,10 +29,10 @@ step = 30
 
 nb_classes = 2
 learning_rate = 0.0005
-membrane_weight_multiplier=10
+membrane_weight_multiplier=1
 batch_size = 32
 epochs = 100
-patience = 5
+patience = 20
 savedir="./"
 
 # setup X and Y for feeding into the model
@@ -260,12 +260,18 @@ def train_unet(grey_imgs, label_imgs, model):
     # Adjust sample weights
     print("SETUP THE CLASSWEIGHTS\n\n")
     classimg = np.argmax(Y_train, axis=-1).flatten()
-    n_zeros = len(classimg[classimg==0])
-    n_ones = len(classimg[classimg==1])
-    classweights = {0: 1, 1: n_zeros/n_ones}
-    print(classweights)
-    cw = classweights
-    model.compile(optimizer=Adam(lr = learning_rate), loss=my_categorical_crossentropy(weights=(cw[0], membrane_weight_multiplier*cw[1])), metrics=['accuracy'])
+    # IMPORTANT! The weight for membrane is given by the fraction of non-membrane! (and vice versa)
+    non_zeros = len(classimg[classimg!=0])
+    non_ones = len(classimg[classimg!=1])
+    total = len(classimg)
+    w0 = non_zeros / total
+    w1 = non_ones / total
+    class_relative_frequncies = {0: w0, 1: w1}
+    print(class_relative_frequncies)
+    # And now we rescale by membrane-weight-multiplier!
+    w1_renorm = min(1.0, membrane_weight_multiplier * w1)
+    w0_renorm = 1.0 - w1_renorm
+    model.compile(optimizer=Adam(lr = learning_rate), loss=my_categorical_crossentropy(weights=(w0_renorm, w1_renorm)), metrics=['accuracy'])
 
     # Setup callbacks
     print("SETUP CALLBACKS\n\n")
@@ -273,8 +279,8 @@ def train_unet(grey_imgs, label_imgs, model):
     earlystopper = EarlyStopping(patience=patience, verbose=1)
     # tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0, batch_size=32, write_graph=True, write_grads=False, write_images=False, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None)
 
-    # callbacks = [checkpointer, earlystopper]
-    callbacks = [checkpointer]
+    callbacks = [checkpointer, earlystopper]
+    # callbacks = [checkpointer]
 
     X_vali = add_singleton_dim(X_vali)
     Y_vali = labels_to_activations(Y_vali)

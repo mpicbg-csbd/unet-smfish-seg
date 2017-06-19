@@ -5,14 +5,18 @@ import unet
 from skimage.io import imread
 import datasets as d
 import util
+import json
 
+
+rationale = """
+Test out reationale in predict.
+Take a peek at the results from the good cell_seg model: m22.
+"""
 
 predict_params = {
  'savedir' : './',
- #'model_weights' : 'training/mem1/unet_model_weights_checkpoint.h5',
- 'model_weights' : 'results4/seg_down6x_2/unet_model_weights_checkpoint.h5',
- # 'grey_tif_folder' : "data3/labeled_data_membranes/images/small3x/",
- 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down6x/",
+ 'model_weights' : 'training/m22/unet_model_weights_checkpoint.h5',
+ 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down3x/",
  'x_width' : 120,
  'y_width' : 120,
  'step' : 30,
