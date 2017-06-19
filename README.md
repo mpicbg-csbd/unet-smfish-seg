@@ -30,8 +30,5 @@ TBD
 
 # Footnotes
 
-<a name="f1">
-[Stapel et al]:
-
+<a name="f1"> [Stapel et al]: </a>
 Stapel, L. Carine, et al. "Automated detection and quantification of single RNAs at cellular resolution in zebrafish embryos."Development 143.3 (2016): 540-546.
-</a>
