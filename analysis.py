@@ -19,6 +19,7 @@ def explain_training_dir(dr):
     rationale = foo.rationale
     train_params = foo.train_params
     history = json.load(open(dr + '/history.json'))
+    plt.figure()
     plt.plot(history['loss'], label='loss')
     plt.plot(history['val_loss'], label='val_loss')
     plt.legend()

@@ -1,12 +1,11 @@
 Readme
 ======
 
-A tool for membrane-labeling and 2D cell segmentation in fluorescence
-images of mesenchymal tissue sections.
+Performs automatic pixelwise membrane labeling and 2D cell segmentation in fluorescence microscopy images of early embryos.
 
 Pic is worth 10^3^ words:
 
-![](file:resources/grey_mem_seg.jpg)
+![](resources/grey_mem_seg.jpg)
 
 segmentation
 
@@ -21,19 +20,20 @@ Methods
 
 Membrane pixelwise classification is performed with a 5-layer
 (2-downsampling, 1-bottom, 2-upsampling)
-[U-Net](https://arxiv.org/pdf/1505.04597.pdf) with same model used in
-[retinal blood vessel
-segmentation](https://github.com/orobix/retina-unet).
+[U-Net](https://arxiv.org/pdf/1505.04597.pdf) modified from
+[retinal blood vessel segmentation](https://github.com/orobix/retina-unet).
 
 Installation
 ------------
 
-You need Python >= 2.7 with the standard scientific python libraries:
+You need Python3 with the standard scientific python libraries:
 numpy, scipy, scikit-learn and scikit-image the deep learning framework
 Keras which uses as backend: Tensorflow or Theano
 
 Usage
 -----
+
+TBD
 
 Footnotes
 =========
