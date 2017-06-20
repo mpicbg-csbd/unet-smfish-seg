@@ -34,9 +34,13 @@ def explain_training_dir(dr):
 
 
 def explain_dir_2(basedir):
-    for d in sorted(g.glob(basedir + '*/')):
+    dirlist = sorted(g.glob(basedir + '*/'))
+    return dirlist
+
+def explian_dirlist(list_of_dirs):
+    for d in list_of_dirs:
         try:
-            r,t,h = explain_training_dir_no_plt(d)
+            r,t,h = explain_training_dir(d)
             print("\n\n")
             print(d)
             print(r)

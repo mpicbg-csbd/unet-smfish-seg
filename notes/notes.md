@@ -859,6 +859,8 @@ Don't worry about recreating old stuff. Your new stuff will be better, after a l
 
 Is this true? Or just a result of switching from hand-labeled membrane to the output of the cellseg pipeline?
 
+NO! Even the output of the classifiers trained on the old hand-labeled membrane look much worse than some of the old, best predictions.
+
 
 
 # I can't see all my data or make the plots I want.
