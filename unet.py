@@ -8,6 +8,7 @@ import json
 
 from keras.activations import softmax
 from keras.models import Model
+from keras.layers import Convolution2D
 from keras.layers import Input, MaxPooling2D, UpSampling2D, Reshape, core, Dropout
 from keras.layers.convolutional import Conv2D
 from keras.layers.merge import Concatenate
@@ -181,40 +182,53 @@ def my_categorical_crossentropy(weights =(1., 1.)):
         # return -(K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon()))+K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
     return catcross
 
+
+
+def my_categorical_crossentropy_np(weights =(1., 1.)):
+    def catcross(y_true, y_pred):
+        return -(weights[0] * np.mean(y_true[:,:,0]*np.log(y_pred[:,:,0]+K.epsilon())) +
+                 weights[1] * np.mean(y_true[:,:,1]*np.log(y_pred[:,:,1]+K.epsilon())))
+
+        # return -(K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon()))+K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
+    return catcross
+
 def get_unet():
     """
     The information travel distance gives a window of 29 pixels square.
     """
 
     print("\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n")
+
     if K.image_dim_ordering() == 'th':
       inputs = Input((1, y_width, x_width))
       concatax = 1
+      chan = 'channels_first'
     if K.image_dim_ordering() == 'tf':
       inputs = Input((y_width, x_width, 1))
       concatax = 3
+      chan = 'channels_last'
 
     conv1 = Conv2D(32, (3, 3), padding='same', activation='relu')(inputs)
     conv1 = Dropout(0.2)(conv1)
     conv1 = Conv2D(32, (3, 3), padding='same', activation='relu')(conv1)
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+    pool1 = MaxPooling2D(pool_size=(2, 2), data_format=chan)(conv1)
 
     conv2 = Conv2D(64, (3, 3), padding='same', activation='relu')(pool1)
     conv2 = Dropout(0.2)(conv2)
     conv2 = Conv2D(64, (3, 3), padding='same', activation='relu')(conv2)
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2), data_format=chan)(conv2)
 
     conv3 = Conv2D(128, (3, 3), padding='same', activation='relu')(pool2)
     conv3 = Dropout(0.2)(conv3)
     conv3 = Conv2D(128, (3, 3), padding='same', activation='relu')(conv3)
 
-    up1 = UpSampling2D(size=(2,2))(conv3)
+    up1 = UpSampling2D(size=(2,2), data_format=chan)(conv3)
     cat1 = Concatenate(axis=concatax)([up1, conv2])
     conv4 = Conv2D(64, (3, 3), padding='same', activation='relu')(cat1)
     conv4 = Dropout(0.2)(conv4)
     conv4 = Conv2D(64, (3, 3), padding='same', activation='relu')(conv4)
 
-    up2 = UpSampling2D(size=(2, 2))(conv4)
+    up2 = UpSampling2D(size=(2, 2), data_format=chan)(conv4)
     cat2 = Concatenate(axis=concatax)([up2, conv1])
     conv5 = Conv2D(32, (3, 3), padding='same', activation='relu')(cat2)
     conv5 = Dropout(0.2)(conv5)
@@ -229,6 +243,93 @@ def get_unet():
     model = Model(inputs=inputs, outputs=conv7)
     return model
 
+
+
+def get_unet_mix():
+    """
+    The information travel distance gives a window of 29 pixels square.
+    """
+    # if K.image_dim_ordering() == 'th':
+    inputs = Input((1, y_width, x_width))
+    concatax = 1
+    chan = 'channels_first'
+    # if K.image_dim_ordering() == 'tf':
+    #   inputs = Input((y_width, x_width, 1))
+    #   concatax = 3
+
+    conv1 = Conv2D(32, (3, 3), padding='same', data_format=chan, activation='relu')(inputs)
+    conv1 = Dropout(0.2)(conv1)
+    conv1 = Conv2D(32, (3, 3), padding='same', data_format=chan, activation='relu')(conv1)
+    pool1 = MaxPooling2D(pool_size=(2, 2), data_format=chan)(conv1)
+
+    conv2 = Conv2D(64, (3, 3), padding='same', data_format=chan, activation='relu')(pool1)
+    conv2 = Dropout(0.2)(conv2)
+    conv2 = Conv2D(64, (3, 3), padding='same', data_format=chan, activation='relu')(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2), data_format=chan)(conv2)
+
+    conv3 = Conv2D(128, (3, 3), padding='same', data_format=chan, activation='relu')(pool2)
+    conv3 = Dropout(0.2)(conv3)
+    conv3 = Conv2D(128, (3, 3), padding='same', data_format=chan, activation='relu')(conv3)
+
+    up1 = UpSampling2D(size=(2,2), data_format=chan)(conv3)
+    cat1 = Concatenate(axis=concatax)([up1, conv2])
+    conv4 = Conv2D(64, (3, 3), padding='same', data_format=chan, activation='relu')(cat1)
+    conv4 = Dropout(0.2)(conv4)
+    conv4 = Conv2D(64, (3, 3), padding='same', data_format=chan, activation='relu')(conv4)
+
+    up2 = UpSampling2D(size=(2, 2), data_format=chan)(conv4)
+    cat2 = Concatenate(axis=concatax)([up2, conv1])
+
+    conv5 = Conv2D(32, (3, 3), padding='same', data_format=chan, activation='relu')(cat2)
+    conv5 = Dropout(0.2)(conv5)
+    conv5 = Conv2D(32, (3, 3), padding='same', data_format=chan, activation='relu')(conv5)
+
+    conv6 = Conv2D(2, (1, 1), padding='same', data_format=chan, activation='relu')(conv5)
+    conv6 = core.Reshape((y_width*x_width, 2))(conv6)
+    conv7 = core.Activation('softmax')(conv6)
+
+    model = Model(input=inputs, output=conv7)
+    return model
+
+
+def get_unet_old():
+    """
+    The information travel distance gives a window of 29 pixels square.
+    """
+    inputs = Input((1, y_width, x_width))
+    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(inputs)
+    conv1 = Dropout(0.2)(conv1)
+    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv1)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+    #
+    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(pool1)
+    conv2 = Dropout(0.2)(conv2)
+    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+    #
+    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(pool2)
+    conv3 = Dropout(0.2)(conv3)
+    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(conv3)
+
+    up1 = merge([UpSampling2D(size=(2, 2))(conv3), conv2], mode='concat', concat_axis=1)
+    conv4 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(up1)
+    conv4 = Dropout(0.2)(conv4)
+    conv4 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(conv4)
+    #
+    up2 = merge([UpSampling2D(size=(2, 2))(conv4), conv1], mode='concat', concat_axis=1)
+    conv5 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(up2)
+    conv5 = Dropout(0.2)(conv5)
+    conv5 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv5)
+    #
+    # here nb_classes used to be just the number 2
+    conv6 = Convolution2D(2, 1, 1, activation='relu',border_mode='same')(conv5)
+    conv6 = core.Reshape((2, y_width*x_width))(conv6)
+    conv6 = core.Permute((2,1))(conv6)
+    ############
+    conv7 = core.Activation('softmax')(conv6)
+
+    model = Model(input=inputs, output=conv7)
+    return model
 
 # ---- PUBLIC INTERFACE ----
 
@@ -346,7 +447,7 @@ def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
 
 # use the model for prediction
 
-def predict_single_image(model, img, batch_size=4):
+def predict_single_image(model, img, batch_size=32):
     "unet predict on a greyscale img"
     X = imglist_to_X([img])
     X = add_singleton_dim(X)

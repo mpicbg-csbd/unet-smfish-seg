@@ -18,7 +18,7 @@ predict_params = {
  'x_width' : 120,
  'y_width' : 120,
  'step' : 10,
- 'batch_size' : 32,
+ 'batch_size' : 4,
 }
 
 def predict(predict_params):

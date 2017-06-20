@@ -861,7 +861,7 @@ Is this true? Or just a result of switching from hand-labeled membrane to the ou
 
 NO! Even the output of the classifiers trained on the old hand-labeled membrane look much worse than some of the old, best predictions.
 
-
+OK, I can load the old model weights after updating the old model to Keras 2. And I can evaluate the loss function with the old classweights. But I don't have the old training/testing data.
 
 # I can't see all my data or make the plots I want.
 
@@ -908,7 +908,8 @@ crossentropy = avg cc across samples,x,y sum across classes.
 
 We should be expecting scores that are more in the 0.01x range (if our accuracy is ~= 95%)!!!
 
-
+# PROBLEM: The old model doesn't even look like it can use the loss function we had!!! 
+If the output shape was really (samples, x*y, 2channel) then the loss would see just a 2d (x*y, 2) shaped array, and it would fail!
 
 
 
