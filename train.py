@@ -7,22 +7,24 @@ import time
 import json
 
 rationale = """
-Now I have to re-re-fix the early trials [m13, m14, m16] because I got the weighting system backwards in [m17..m19]. ooops.
-This is m16.
+Trying the down6 cell_seg data, but with membrane_weight_multiplier = 10. The problem with our previous resuls
+is that the membrane is just too thin. There is no way this is correct. Could something be wrong with the ground truth itself?
+
+This should recreate the great results we got in results4/seg_down6x_2_p2/.
 """
 
 train_params = {
  'savedir' : './',
- 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down3x/",
- 'label_tif_folder' : "data3/labeled_data_cellseg/labels/down3x/",
- 'initial_model_params' : "training/m16/unet_model_weights_checkpoint.h5",
+ 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down6x/",
+ 'label_tif_folder' : "data3/labeled_data_cellseg/labels/down6x/",
+ 'initial_model_params' : None, # "training/m12/unet_model_weights_checkpoint.h5",
  'x_width' : 120,
  'y_width' : 120,
- 'step' : 60,
- 'batch_size' : 9,
+ 'step' : 30,
+ 'batch_size' : 32,
  'learning_rate' : 5e-5,
- 'epochs' : 10
- # 'steps_per_epoch' : 100 #'auto'
+ 'membrane_weight_multiplier' : 10,
+ 'epochs' : 500
 }
 
 
@@ -72,6 +74,7 @@ def train(train_params):
     unet.batch_size = train_params['batch_size']
     unet.learning_rate = train_params['learning_rate']
     unet.epochs = train_params['epochs']
+    unet.membrane_weight_multiplier = train_params['membrane_weight_multiplier']
     # unet.steps_per_epoch = train_params['steps_per_epoch']
 
     model = unet.get_unet()

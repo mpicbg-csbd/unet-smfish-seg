@@ -28,10 +28,10 @@ def main(script, direct):
       job = r'python3 {} {}'.format(script, direct)
     elif platform.uname()[1].startswith('falcon1'):
       print("On Furiosa. Trying SLURM.")
-      job = "srun -J {2} -n 1 -p gpu --time=24:00:00 -e {1}/stderr -o {1}/stdout time python3 {0} {1} &".format(script, direct, os.path.basename(direct)[-8:])
+      job = "srun -J {2} -n 1 -p gpu --time=48:00:00 -e {1}/stderr -o {1}/stdout time python3 {0} {1} &".format(script, direct, os.path.basename(direct)[-8:])
     elif platform.uname()[1].startswith('falcon'):
       print("On Madmax. Trying bsub.")
-      job = "bsub -J {2} -n 1 -q gpu -W 24:00 -e {1}/stderr -o {1}/stdout time python3 {0} {1} &".format(script, direct, os.path.basename(direct)[-8:])
+      job = "bsub -J {2} -n 1 -q gpu -W 48:00 -e {1}/stderr -o {1}/stdout time python3 {0} {1} &".format(script, direct, os.path.basename(direct)[-8:])
     else:
       print("ERROR: Couldn't detect platform!")
       sys.exit(1)

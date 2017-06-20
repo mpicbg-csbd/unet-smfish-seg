@@ -9,21 +9,19 @@ import json
 
 
 rationale = """
-Test out reationale in predict.
-Take a peek at the results from the good cell_seg model: m22.
+Do predictions for m33 with val_loss ~= 0.0100
 """
 
 predict_params = {
  'savedir' : './',
- 'model_weights' : 'training/m22/unet_model_weights_checkpoint.h5',
- 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down3x/",
+ 'model_weights' : 'training/m33/unet_model_weights_checkpoint.h5',
+ 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down6x/",
  'x_width' : 120,
  'y_width' : 120,
- 'step' : 30,
+ 'step' : 10,
  'batch_size' : 32,
 }
 
-# def predict(savedir, predict_image_names=None, model_dir=None):
 def predict(predict_params):
     predict_image_names = util.sglob(predict_params['grey_tif_folder'] + '*.tif')
 
