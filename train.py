@@ -7,23 +7,20 @@ import time
 import json
 
 rationale = """
-Trying the down6 cell_seg data, but with membrane_weight_multiplier = 10. The problem with our previous resuls
-is that the membrane is just too thin. There is no way this is correct. Could something be wrong with the ground truth itself?
-
-This should recreate the great results we got in results4/seg_down6x_2_p2/.
+Continuation of m43, which continues from m39... Just the same thing but for 500 more epochs.
 """
 
 train_params = {
  'savedir' : './',
  'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down6x/",
  'label_tif_folder' : "data3/labeled_data_cellseg/labels/down6x/",
- 'initial_model_params' : None, # "training/m12/unet_model_weights_checkpoint.h5",
+ 'initial_model_params' : "training/m43/unet_model_weights_checkpoint.h5",
  'x_width' : 120,
  'y_width' : 120,
  'step' : 30,
  'batch_size' : 32,
  'learning_rate' : 5e-5,
- 'membrane_weight_multiplier' : 10,
+ 'membrane_weight_multiplier' : 1,
  'epochs' : 500
 }
 

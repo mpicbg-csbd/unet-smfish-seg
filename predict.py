@@ -1,4 +1,3 @@
-
 import sys
 # sys.path.append("./models/")
 import unet
@@ -9,12 +8,12 @@ import json
 
 
 rationale = """
-Do predictions for m33 with val_loss ~= 0.0100
+Do predictions for m39 with val_loss ~= 0.0127
 """
 
 predict_params = {
  'savedir' : './',
- 'model_weights' : 'training/m33/unet_model_weights_checkpoint.h5',
+ 'model_weights' : 'training/m39/unet_model_weights_checkpoint.h5',
  'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down6x/",
  'x_width' : 120,
  'y_width' : 120,

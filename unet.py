@@ -237,74 +237,51 @@ def train_unet(grey_imgs, label_imgs, model):
 
     # We're training on only the right half of each image!
     # Then we can easily identify overfitting by eye.
-    grey_imgs_small = []
-    label_imgs_small = []
-    for grey,lab in zip(grey_imgs, label_imgs):
-        a,b = grey.shape
-        grey_imgs_small.append(grey[:,0:b//2])
-        label_imgs_small.append(lab[:,0:b//2])
 
-    # create ndarray of patches
-    print("CREATING PATCHES\n\n")
-    X,Y = imglists_to_XY(grey_imgs_small, label_imgs_small)
+    # grey_imgs_small = []
+    # label_imgs_small = []
+    # for grey,lab in zip(grey_imgs, label_imgs):
+    #     a,b = grey.shape
+    #     grey_imgs_small.append(grey[:,0:b//2])
+    #     label_imgs_small.append(lab[:,0:b//2])
 
-    # shuffle the patches
-    print("SHUFFLING PATCHES\n\n")
+    print("CREATING NDARRAY PATCHES\n\n")
+    # X,Y = imglists_to_XY(grey_imgs_small, label_imgs_small)
+    X,Y = imglists_to_XY(grey_imgs, label_imgs)
+
+    print("SPLIT INTO TRAIN AND TEST\n\n")
     print("X.shape = ", X.shape, " and Y.shape = ", Y.shape)
     train_ind, test_ind = util.subsample_ind(X, Y, test_fraction=0.2, rand_state=0)
     print("train_ind = ", train_ind, " and test_ind =", test_ind)
-    np.random.shuffle(train_ind)
-    np.random.shuffle(test_ind)
+    # np.random.shuffle(train_ind)
+    # np.random.shuffle(test_ind)
     X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
 
-    # Adjust sample weights
     print("SETUP THE CLASSWEIGHTS\n\n")
-    classimg = np.argmax(Y_train, axis=-1).flatten()
+    classimg = Y_train.flatten()
+    print("Shape of classimg and Y_train: ", classimg.shape, Y_train.shape)
+
     # IMPORTANT! The weight for membrane is given by the fraction of non-membrane! (and vice versa)
     non_zeros = len(classimg[classimg!=0])
-    non_ones = len(classimg[classimg!=1])
-    total = len(classimg)
+    non_ones = len(classimg[classimg!=1]) * membrane_weight_multiplier
+    total = non_zeros + non_ones
     w0 = non_zeros / total
     w1 = non_ones / total
     class_relative_frequncies = {0: w0, 1: w1}
     print(class_relative_frequncies)
-    # And now we rescale by membrane-weight-multiplier!
-    w1_renorm = min(1.0, membrane_weight_multiplier * w1)
-    w0_renorm = 1.0 - w1_renorm
-    model.compile(optimizer=Adam(lr = learning_rate), loss=my_categorical_crossentropy(weights=(w0_renorm, w1_renorm)), metrics=['accuracy'])
+
+    model.compile(optimizer=Adam(lr = learning_rate), loss=my_categorical_crossentropy(weights=(w0, w1)), metrics=['accuracy'])
 
     # Setup callbacks
     print("SETUP CALLBACKS\n\n")
-    checkpointer = ModelCheckpoint(filepath=savedir + "/unet_model_weights_checkpoint.h5", verbose=1, save_best_only=True, save_weights_only=True)
-    earlystopper = EarlyStopping(patience=patience, verbose=1)
+    checkpointer = ModelCheckpoint(filepath=savedir + "/unet_model_weights_checkpoint.h5", verbose=0, save_best_only=True, save_weights_only=True)
+    earlystopper = EarlyStopping(patience=patience, verbose=0)
     # tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0, batch_size=32, write_graph=True, write_grads=False, write_images=False, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None)
 
     callbacks = [checkpointer, earlystopper]
-    # callbacks = [checkpointer]
 
-    X_vali = add_singleton_dim(X_vali)
-    Y_vali = labels_to_activations(Y_vali)
-
-    # import datasets as d
-
-    # g = batch_generator_patches(X_train, Y_train)
-    # for i in range(10):
-    #     xbatch, ybatch = X_train[i], Y_train[i]
-    #     d.imsave("xbatch{}.tif".format(i), xbatch)
-    #     d.imsave("ybatch{}.tif".format(i), ybatch)
-
-    # return "poopy"
-
-    # # Build and Train
-    # print("RUN FIT GENERATOR")
-
-    # g = batch_generator_patches(X_train, Y_train)
-    # for i in range(10):
-    #     xbatch, ybatch = next(g)
-    #     d.imsave("xbatch{}.tif".format(i), xbatch)
-    #     d.imsave("ybatch{}.tif".format(i), ybatch)
-
-    # return "nothing"
+    # X_vali_acti = add_singleton_dim(X_vali)
+    # Y_vali_acti = labels_to_activations(Y_vali)
 
     steps_per_epoch, _ = divmod(X_train.shape[0], batch_size)
 
@@ -314,26 +291,38 @@ def train_unet(grey_imgs, label_imgs, model):
                 epochs=epochs,
                 verbose=1,
                 callbacks=callbacks,
-                validation_data=(X_vali, Y_vali))
-
-    score = model.evaluate(X_vali, Y_vali, verbose=1)
-    print('Test score:', score[0])
-    print('Test accuracy:', score[1])
+                validation_data=(add_singleton_dim(X_vali), labels_to_activations(Y_vali)))
 
     history.history['steps_per_epoch'] = steps_per_epoch
     history.history['X_train_shape'] = X_train.shape
     history.history['X_vali_shape'] = X_vali.shape
 
+    Y_pred_train = model.predict(add_singleton_dim(X_train), batch_size)
+    Y_pred_vali = model.predict(add_singleton_dim(X_vali), batch_size)
+
+    print("ALL THE SHAPES\n")
+    print(X_train.shape, Y_train.shape, Y_pred_train.shape)
+    print(X_vali.shape, Y_vali.shape, Y_pred_vali.shape)
+
+    def savetiff(fname, img):
+        io.imsave(fname, img, plugin='tifffile', compress=1)
+
+    savetiff(savedir + '/X_train.tif', X_train)
+    savetiff(savedir + '/Y_train.tif', Y_train)
+    savetiff(savedir + '/Y_pred_train.tif', Y_pred_train)
+    savetiff(savedir + '/X_vali.tif', X_vali)
+    savetiff(savedir + '/Y_vali.tif', Y_vali)
+    savetiff(savedir + '/Y_pred_vali.tif', Y_pred_vali)
+    res = np.stack((X_train, Y_train, Y_pred_train[...,1]), axis=-1)
+    savetiff(savedir + '/training.tif', res)
+    res = np.stack((X_vali, Y_vali, Y_pred_vali[...,1]), axis=-1)
+    savetiff(savedir + '/testing.tif', res)
+
     return history
 
 def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
-    # inds = np.arange(X.shape[0])
-    # np.random.shuffle(inds)
-    # X = X[inds]
-    # Y = Y[inds]
     epoch = 0
     while (True):
-        print("INSIDE genertor! Loop Count is: ", epoch, '\n\n')
         epoch += 1
         current_idx = 0
         batchnum = 0
@@ -342,8 +331,6 @@ def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
         X = X[inds]
         Y = Y[inds]
         while batchnum < steps_per_epoch:
-            if verbose:
-                print("yielding")
             Xbatch, Ybatch = X[current_idx:current_idx+batch_size].copy(), Y[current_idx:current_idx+batch_size].copy()
             current_idx += batch_size
 
