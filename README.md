@@ -4,7 +4,9 @@ Performs automatic pixelwise membrane labeling and cell segmentation in 2D fluor
 
 Pic is worth 10^3 words:
 
-![](resources/grey_mem_seg.jpg)
+<p align="center">
+<img align="center" src="resources/readme_img_02.png" alt="one fish two fish; red fish blue fish;">
+</p>
 
 ## About
 

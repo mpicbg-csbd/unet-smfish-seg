@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 
 doc = """
 # Module for Label images
@@ -39,7 +39,7 @@ import colorsys
 def label_colors(bg_ID=1, membrane_ID=0, n_colors = 10, maxlabel=1000):
     n_colors = 10
     HSV_tuples = [(x * 1.0 / n_colors, 0.5, 0.5) for x in range(n_colors)]
-    RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
+    RGB_tuples = [colorsys.hsv_to_rgb(*x) for x in HSV_tuples]
     # intens *= 2**16/intens.max()
 
     assert membrane_ID != bg_ID
@@ -132,7 +132,7 @@ def match_score_1(img1, img2):
     # then from img2 back to img1
     ans2 = [np.argmax(mat[:,i]) for i in ans]
     ans2 = np.array(ans2)
-    perfect = range(mat.shape[0])
+    perfect = list(range(mat.shape[0]))
     perfect = np.array(perfect)
     matches = ans2 == perfect
     n_matched = len(perfect[matches])

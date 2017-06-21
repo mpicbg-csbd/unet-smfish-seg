@@ -613,15 +613,6 @@ Now we really have ALL the labeled data AND the full size input images.
 
 
 
-
-
-
-
-
-
-
-
-
 PROBLEMS. IN CHRONOLOGICAL ORDER.
 
 # GPU memory explodes
@@ -629,7 +620,7 @@ PROBLEMS. IN CHRONOLOGICAL ORDER.
 :TODO:
 You can fix this by figuring out the function (dataset,model) → (Max GPU memory usage, Max RAM Usage, Time taken). This shouldn't even be that hard to do!
 
-# Thu Mar  9 13:28:55 2017 -- Early stopping, weak models & proper scaling
+# Thoughts: Thu Mar  9 13:28:55 2017 -- Early stopping, weak models & proper scaling
 
 I submitted a job to the cluster last night: `results/bigim3/`. It was supposed to run for 300 epochs, but only ran for 18. There were no signs of error in the stderr log, or in stdout.
 
@@ -640,6 +631,7 @@ I bet it was earlystopper on the validation loss, which appeared not to be advan
 
 I changed the verbosity to 1, so it will tell me when it causes an earlystop, but I aslo bet there was a problem that the model was just not powerful enough.
 
+**Proper Scaling**
 We can either try to fix this problem by adding more layers, or by decreasing the size of the input images. Our normal size is 6x smaller. This leads to good predictions, but we have trouble upscaling the images again.
 
 If we're going to get good cell segmentations, we don't want to be upscaling images by a factor of 6!!! This will completely destroy many of the cells in the ground truth, turning them into things only a few pixels on a side...
@@ -704,7 +696,7 @@ Let's run two simulations, both continuing with the model and param_weights from
 
 -------------------------------------------------------------------------------
 
-# Thu Mar  9 18:53:52 2017 -- Image Metadata, API consistency
+# Solved. PROBLEM. Thu Mar  9 18:53:52 2017 -- Image Metadata, API consistency
 
 I've got an api problem.
 
@@ -715,6 +707,8 @@ At the moment I take care of things inside my code. But the places I have to cha
 - move the critical bits that require data-specific changing to a single accessible place.
 - Make copies of all the data to a single standardized format.
 - Design a tiny description language / metadata format that lives in the folder with the images and is loaded by your program. It will have pixel sizes, intensity-image, pixel-labeling image, segmentation-image, etc. And it will be a data format, so that it can live *with* your images, and doesn't die every time your runtime / program stops. It can also tell us the meaning of the axes in the images! This is better than the metadata that lives inside an individual image, because it can know about the relationship between images inside a folder, and most of the time large microscopy datasets are not stored as a single image file.
+
+In the end I decided to leave the data alone, but automatically apply dataset-specific processing every time the data is loaded. This takes just a few lines in my train.py... It is based on the dataset location, so that isn't allowed to change!
 
 -------------------------------------------------------------------------------
 
@@ -757,7 +751,7 @@ Of course they don't work with my current workflow.
 
 I have to save all my X,Y patches to disk to use them... which I could do. But do i want to save them to disk? If I want to sample evenly across all possible 160x160 patches (and then save those to disk) I could. But there may be an advantage to doing it with a perfectly even distribution of points across space, because that's what we want and the model doesn't know anything about space anyways... Of course we could programmatically generate X,Y AND save it to disk every time we run the program. This might be fast! And we can even combine them into a single numpy array with named axes...
 
-# Tue Mar 14 00:04:42 2017 -- Patch Size
+# Thoughts: Tue Mar 14 00:04:42 2017 -- Patch Size
 
 I don't know how to choose a patch size.
 
@@ -776,7 +770,7 @@ We'll apply this to the 6x and 3x downaveraged data.
 
 How much memory will this take? The 160x160 stride 10 patches required 16x coverage, this will only require 3x. Plus if we include the data generator then we can cut it down by another factor of 4x.
 
-# Tue Mar 14 13:53:54 2017 -- Inability to learn -- SOLVED
+# SOLVED: Problem: Tue Mar 14 13:53:54 2017 -- Inability to learn
 
 A couple key realizations... The *Cell_segmentations_paper* folder is not filled with ground truth Annotations! It's filled with the output from the cell segmentation algorithm?! They appear to be the *corrected* output of the cell-segmentation algorithm? Although many bits don't appear to be corrected at all... But in general the output looks quite OK.. Why weren't we able to learn based on these annotations? This is the strangest thing...
 
@@ -786,7 +780,7 @@ Solution. Related to [[Data Generators]]. Build your own generator! Make sure it
 
 DONE.
 
-# Sat Mar 18 15:19:16 2017 -- Membranes too thick
+# SOLVED: Sat Mar 18 15:19:16 2017 -- Membranes too thick
 
 Now we mask the data during predictions to remove the worst part of the boundary effects without throwing away all of the partially-valid patch regions.
 
@@ -794,7 +788,8 @@ The predictions look ok, but the membranes are often too wide and we don't seem 
 
 :TODO:
 1. Generate cell and membrane predictions automatically.
-2. 
+
+This can be improved by decreasing the membrane_weight_multiplier down to 1 again.
 
 # results4/ Summary -- Inability to learn on some types of data...
 
@@ -805,11 +800,13 @@ Why does the same net fail to learn on some types of training data in results4/?
 
 Not sure. But the answer to all our problems is to make a database of results. We need to make the parameters and results easily accessible to analysis tools.
 
-# TEMPFIX/AVOIDED: ipython doesn't work on furiosa
+# AVOID. Problem: ipython doesn't work on furiosa
 
-It throws some sort of 
+It throws some sort of shutil_import error
 Oscar doesn't know why. Installed local ipython with pip --user flag.
 Now I'm using python3 and I can use the system-provided version.
+
+But ipython STILL doesn't work for a NEW REASON. When I try to import skimage.io it immediately shuts down and complains about X window stuff.
 
 # SOLVED: PyOpenCL doesn't install with pip3 on my local machine
 
@@ -838,7 +835,7 @@ SOLVED! We have to install pyopencl by hand, and remove the -arch i386 item from
 
 Fix the indentation and code folding issue on the cluster by changing shiftwidth to 4 `:set sw=4` and setting `:set fdm=indent`.
 
-# SOLVED/AVOIDED. Problem: My tensor shape is not what I think it should be. I can't run Theano with channels_first setting.
+# SOLVED! Problem: My tensor shape is not what I think it should be. I can't run Theano with channels_first setting.
 
 I'm expecting the "channels" dimension to be after "samples" but before "x", "y" in the theano dimension-ordering configuration.... But it's not! Apparently...
 
@@ -853,7 +850,9 @@ What is a loss function supposed to take as args? A single patch? or a batch of 
 
 IGNORE THIS PROBLEM. Just use tensorflow and python3!
 
-# The test score after the re-factor isn't as good as it was pre-refactor. Even though the train score is good!!
+PROBLEM SOLVED! I just needed to correct my unet model to allow for a channels_first approach.
+
+# SOLVED! The test score after the re-factor isn't as good as it was pre-refactor. Even though the train score is good!!
 
 Don't worry about recreating old stuff. Your new stuff will be better, after a little work, which you have to put in either way! You should change the loss function so that the pixel weight is a function of the pixels distance from the membrane.
 
@@ -863,7 +862,7 @@ NO! Even the output of the classifiers trained on the old hand-labeled membrane 
 
 OK, I can load the old model weights after updating the old model to Keras 2. And I can evaluate the loss function with the old classweights. But I don't have the old training/testing data.
 
-# I can't see all my data or make the plots I want.
+# SOLVED: I can't see all my data or make the plots I want.
 
 I want to be able to make plots of test and train score & accuracy for each model as a function of input params, dataset, everything!
 I need to save these scores in an easily accessible way. Also, I need to make the differences between models very clear.
@@ -871,9 +870,8 @@ I want to use something like tensorboard to see the results of my training. Or d
 
 - Save the test and train patches and predictions to a directory where you can browse and plot them!
 - Save the history object so you can make plots of the score over time!
-- 
 
-# SOLVED: I can't use tensorflow.
+# SOLVED: PROBLEM: I can't use tensorflow.
 
 When i try to load tensorflow on falcon I get a libcuda not available error.
 When I srun myself onto a machine with a gpu on furiosa and do ipython; then import tensorflow; I get a very different error.
@@ -893,7 +891,7 @@ And if I'm NOT on a GPU node, then I cant load tensorflow.
 
 ALSO!!! my jobs fail when I run job_starter.py !!! see training/python3test3/stderr
 
-# What should loss be? (roughly. numerically. e.g. 3.0 ?)
+# ANSWERED. What should loss be? (roughly. numerically. e.g. 3.0 ?)
 
 1. independent of patch size (avg over pixels)
 2. independent of number of samples (avg over samples)
@@ -908,17 +906,65 @@ crossentropy = avg cc across samples,x,y sum across classes.
 
 We should be expecting scores that are more in the 0.01x range (if our accuracy is ~= 95%)!!!
 
-# PROBLEM: The old model doesn't even look like it can use the loss function we had!!! 
+NOTE we can convert between the old loss (non-normalized weights) and the new loss by simply dividing by the normalization factor afterwards (e.g. old weights of {0:1, 1:53} with 1x membrane factor and loss of 0.4 would be 0.4/53=0.0074 in the new loss scheme. With a membrane scale factor of 10x it would be 0.4/(1+53*10)=0.00075329!!!)
+
+# SOLVED. PROBLEM: The old model doesn't even look like it can use the loss function we had!!! 
 If the output shape was really (samples, x*y, 2channel) then the loss would see just a 2d (x*y, 2) shaped array, and it would fail!
 
+Crazy stuff. No idea how the old function worked... Also, no idea how the old function trained so well!
+
+!!! Go back and fix b2! That model looked great! What was with those old models? In fact, everything in the results3/ folder looks great! And all of that stuff used basically the same param set...
+
+Hypothesis List
+- The last layers of the old model are doing something i don't understand.
+  + e.g. the softmax is normalizing over the IMAGE and not the classes! is that possible?
+- The loss function is doing something I don't understand when it gets the old input. I really don't see what's happening here, because at the moment i can only get it to throw errors at me...
+  + The weights in the loss function are different (does this matter?) It shouldn't because the Adam optimizer normalizes the gradient. so it should only affect the loss, not the magnitude or direction of updates.
+- The model params are different in a way that I can't see
+- I'm doing some preprocessing of the data that I can't immediately see
+  + The old model trains on left and predicts on right halves, so our training data is different. Does this matter?
++ The losses are actually equivalent (but i can't tell because i'm converting the old classweight/normalization incorrectly) and the only difference is in the output of the predictions converted back into images.
+- None of the above.
+  + Keras1 vs Keras2?
+  + Madmax vs Furiosa?
++ 
+
+Experiment 1:
+- If I try to change my last layers to copy the old model then I expect it to throw an error because the loss is the wrong shape... Weren't the old Y_predict and Y_train different shapes????!?!?! NO. We also reshaped our Y_train vector to (samples, x*y, 2) for comparison....
+Result 1:
+The loss function still works when I reshape the x,y dimensions together!
+
+Experiment 2:
+Tryin changing to the Theano backend with your reshaped model that handles the 'channel_first' case properly.
+
+Now I'm rerunning a long version of Experiment 1 to see if we can recreate the old high quality output within the same timeframe. 
+
+PARTIALLY SOLVED!!!!
+
+I know how to fix the problem, but I don't understand why the fix works. If I reshape the last layer of my model s.t. I have (samples, x*y, 2) as my Y.shape then training produces a beautiful, clean result. THE LOSS FUNCTION IS THE SAME. How can the same loss function take Y's with different Y.ndim? And why in the world is it *better*?
+
+Hypothesis:
+The loss is really an argument of Y's with shape (samples_in_batch, ...) and the ndim=3 loss was secretly doing the wrong thing all the time and ignoring large parts of the data.
+Follow-up question:
+How do we do sample-based weighting? Because the loss will not have unique id's for each sample across the whole dataset, as you only have access to one batch at a time?....
+Result:
+IT'S TRUE! The problem since the refactor was that the loss was ignoring a large fraction of each sample, because it was built for ndim=3 input, but I was feeding it ndim=4... Of course when I read the docs on losses on Keras, it looked like they were supposed to take input without as `samples` dimension! Just a single patch! You can see here that the wording is _confusing_ : [https://keras.io/losses/]...
+
+# Solved. Problem. Membranes are too thick
+
+Hypothesis:
+The membrane_weight_multiplier was making my membranes extra thick.
+I thought that a 10x multiplier was helping me learn, but it was really unnecessary and the results in m56 really show that. All subsequent results confirm this. The membrane width is better when using membrane_weight_multiplier=1.
 
 
 
 
 
+# TODO:
 
-
-
-
+1. Remove one-hot encoding
+2. Remove bordermode = 'same' (change to 'valid')
+3. Add distance penalty
+4. Predict only distance maps! Regression problem
 
 
