@@ -28,6 +28,7 @@ x_width = 120
 y_width = 120
 step = 30
 
+# example param values. Set them in train.py
 nb_classes = 2
 learning_rate = 0.0005
 membrane_weight_multiplier=1
@@ -162,9 +163,9 @@ def add_singleton_dim(X):
     # reshape into theano/tensorflow dimension ordering
     a,b,c = X.shape
     if K.image_dim_ordering() == 'th':
-        X = X.reshape(a, 1, b, c)
+        X = X.reshape((a, 1, b, c))
     elif K.image_dim_ordering() == 'tf':
-        X = X.reshape(a, b, c, 1)
+        X = X.reshape((a, b, c, 1))
     return X
 
 def imglists_to_XY(greylist, labellist):
@@ -174,6 +175,14 @@ def imglists_to_XY(greylist, labellist):
 
 # setup and train the model
 
+def my_categorical_crossentropy_ndim4(weights =(1., 1.)):
+    def catcross(y_true, y_pred):
+        return -(weights[0] * K.mean(y_true[:,:,:,0]*K.log(y_pred[:,:,:,0]+K.epsilon())) +
+                 weights[1] * K.mean(y_true[:,:,:,1]*K.log(y_pred[:,:,:,1]+K.epsilon())))
+
+        # return -(K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon()))+K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
+    return catcross
+
 def my_categorical_crossentropy(weights =(1., 1.)):
     def catcross(y_true, y_pred):
         return -(weights[0] * K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon())) +
@@ -181,8 +190,6 @@ def my_categorical_crossentropy(weights =(1., 1.)):
 
         # return -(K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon()))+K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
     return catcross
-
-
 
 def my_categorical_crossentropy_np(weights =(1., 1.)):
     def catcross(y_true, y_pred):
@@ -194,7 +201,7 @@ def my_categorical_crossentropy_np(weights =(1., 1.)):
 
 def get_unet():
     """
-    The information travel distance gives a window of 29 pixels square.
+    The information travel distance is 14.
     """
 
     print("\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n")
@@ -208,54 +215,64 @@ def get_unet():
       concatax = 3
       chan = 'channels_last'
 
-    conv1 = Conv2D(32, (3, 3), padding='same', activation='relu')(inputs)
+    def Conv(w):
+        return Conv2D(w, (3,3), padding='same', data_format=chan, activation='relu')
+    Pool = MaxPooling2D(pool_size=(2,2), data_format=chan)
+    Upsa = UpSampling2D(size=(2,2), data_format=chan)
+
+    ## Begin U-net
+    conv1 = Conv(32)(inputs)
     conv1 = Dropout(0.2)(conv1)
-    conv1 = Conv2D(32, (3, 3), padding='same', activation='relu')(conv1)
-    pool1 = MaxPooling2D(pool_size=(2, 2), data_format=chan)(conv1)
+    conv1 = Conv(32)(conv1)
+  
+    pool1 = Pool(conv1)
 
-    conv2 = Conv2D(64, (3, 3), padding='same', activation='relu')(pool1)
+    conv2 = Conv(64)(pool1)
     conv2 = Dropout(0.2)(conv2)
-    conv2 = Conv2D(64, (3, 3), padding='same', activation='relu')(conv2)
-    pool2 = MaxPooling2D(pool_size=(2, 2), data_format=chan)(conv2)
+    conv2 = Conv(64)(conv2)
 
-    conv3 = Conv2D(128, (3, 3), padding='same', activation='relu')(pool2)
+    pool2 = Pool(conv2)
+
+    conv3 = Conv(128)(pool2)
     conv3 = Dropout(0.2)(conv3)
-    conv3 = Conv2D(128, (3, 3), padding='same', activation='relu')(conv3)
+    conv3 = Conv(128)(conv3)
 
-    up1 = UpSampling2D(size=(2,2), data_format=chan)(conv3)
-    cat1 = Concatenate(axis=concatax)([up1, conv2])
-    conv4 = Conv2D(64, (3, 3), padding='same', activation='relu')(cat1)
+    up1   = Upsa(conv3)
+    cat1  = Concatenate(axis=concatax)([up1, conv2])
+
+    conv4 = Conv(64)(cat1)
     conv4 = Dropout(0.2)(conv4)
-    conv4 = Conv2D(64, (3, 3), padding='same', activation='relu')(conv4)
+    conv4 = Conv(64)(conv4)
 
-    up2 = UpSampling2D(size=(2, 2), data_format=chan)(conv4)
-    cat2 = Concatenate(axis=concatax)([up2, conv1])
-    conv5 = Conv2D(32, (3, 3), padding='same', activation='relu')(cat2)
+    up2   = Upsa(conv4)
+    cat2  = Concatenate(axis=concatax)([up2, conv1])
+
+    conv5 = Conv(32)(cat2)
     conv5 = Dropout(0.2)(conv5)
-    conv5 = Conv2D(32, (3, 3), padding='same', activation='relu')(conv5)
+    conv5 = Conv(32)(conv5)
 
-    # here nb_classes used to be just the number 2
-    conv6 = Conv2D(2, (1, 1), padding='same', activation='relu')(conv5)
-    # conv6 = core.Permute((2,3,1))(conv6)
+    conv6 = Conv2D(2, (1, 1), padding='same', data_format=chan, activation='relu')(conv5)
     softm = lambda x: softmax(x, axis=concatax)
     conv7 = core.Activation(softm)(conv6)
 
+    if K.image_dim_ordering() == 'th':
+        conv7 = core.Permute((2,3,1))(conv7)
+
     model = Model(inputs=inputs, outputs=conv7)
     return model
-
-
 
 def get_unet_mix():
     """
     The information travel distance gives a window of 29 pixels square.
     """
-    # if K.image_dim_ordering() == 'th':
-    inputs = Input((1, y_width, x_width))
-    concatax = 1
-    chan = 'channels_first'
-    # if K.image_dim_ordering() == 'tf':
-    #   inputs = Input((y_width, x_width, 1))
-    #   concatax = 3
+    if K.image_dim_ordering() == 'th':
+        inputs = Input((1, y_width, x_width))
+        concatax = 1
+        chan = 'channels_first'
+    if K.image_dim_ordering() == 'tf':
+        inputs = Input((y_width, x_width, 1))
+        concatax = 3
+        chan = 'channels_last'
 
     conv1 = Conv2D(32, (3, 3), padding='same', data_format=chan, activation='relu')(inputs)
     conv1 = Dropout(0.2)(conv1)
@@ -285,12 +302,15 @@ def get_unet_mix():
     conv5 = Conv2D(32, (3, 3), padding='same', data_format=chan, activation='relu')(conv5)
 
     conv6 = Conv2D(2, (1, 1), padding='same', data_format=chan, activation='relu')(conv5)
-    conv6 = core.Reshape((y_width*x_width, 2))(conv6)
+    if K.image_dim_ordering() == 'th':
+        conv6 = core.Reshape((2, y_width*x_width))(conv6)
+        conv6 = core.Permute((2,1))(conv6)
+    elif K.image_dim_ordering() == 'tf':
+        conv6 = core.Reshape((y_width*x_width, 2))(conv6)
     conv7 = core.Activation('softmax')(conv6)
 
     model = Model(input=inputs, output=conv7)
     return model
-
 
 def get_unet_old():
     """
@@ -339,30 +359,27 @@ def train_unet(grey_imgs, label_imgs, model):
     # We're training on only the right half of each image!
     # Then we can easily identify overfitting by eye.
 
-    # grey_imgs_small = []
-    # label_imgs_small = []
-    # for grey,lab in zip(grey_imgs, label_imgs):
-    #     a,b = grey.shape
-    #     grey_imgs_small.append(grey[:,0:b//2])
-    #     label_imgs_small.append(lab[:,0:b//2])
+    print("CREATING NDARRAY PATCHES")
+    grey_imgs_small = []
+    label_imgs_small = []
+    for grey,lab in zip(grey_imgs, label_imgs):
+        a,b = grey.shape
+        grey_imgs_small.append(grey[:,0:b//2])
+        label_imgs_small.append(lab[:,0:b//2])
+    X,Y = imglists_to_XY(grey_imgs_small, label_imgs_small)
+    # X,Y = imglists_to_XY(grey_imgs, label_imgs)
 
-    print("CREATING NDARRAY PATCHES\n\n")
-    # X,Y = imglists_to_XY(grey_imgs_small, label_imgs_small)
-    X,Y = imglists_to_XY(grey_imgs, label_imgs)
-
-    print("SPLIT INTO TRAIN AND TEST\n\n")
+    print("SPLIT INTO TRAIN AND TEST")
     print("X.shape = ", X.shape, " and Y.shape = ", Y.shape)
     train_ind, test_ind = util.subsample_ind(X, Y, test_fraction=0.2, rand_state=0)
     print("train_ind = ", train_ind, " and test_ind =", test_ind)
-    # np.random.shuffle(train_ind)
-    # np.random.shuffle(test_ind)
+    np.save(savedir + '/train_ind.npy', train_ind)
+    np.save(savedir + '/test_ind.npy', test_ind)
     X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
 
-    print("SETUP THE CLASSWEIGHTS\n\n")
-    classimg = Y_train.flatten()
-    print("Shape of classimg and Y_train: ", classimg.shape, Y_train.shape)
-
+    print("SETUP THE CLASSWEIGHTS")
     # IMPORTANT! The weight for membrane is given by the fraction of non-membrane! (and vice versa)
+    classimg = Y_train.flatten()
     non_zeros = len(classimg[classimg!=0])
     non_ones = len(classimg[classimg!=1]) * membrane_weight_multiplier
     total = non_zeros + non_ones
@@ -371,18 +388,14 @@ def train_unet(grey_imgs, label_imgs, model):
     class_relative_frequncies = {0: w0, 1: w1}
     print(class_relative_frequncies)
 
-    model.compile(optimizer=Adam(lr = learning_rate), loss=my_categorical_crossentropy(weights=(w0, w1)), metrics=['accuracy'])
+    model.compile(optimizer=Adam(lr = learning_rate), loss=my_categorical_crossentropy_ndim4(weights=(w0, w1)), metrics=['accuracy'])
 
     # Setup callbacks
-    print("SETUP CALLBACKS\n\n")
+    print("SETUP CALLBACKS")
     checkpointer = ModelCheckpoint(filepath=savedir + "/unet_model_weights_checkpoint.h5", verbose=0, save_best_only=True, save_weights_only=True)
     earlystopper = EarlyStopping(patience=patience, verbose=0)
     # tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0, batch_size=32, write_graph=True, write_grads=False, write_images=False, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None)
-
     callbacks = [checkpointer, earlystopper]
-
-    # X_vali_acti = add_singleton_dim(X_vali)
-    # Y_vali_acti = labels_to_activations(Y_vali)
 
     steps_per_epoch, _ = divmod(X_train.shape[0], batch_size)
 
@@ -394,6 +407,8 @@ def train_unet(grey_imgs, label_imgs, model):
                 callbacks=callbacks,
                 validation_data=(add_singleton_dim(X_vali), labels_to_activations(Y_vali)))
 
+    print("FINISHED TRAINING")
+
     history.history['steps_per_epoch'] = steps_per_epoch
     history.history['X_train_shape'] = X_train.shape
     history.history['X_vali_shape'] = X_vali.shape
@@ -401,19 +416,23 @@ def train_unet(grey_imgs, label_imgs, model):
     Y_pred_train = model.predict(add_singleton_dim(X_train), batch_size)
     Y_pred_vali = model.predict(add_singleton_dim(X_vali), batch_size)
 
-    print("ALL THE SHAPES\n")
+    print("ALL THE SHAPES")
     print(X_train.shape, Y_train.shape, Y_pred_train.shape)
     print(X_vali.shape, Y_vali.shape, Y_pred_vali.shape)
 
     def savetiff(fname, img):
         io.imsave(fname, img, plugin='tifffile', compress=1)
 
-    savetiff(savedir + '/X_train.tif', X_train)
-    savetiff(savedir + '/Y_train.tif', Y_train)
-    savetiff(savedir + '/Y_pred_train.tif', Y_pred_train)
-    savetiff(savedir + '/X_vali.tif', X_vali)
-    savetiff(savedir + '/Y_vali.tif', Y_vali)
-    savetiff(savedir + '/Y_pred_vali.tif', Y_pred_vali)
+    if Y_pred_train.ndim == 3:
+        print("NDIM 3, ")
+        Y_pred_train = Y_pred_train.reshape((-1, y_width, x_width, 2))
+        Y_pred_vali = Y_pred_vali.reshape((-1, y_width, x_width, 2))
+    # savetiff(savedir + '/X_train.tif', X_train)
+    # savetiff(savedir + '/Y_train.tif', Y_train)
+    # savetiff(savedir + '/Y_pred_train.tif', Y_pred_train)
+    # savetiff(savedir + '/X_vali.tif', X_vali)
+    # savetiff(savedir + '/Y_vali.tif', Y_vali)
+    # savetiff(savedir + '/Y_pred_vali.tif', Y_pred_vali)
     res = np.stack((X_train, Y_train, Y_pred_train[...,1]), axis=-1)
     savetiff(savedir + '/training.tif', res)
     res = np.stack((X_vali, Y_vali, Y_pred_vali[...,1]), axis=-1)
@@ -452,11 +471,12 @@ def predict_single_image(model, img, batch_size=32):
     X = imglist_to_X([img])
     X = add_singleton_dim(X)
     Y_pred = model.predict(X, batch_size=batch_size)
-    # io.imsave('ypred.tif', Y_pred)
     print("Y_pred shape: ", Y_pred.shape)
-    a,b,c,d = Y_pred.shape
-    assert d==2
-    # Y_pred = Y_pred.reshape((a, y_width, x_width, c))
+
+    if Y_pred.ndim == 3:
+        print("NDIM 3, ")
+        Y_pred = Y_pred.reshape((-1, y_width, x_width, 2))
+
     # WARNING TODO: This will break when we change the coords used in `imglist_to_X`
     coords = regular_patch_coords(img)
     res = rebuild_img_from_patch_activations(img.shape, Y_pred, coords)

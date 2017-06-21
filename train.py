@@ -7,21 +7,22 @@ import time
 import json
 
 rationale = """
-Continuation of m43, which continues from m39... Just the same thing but for 500 more epochs.
+Want to test out the additional history timings.
 """
 
 train_params = {
  'savedir' : './',
- 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down6x/",
- 'label_tif_folder' : "data3/labeled_data_cellseg/labels/down6x/",
- 'initial_model_params' : "training/m43/unet_model_weights_checkpoint.h5",
- 'x_width' : 120,
- 'y_width' : 120,
- 'step' : 30,
+ 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down3x/",
+ 'label_tif_folder' : "data3/labeled_data_cellseg/labels/down3x/",
+ 'initial_model_params' : "training/m57/unet_model_weights_checkpoint.h5",
+ 'x_width' : 240,
+ 'y_width' : 240,
+ 'step' : 60,
  'batch_size' : 32,
- 'learning_rate' : 5e-5,
+ 'learning_rate' : 1e-2,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 500
+ 'epochs' : 10,
+ 'patience' : 20
 }
 
 
@@ -72,9 +73,11 @@ def train(train_params):
     unet.learning_rate = train_params['learning_rate']
     unet.epochs = train_params['epochs']
     unet.membrane_weight_multiplier = train_params['membrane_weight_multiplier']
+    unet.patience = train_params['patience']
     # unet.steps_per_epoch = train_params['steps_per_epoch']
 
     model = unet.get_unet()
+    #model = unet.get_unet_mix()
     if train_params['initial_model_params']:
         model.load_weights(train_params['initial_model_params'])
 
@@ -83,8 +86,15 @@ def train(train_params):
     finished_time = time.time()
 
     history.history['warm_up_time'] = begin_training_time - start_time
-    history.history['train_time'] = finished_time - begin_training_time
+    train_time = finished_time - begin_training_time
+    history.history['train_time'] = train_time
+    trained_epochs = len(history.history['acc'])
+    history.history['trained_epochs'] = trained_epochs
+    history.history['avg_time_per_epoch'] = train_time / trained_epochs
+    history.history['avg_time_per_batch'] = train_time / (trained_epochs * history.history['steps_per_epoch'])
+    history.history['avg_time_per_sample'] = train_time / (trained_epochs * history.history['X_train_shape'][0])
     json.dump(history.history, open(train_params['savedir'] + '/history.json', 'w'))
+
     train_params['rationale'] = rationale
     json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
     return history

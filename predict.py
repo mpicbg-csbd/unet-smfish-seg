@@ -1,5 +1,4 @@
 import sys
-# sys.path.append("./models/")
 import unet
 from skimage.io import imread
 import datasets as d
@@ -8,16 +7,17 @@ import json
 
 
 rationale = """
-Do predictions for m39 with val_loss ~= 0.0127
+Made a big mistake on previous and forgot to change the get_unet model!
+Check out predictions of new model + new loss (m57).
 """
 
 predict_params = {
  'savedir' : './',
- 'model_weights' : 'training/m39/unet_model_weights_checkpoint.h5',
- 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down6x/",
- 'x_width' : 120,
- 'y_width' : 120,
- 'step' : 10,
+ 'model_weights' : 'training/m57/unet_model_weights_checkpoint.h5',
+ 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down3x/",
+ 'x_width' : 240,
+ 'y_width' : 240,
+ 'step' : 60,
  'batch_size' : 4,
 }
 
