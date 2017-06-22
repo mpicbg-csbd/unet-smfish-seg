@@ -200,7 +200,7 @@ Moved the Random Forest into what I hope was the correct directory and BINGO I g
 
 # Tue Feb 7
 
-I have a better now of why Dave's CRF wont work on linux. The `learn` binary requires a very special commit from Dave's code. We don't know which one, because we never got the source, only the results of the build. We could try building on every commit, and running tests until we find one that passes the tests... But it will very likely be the wrong commit...
+I have a better understanding now of why Dave's CRF wont work on linux. The `learn` binary requires a very special commit from Dave's code. We don't know which one, because we never got the source, only the results of the build. We could try building on every commit, and running tests until we find one that passes the tests... But it will very likely be the wrong commit...
 
 RESULT 1! from crf_vs_xgboost.py
 ```
@@ -435,7 +435,8 @@ This will likely be required by some data-hungry models. This can/should also be
 
 What responsibilities fall within the `imglist_to_XY` function vs the `preprocess` function? At which point do we make sure that we have the correct types, etc? Since the types involved are closely related to the normalization of the data it makes sense to keep all the type conversion ONLY in the preprocessing step.
 
-## DAWN OF THE DEEP U-NETS
+# DAWN OF THE DEEP U-NETS
+=========================
 
 I've got my first Unet trining here and the accuracy on the validation set > 1k samples is already .9668 and growing. I don't know if we ever had accuracy this good with the Random Forests? But we still don't know if this is the same local minimum that we get just by classifying everything as background.
 
@@ -605,19 +606,24 @@ FOUND THE REMAINING CELL SEGMENTATIONS!!!
 
 Now we really have ALL the labeled data AND the full size input images.
 
-
-
-
-
-
-
-
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│                                                                     │
+│             ____  ____  ____  ____  __    ________  ________        │
+│            / __ \/ __ \/ __ \/ __ )/ /   / ____/  |/  / ___/        │
+│           / /_/ / /_/ / / / / __  / /   / __/ / /|_/ /\__ \         │
+│          / ____/ _, _/ /_/ / /_/ / /___/ /___/ /  / /___/ /         │
+│         /_/   /_/ |_|\____/_____/_____/_____/_/  /_//____/          │
+│                                                                     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 PROBLEMS. IN CHRONOLOGICAL ORDER.
 
-# GPU memory explodes
+# PROBLEM: GPU memory explodes
 
-:TODO:
 You can fix this by figuring out the function (dataset,model) → (Max GPU memory usage, Max RAM Usage, Time taken). This shouldn't even be that hard to do!
 
 # Thoughts: Thu Mar  9 13:28:55 2017 -- Early stopping, weak models & proper scaling
@@ -637,8 +643,6 @@ We can either try to fix this problem by adding more layers, or by decreasing th
 If we're going to get good cell segmentations, we don't want to be upscaling images by a factor of 6!!! This will completely destroy many of the cells in the ground truth, turning them into things only a few pixels on a side...
 
 We want to know how: *how much can we downscale the image and still get 100% correct cell segmentations after upscaling?* We can answer this question (and the maximum accuracy of our membrane segmentations) because we have access to cell and membrane segmentation ground truth.
-
--------------------------------------------------------------------------------
 
 # Thu Mar  9 13:41:14 2017 -- Fiji vs leiningen & maven
 
@@ -956,6 +960,16 @@ Hypothesis:
 The membrane_weight_multiplier was making my membranes extra thick.
 I thought that a 10x multiplier was helping me learn, but it was really unnecessary and the results in m56 really show that. All subsequent results confirm this. The membrane width is better when using membrane_weight_multiplier=1.
 
+# Thoughts
+
+- Epochs seem to take around 45±1 seconds for tensorflow.
+- A high learning rate can bring faster convergence, but can also lead to sudden, unexpected spikes in loss which take a few epochs to (usually rapidly) recover from.
+- The training loss and accuracy aren't necessarily better than the validation! It might be that the validation dataset just happens to be easier to learn, even if it's completely hidden at training time. *can we identify the visible features that make it this way?* *Could it also be that a particular model just happens to perform consistently better on validation than training?* Yes this must also be possible.
+
+**are our models training on exactly the same training data?**
+
+- Yes, i think so. Let's check the train_ind.npy's are the same for both... They are. This means the training patches chosen are the same for both.
+
 
 
 
@@ -965,6 +979,8 @@ I thought that a 10x multiplier was helping me learn, but it was really unnecess
 1. Remove one-hot encoding
 2. Remove bordermode = 'same' (change to 'valid')
 3. Add distance penalty
+    - 
 4. Predict only distance maps! Regression problem
-
+5. Allow training on arbitrary size dataset
+6. Augment with simple rotation and horizontal reflection
 

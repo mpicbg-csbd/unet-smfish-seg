@@ -11,45 +11,76 @@ import numpy as np
 import importlib.util
 import json
 import tabulate
+import label_imgs
 
-
-def explain_training_dir(dr, plots=True):
+def explain_training_dir(dr, plots=True, megaplots_axes=None):
     spec = importlib.util.spec_from_file_location("train", dr + '/train.py')
     foo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(foo)
     rationale = foo.rationale
     train_params = foo.train_params
     history = json.load(open(dr + '/history.json'))
-    plt.figure()
-    plt.title(dr)
-    plt.plot(history['loss'], label='loss')
-    plt.plot(history['val_loss'], label='val_loss')
-    plt.legend()
-    plt.savefig(dr + '/loss.pdf')
-    plt.figure()
-    plt.title(dr)
-    plt.plot(history['acc'], label='acc')
-    plt.plot(history['val_acc'], label='val_acc')
-    plt.legend()
-    plt.savefig(dr + '/accuracy.pdf')
+    axes_accuracy, axes_loss, color = megaplots_axes
     if plots:
+        plt.figure()
+        plt.title(dr)
+        plt.plot(history['loss'], label='loss_')
+        plt.plot(history['val_loss'], label='val_loss')
+        plt.legend()
+        plt.savefig(dr + '/loss.pdf')
+        plt.figure()
+        plt.title(dr)
+        plt.plot(history['acc'], label='acc')
+        plt.plot(history['val_acc'], label='val_acc')
+        plt.legend()
+        plt.savefig(dr + '/accuracy.pdf')
         plt.show()
+    if megaplots_axes:
+        axes_loss.plot(history['loss'], label='loss_'+dr, color=color)
+        axes_loss.plot(history['val_loss'], label='val_loss'+dr, color=color)
+        axes_accuracy.plot(history['acc'], label='acc'+dr, color=color)
+        axes_accuracy.plot(history['val_acc'], label='val_acc'+dr, color=color)
     print("\n\n")
     print(dr)
     print(rationale)
     print(train_params)
     print(history['loss'][-1], history['val_loss'][-1])
     print(history['acc'][-1], history['val_acc'][-1])
+    print("{} epochs in {} seconds".format(len(history['acc']), history['train_time']))
     return rationale, train_params, history
 
-def explain_training_directories(dir_or_list_of_dirs):
+def explain_training_directories(dir_or_list_of_dirs, plots=True):
+    """
+    input: parent directory name or list of training directory names.
+    output: plots comparing accuracy and loss over time. prints params, timings & rationale.
+    """
     if type(dir_or_list_of_dirs)==str:
         dir_or_list_of_dirs = sorted(glob(basedir + '*/'))
-    for d in dir_or_list_of_dirs:
+
+    fig_accuracy = plt.figure()
+    axes_accuracy = fig_accuracy.gca()
+    fig_loss = plt.figure()
+    axes_loss = fig_loss.gca()
+
+    print("LENGTH: ", len(dir_or_list_of_dirs))
+    colors = label_imgs.pastel_colors_RGB_gap(n_colors=len(dir_or_list_of_dirs), brightness=1.0)
+    print(colors)
+    x = range(len(colors))
+    plt.figure()
+    plt.scatter(x,x,color=colors)
+    plt.show()
+
+    for i in range(len(dir_or_list_of_dirs)):
+        d = dir_or_list_of_dirs[i]
         try:
-            r,t,h = explain_training_dir(d, plots=True)
+            r,t,h = explain_training_dir(d, plots=False, megaplots_axes=(axes_accuracy, axes_loss, colors[i]))
         except (FileNotFoundError, AttributeError):
             pass
+
+    axes_accuracy.legend()
+    fig_accuracy.show()
+    axes_loss.legend()
+    fig_loss.show()
 
 def explain_results(dir):
     "Get scores, runtime, etc for old-style training without a history.json or train_params.json"
@@ -77,3 +108,25 @@ def explain_results(dir):
 
 if __name__ == '__main__':
     explain_results(sys.argv[1])
+
+
+def info_travel_dist(layers, conv=4):
+    """
+    layers: number of down and up layers (e.g. two down followed by two up => layers=2)
+    conv: the number of pixels removed in x and y during each set of convolutions (e.g. two 3x3 convs = 2x2 = 4)
+    returns: the info travel distance == the amount of width that is lost in a patch / 2
+    """
+    width = 0
+    for i in range(layers):
+        width -= conv
+        width /= 2
+    width -= conv
+    for i in range(layers):
+        width *= 2
+        width -= conv
+    return -width/2
+
+
+
+
+

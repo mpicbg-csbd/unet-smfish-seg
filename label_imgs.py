@@ -13,6 +13,7 @@ boundary layer, and it probably also shouldn't count towards our cell-matching s
 # import networkx as nx
 import numpy as np
 import skimage.io as io
+import colorsys
 
 # img2 = io.imread("./20150513_New_data/20150430_eif4g_dome03_slice11.tif")
 # io.imsave('i1.tif', img1[1])
@@ -34,12 +35,25 @@ import skimage.io as io
 # img2 = zoom(img2, 0.2)
 
 
-import colorsys
+
+def pastel_colors_RGB(n_colors=10, brightness=0.5, value=0.5):
+    """
+    a cyclic map of equal brightness and value. Good for elements of an unordered set.
+    """
+    HSV_tuples = [(x * 1.0 / n_colors, brightness, value) for x in range(n_colors)]
+    RGB_tuples = [colorsys.hsv_to_rgb(*x) for x in HSV_tuples]
+    return RGB_tuples
+
+def pastel_colors_RGB_gap(n_colors=10, brightness=0.5, value=0.5):
+    """
+    leaves a gap in Hue, so colors don't cycle around, but go from Red to Blue
+    """
+    HSV_tuples = [(x * 0.75 / n_colors, brightness, value) for x in range(n_colors)]
+    RGB_tuples = [colorsys.hsv_to_rgb(*x) for x in HSV_tuples]
+    return RGB_tuples
 
 def label_colors(bg_ID=1, membrane_ID=0, n_colors = 10, maxlabel=1000):
-    n_colors = 10
-    HSV_tuples = [(x * 1.0 / n_colors, 0.5, 0.5) for x in range(n_colors)]
-    RGB_tuples = [colorsys.hsv_to_rgb(*x) for x in HSV_tuples]
+    RGB_tuples = pastel_colors_RGB(n_colors=10)
     # intens *= 2**16/intens.max()
 
     assert membrane_ID != bg_ID
