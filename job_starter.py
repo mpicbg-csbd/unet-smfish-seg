@@ -36,6 +36,7 @@ def main(script, direct):
     subprocess.call(job, shell=True)
 
 if __name__ == '__main__':
+  print("System Args: ", sys.argv)
   script = sys.argv[1]
   direct = sys.argv[2]
   main(script, direct)

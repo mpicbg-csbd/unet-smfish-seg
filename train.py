@@ -7,22 +7,28 @@ import time
 import json
 
 rationale = """
-Want to test out the additional history timings.
+Add 50 epochs to the end of m94.
+Try to make the 7-layer network work. try 16 convs and slower learning rate.
 """
 
 train_params = {
  'savedir' : './',
  'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down3x/",
  'label_tif_folder' : "data3/labeled_data_cellseg/labels/down3x/",
- 'initial_model_params' : "training/m57/unet_model_weights_checkpoint.h5",
  'x_width' : 240,
  'y_width' : 240,
  'step' : 60,
  'batch_size' : 32,
- 'learning_rate' : 1e-2,
+ 'learning_rate' : 1e-4,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 10,
- 'patience' : 20
+ 'epochs' : 50,
+ 'patience' : 30,
+
+ 'initial_model_params' : None, # "training/m94/unet_model_weights_checkpoint.h5",
+ 'n_convolutions_first_layer' : 16,
+ 'dropout_fraction' : 0.2,
+ 'itd' : None,
+ 'model' : 'unet_7layer',
 }
 
 
@@ -38,12 +44,10 @@ def train(train_params):
     grey_imgs = [d.imread(img) for img in grey_names]
     label_imgs = [d.imread(img) for img in label_names]
 
-    ## remove cell-type channel
-    if 'data3/labeled_data_cellseg/greyscales/' == train_params['label_tif_folder']:
-        label_imgs = [img[0] for img in label_imgs]
-
     ## make 0-valued membrane 1-valued (for cellseg labels only)
     if 'labeled_data_cellseg' in train_params['label_tif_folder']:
+        if 'down' not in train_params['label_tif_folder'][-10:]:
+            label_imgs = [img[0] for img in label_imgs]
         for img in label_imgs:
             img[img!=0]=2
             img[img==0]=1
@@ -74,10 +78,19 @@ def train(train_params):
     unet.epochs = train_params['epochs']
     unet.membrane_weight_multiplier = train_params['membrane_weight_multiplier']
     unet.patience = train_params['patience']
-    # unet.steps_per_epoch = train_params['steps_per_epoch']
+    unet.n_convolutions_first_layer = train_params['n_convolutions_first_layer']
+    unet.dropout_fraction = train_params['dropout_fraction']
 
-    model = unet.get_unet()
-    #model = unet.get_unet_mix()
+    if train_params['model'] == 'unet_7layer':
+        model = unet.get_unet_7layer()
+        unet.itd = 44
+        train_params['itd'] = 44
+    elif train_params['model'] == 'unet_5layer':
+        model = unet.get_unet()
+        unet.itd = 20
+        train_params['itd'] = 20
+
+    print(model.summary())
     if train_params['initial_model_params']:
         model.load_weights(train_params['initial_model_params'])
 
@@ -97,6 +110,14 @@ def train(train_params):
 
     train_params['rationale'] = rationale
     json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
+
+    for name in grey_names:
+        img = d.imread(name)
+        print(name, img.shape)
+        res = unet.predict_single_image(model, img, batch_size=train_params['batch_size'])
+        path, base, ext = util.path_base_ext(name)
+        d.imsave(train_params['savedir'] + "/" + base + '_predict' + ext, res.astype('float32'))
+
     return history
 
 

@@ -36,6 +36,9 @@ batch_size = 32
 epochs = 100
 patience = 20
 savedir="./"
+n_convolutions_first_layer = 32
+dropout_fraction = 0.2
+itd = 20
 
 # setup X and Y for feeding into the model
 
@@ -81,24 +84,17 @@ def random_patch_coords(img, n):
     return np.stack((xc, yc), axis=1)
 
 def regular_patch_coords(img):
-    dx,dy = img.shape[0]-x_width, img.shape[1]-y_width
-    coords = skut.view_as_windows(np.indices((dx+1,dy+1)), (2,1,1), step=step)
-    a,b,c,d,e,f = coords.shape
-    return coords.reshape(b*c,2)
-
-def rebuild_img_from_patches(zeros_img, patches, coords):
-    "TODO: potentially add more ways of recombining than a simple average, i.e. maximum"
-    count_img = np.zeros_like(zeros_img)
-    n_samp, dx, dy = patches.shape
-    for cord,patch in zip(coords, patches):
-        x,y = cord
-        zeros_img[x:x+dx, y:y+dy] += patch
-        count_img[x:x+dx, y:y+dy] += np.ones_like(patch)
-    return zeros_img/count_img
+    coords = []
+    dy, dx = img.shape
+    dy, dx = dy-y_width, dx-x_width
+    for y in range(0,dy,step):
+        for x in range(0,dx,step):
+            coords.append((y,x))
+    return np.array(coords)
 
 def rebuild_img_from_patch_activations(x_y, patchact, coords):
     "TODO: potentially add more ways of recombining than a simple average, i.e. maximum"
-    # TODO: this will break.
+    # x,y are final shape of the image
     x,y = x_y
     n_samp, dx, dy, nclasses = patchact.shape
     zeros_img = np.zeros(shape=(x,y,nclasses))
@@ -107,7 +103,7 @@ def rebuild_img_from_patch_activations(x_y, patchact, coords):
 
     # ignore parts of the image with boundary effects
     mask = np.ones(patchact[0].shape)
-    mm = 10
+    mm = itd
     mask[:,0:mm] = 0
     mask[:,-mm:] = 0
     mask[0:mm,:] = 0
@@ -117,15 +113,9 @@ def rebuild_img_from_patch_activations(x_y, patchact, coords):
         x,y = cord
         zeros_img[x:x+dx, y:y+dy] += patch*mask
         count_img[x:x+dx, y:y+dy] += np.ones_like(patch)*mask
-        # z = zeros_img[x:x+dx, y:y+dy]
-        # zeros_img[x:x+dx, y:y+dy] = np.where(z>patch, z, patch)
-        # assert 0>1
 
     print(list(map(util.count_nans, [zeros_img, count_img])))
-    # res = zeros_img/count_img
-    # res[res==np.nan] = -1
     return zeros_img/count_img
-    # return zeros_img
 
 def imglist_to_X(greylist):
     """turn list of images into ndarray of patches, labels and their coordinates. Used for
@@ -177,10 +167,11 @@ def imglists_to_XY(greylist, labellist):
 
 def my_categorical_crossentropy_ndim4(weights =(1., 1.)):
     def catcross(y_true, y_pred):
-        return -(weights[0] * K.mean(y_true[:,:,:,0]*K.log(y_pred[:,:,:,0]+K.epsilon())) +
-                 weights[1] * K.mean(y_true[:,:,:,1]*K.log(y_pred[:,:,:,1]+K.epsilon())))
-
-        # return -(K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon()))+K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
+        # only use the valid part of the result! as if we had only made valid convolutions, etc
+        y_true_valid = y_true[:,itd:-itd,itd:-itd,:]
+        y_pred_valid = y_pred[:,itd:-itd,itd:-itd,:]
+        return -(weights[0] * K.mean(y_true_valid[:,:,:,0]*K.log(y_pred_valid[:,:,:,0]+K.epsilon())) +
+                 weights[1] * K.mean(y_true_valid[:,:,:,1]*K.log(y_pred_valid[:,:,:,1]+K.epsilon())))
     return catcross
 
 def my_categorical_crossentropy(weights =(1., 1.)):
@@ -199,9 +190,9 @@ def my_categorical_crossentropy_np(weights =(1., 1.)):
         # return -(K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon()))+K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
     return catcross
 
-def get_unet():
+def get_unet_7layer():
     """
-    The information travel distance is 14.
+    The information travel distance is 44!
     """
 
     print("\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n")
@@ -219,37 +210,119 @@ def get_unet():
         return Conv2D(w, (3,3), padding='same', data_format=chan, activation='relu')
     Pool = MaxPooling2D(pool_size=(2,2), data_format=chan)
     Upsa = UpSampling2D(size=(2,2), data_format=chan)
+    # number of convolutions in first layer
+    s = n_convolutions_first_layer
+    # dropout fraction
+    d = dropout_fraction
 
     ## Begin U-net
-    conv1 = Conv(32)(inputs)
-    conv1 = Dropout(0.2)(conv1)
-    conv1 = Conv(32)(conv1)
+    conv1 = Conv(s)(inputs)
+    conv1 = Dropout(d)(conv1)
+    conv1 = Conv(s)(conv1)
   
     pool1 = Pool(conv1)
 
-    conv2 = Conv(64)(pool1)
-    conv2 = Dropout(0.2)(conv2)
-    conv2 = Conv(64)(conv2)
+    conv2 = Conv(2*s)(pool1)
+    conv2 = Dropout(d)(conv2)
+    conv2 = Conv(2*s)(conv2)
 
     pool2 = Pool(conv2)
 
-    conv3 = Conv(128)(pool2)
-    conv3 = Dropout(0.2)(conv3)
-    conv3 = Conv(128)(conv3)
+    conv3 = Conv(4*s)(pool2)
+    conv3 = Dropout(d)(conv3)
+    conv3 = Conv(4*s)(conv3)
+
+    pool3 = Pool(conv3)
+
+    conv4 = Conv(8*s)(pool3)
+    conv4 = Dropout(d)(conv4)
+    conv4 = Conv(8*s)(conv4)
+
+    up1   = Upsa(conv4)
+    cat1  = Concatenate(axis=concatax)([up1, conv3])
+
+    conv5 = Conv(2*s)(cat1)
+    conv5 = Dropout(d)(conv5)
+    conv5 = Conv(2*s)(conv5)
+
+    up2   = Upsa(conv5)
+    cat2  = Concatenate(axis=concatax)([up2, conv2])
+
+    conv6 = Conv(2*s)(cat2)
+    conv6 = Dropout(d)(conv6)
+    conv6 = Conv(2*s)(conv6)
+
+    up3   = Upsa(conv6)
+    cat3  = Concatenate(axis=concatax)([up3, conv1])
+
+    conv7 = Conv(s)(cat3)
+    conv7 = Dropout(d)(conv7)
+    conv7 = Conv(s)(conv7)
+
+    acti_layer = Conv2D(2, (1, 1), padding='same', data_format=chan, activation='relu')(conv7)
+    softm = lambda x: softmax(x, axis=concatax)
+    acti_layer = core.Activation(softm)(acti_layer)
+
+    if K.image_dim_ordering() == 'th':
+        acti_layer = core.Permute((2,3,1))(acti_layer)
+
+    model = Model(inputs=inputs, outputs=acti_layer)
+    return model
+
+def get_unet():
+    """
+    The information travel distance is 18
+    """
+
+    print("\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n")
+
+    if K.image_dim_ordering() == 'th':
+      inputs = Input((1, y_width, x_width))
+      concatax = 1
+      chan = 'channels_first'
+    if K.image_dim_ordering() == 'tf':
+      inputs = Input((y_width, x_width, 1))
+      concatax = 3
+      chan = 'channels_last'
+
+    # parameters describing U-net
+    def Conv(w):
+        return Conv2D(w, (3,3), padding='same', data_format=chan, activation='relu')
+    Pool = MaxPooling2D(pool_size=(2,2), data_format=chan)
+    Upsa = UpSampling2D(size=(2,2), data_format=chan)
+    s = n_convolutions_first_layer
+    d = dropout_fraction
+
+    ## Begin U-net
+    conv1 = Conv(s)(inputs)
+    conv1 = Dropout(d)(conv1)
+    conv1 = Conv(s)(conv1)
+  
+    pool1 = Pool(conv1)
+
+    conv2 = Conv(2*s)(pool1)
+    conv2 = Dropout(d)(conv2)
+    conv2 = Conv(2*s)(conv2)
+
+    pool2 = Pool(conv2)
+
+    conv3 = Conv(4*s)(pool2)
+    conv3 = Dropout(d)(conv3)
+    conv3 = Conv(4*s)(conv3)
 
     up1   = Upsa(conv3)
     cat1  = Concatenate(axis=concatax)([up1, conv2])
 
-    conv4 = Conv(64)(cat1)
-    conv4 = Dropout(0.2)(conv4)
-    conv4 = Conv(64)(conv4)
+    conv4 = Conv(2*s)(cat1)
+    conv4 = Dropout(d)(conv4)
+    conv4 = Conv(2*s)(conv4)
 
     up2   = Upsa(conv4)
     cat2  = Concatenate(axis=concatax)([up2, conv1])
 
-    conv5 = Conv(32)(cat2)
-    conv5 = Dropout(0.2)(conv5)
-    conv5 = Conv(32)(conv5)
+    conv5 = Conv(s)(cat2)
+    conv5 = Dropout(d)(conv5)
+    conv5 = Conv(s)(conv5)
 
     conv6 = Conv2D(2, (1, 1), padding='same', data_format=chan, activation='relu')(conv5)
     softm = lambda x: softmax(x, axis=concatax)
@@ -364,6 +437,8 @@ def train_unet(grey_imgs, label_imgs, model):
     label_imgs_small = []
     for grey,lab in zip(grey_imgs, label_imgs):
         a,b = grey.shape
+        print("Shape of img:")
+        print(a,b)
         grey_imgs_small.append(grey[:,0:b//2])
         label_imgs_small.append(lab[:,0:b//2])
     X,Y = imglists_to_XY(grey_imgs_small, label_imgs_small)
@@ -372,7 +447,6 @@ def train_unet(grey_imgs, label_imgs, model):
     print("SPLIT INTO TRAIN AND TEST")
     print("X.shape = ", X.shape, " and Y.shape = ", Y.shape)
     train_ind, test_ind = util.subsample_ind(X, Y, test_fraction=0.2, rand_state=0)
-    print("train_ind = ", train_ind, " and test_ind =", test_ind)
     np.save(savedir + '/train_ind.npy', train_ind)
     np.save(savedir + '/test_ind.npy', test_ind)
     X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
