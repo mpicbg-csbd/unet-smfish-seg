@@ -5,27 +5,27 @@ import datasets as d
 import util
 import time
 import json
+import numpy as np
 
 rationale = """
-Add 50 epochs to the end of m94.
-Try to make the 7-layer network work. try 16 convs and slower learning rate.
+continue training from the middle of m104, but using a 10x smaller learning_rate.
 """
 
 train_params = {
  'savedir' : './',
- 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down3x/",
- 'label_tif_folder' : "data3/labeled_data_cellseg/labels/down3x/",
- 'x_width' : 240,
- 'y_width' : 240,
- 'step' : 60,
- 'batch_size' : 32,
- 'learning_rate' : 1e-4,
+ 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/",
+ 'label_tif_folder' : "data3/labeled_data_cellseg/labels/",
+ 'x_width' : 480,
+ 'y_width' : 480,
+ 'step' : 120,
+ 'batch_size' : 4,
+ 'learning_rate' : 1e-5,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 50,
+ 'epochs' : 100,
  'patience' : 30,
 
- 'initial_model_params' : None, # "training/m94/unet_model_weights_checkpoint.h5",
- 'n_convolutions_first_layer' : 16,
+ 'initial_model_params' : "training/m104/unet_model_weights_checkpoint.h5",
+ 'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.2,
  'itd' : None,
  'model' : 'unet_7layer',
@@ -115,8 +115,9 @@ def train(train_params):
         img = d.imread(name)
         print(name, img.shape)
         res = unet.predict_single_image(model, img, batch_size=train_params['batch_size'])
+        combo = np.stack((img, res), axis=0)
         path, base, ext = util.path_base_ext(name)
-        d.imsave(train_params['savedir'] + "/" + base + '_predict' + ext, res.astype('float32'))
+        d.imsave(train_params['savedir'] + "/" + base + '_predict' + ext, combo.astype('float32'))
 
     return history
 
