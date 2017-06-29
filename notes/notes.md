@@ -970,6 +970,45 @@ I thought that a 10x multiplier was helping me learn, but it was really unnecess
 
 - Yes, i think so. Let's check the train_ind.npy's are the same for both... They are. This means the training patches chosen are the same for both.
 
+# SOLVED: Can't upscale float image to specific image size
+
+You have to use from scipy.misc import imresize, and call it with imresize(..., mode='F')
+
+# QUESTION: How do we surpass human performance?
+
+First, we must learn to identify cells as well as an amateur, then as well as an expert. In every case we eliminate the errors that result from carelessness -- simply forgetting to label all parts of the image. And of course, we will surpass human performance in terms of speed. But if all our ground truth labels come from expert|amaterur labelings (with careless forgetting and mislabelings included), how does our accuracy every surpass theirs?
+
+In chess and go the machine's ability to *play* surpassed the human's, but how does this translate to the Computer Vision concepts of accuracy (in identifying objects)? Because the computer doesn't literally see the screen, all of it's decisions are made without worrying about the arbitrary parameters of, e.g: Screen size, Brightness, Contrast, color depth, etc. All of these things affect human accuracy, even when they are focused, desire (are invested in) a high quality outcome, and have expert level knowledge. This means we can train our algorithms on human annotations which have been made by experts under the best possible conditions, taking their time, on the best screens, and adjusting brightness and contrast (other parameters?) until they are fully confident in their decisions. All of this can be built in to the machine.
+
+What about combining the knowledge from different experts?
+e.g. in ImageNet you need both expertise in dog breeds and in (maybe?) car types... maybe no one has both! Then the machine is easily the best... (In chess, maybe no grandmaster has both the best mid game and late game...)
+Obviously the machine can learn to perform more accurately across the full range of imaging modalities than any single expert. SPIM, confocal, brightfield, fluorescence, phase contrast, etc... But what about within a single dataset? Here all people worthy of the title expert probably perform equally well, (even if their labelings may differ). This removes the possibility of combining the best aspect of different experts. Here improved accuracy must come from one of the inherent advantages to using a machine listed above: speed, consistency = removing dependence on state of mind & attention, removing brightness and contrast as variables (the task of human labeling should always implicitly include this task of adjusting brightness and contrast), and potentially expert-level accuracy.
+
+How does the best machine compare with crowd-sourced decisions? With team-of-experts type decisions? Whenever you need to combine decisions from multiple people you need a voting scheme and/or command hierarchy, which is an independent dimension from the set of people used in the decision.
+
+Image calssifiation as a decoding problem?
+
+# SOLVED: PROBLEM: getting seg, matching, etc scores is too slow
+
+Also, we want the function "equality up to permutation". We can test for this by first building the matching matrix, then seeing if there is a permutation of this matrix that makes it diagonal. And we can do a super-short hack-check, just by testing to see if it is square! If not, then we know the two images are not equivalent up to permutation...
+
+# PROBLEM: How do we augment our labelings?
+
+We need to make sure that the warping doesn't accidentally destroy the nice property that our cell segmentations are given by thresholding the membrane segmentation (with 8-connected cells). *How can we test this?* If we warp the membrane, we expect the number of cells to remain the same!
+*They do not.* Thus, we have a problem. With even very small warps, we lose some cells due to the appearance of gaps in the membrane.
+
+*Is this problem important?*
+
+Yeah, we want to be able to scale our ground truth up and down, just like our original images, and our ground truth (in its current form) _relies_ on this property.
+
+_Potential solutions_
+
+- Convert to svg (whatever continuous representation) before warping
+
+For downscaling, we had a similar problem, but we would only lose cells,
+never create them. Cells with diameter smaller than the downscale factor would just disappear. But to solve that we would upscale back to orig size afterwards, and accept that we would just get a certain number of the cells wrong.
+
+**We can avoid the problem by just not caring about keeping this property for warped images.** Or even by convincing ourselves that the new number of cells is correct! (if we warp membranes of a cell until they touch in the middle, maybe now a two-cell labeling is more appropriate? But if we warp a membrane so that it becomes very thin and breaks then we merge cells... is that ok? After warping we can have large numbers of isolated membrane pixels, which would probably never actually be a labeling we would get from a real user.
 
 
 
@@ -977,10 +1016,11 @@ I thought that a 10x multiplier was helping me learn, but it was really unnecess
 # TODO:
 
 1. Remove one-hot encoding
-2. Remove bordermode = 'same' (change to 'valid')
+2. DONE. Remove bordermode = 'same' (change to 'valid')
 3. Add distance penalty
-    - 
-4. Predict only distance maps! Regression problem
+    - Does this still make sense? Given that Ronneberger used this distance penalty mostly to emphasize the background pixels *in between neighboring cells that had a small gap between them*. This is mostly appropriate to single cells-in-a-dish, and not to tissues.
+4. Predict only distance maps!
 5. Allow training on arbitrary size dataset
 6. Augment with simple rotation and horizontal reflection
+7. Augment with warping
 

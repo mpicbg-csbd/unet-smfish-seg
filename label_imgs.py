@@ -1,5 +1,3 @@
-
-
 doc = """
 # Module for Label images
 
@@ -14,6 +12,7 @@ boundary layer, and it probably also shouldn't count towards our cell-matching s
 import numpy as np
 import skimage.io as io
 import colorsys
+from numba import jit
 
 # img2 = io.imread("./20150513_New_data/20150430_eif4g_dome03_slice11.tif")
 # io.imsave('i1.tif', img1[1])
@@ -34,7 +33,7 @@ import colorsys
 # img1 = zoom(img1, 0.2)
 # img2 = zoom(img2, 0.2)
 
-
+## JUST COLORING STUFF
 
 def pastel_colors_RGB(n_colors=10, brightness=0.5, value=0.5):
     """
@@ -63,6 +62,9 @@ def label_colors(bg_ID=1, membrane_ID=0, n_colors = 10, maxlabel=1000):
     return RGB_tuples
 
 def labelImg_to_rgb(img, bg_ID=1, membrane_ID=0):
+    """
+    TODO: merge this with the numba version from cell_tracker
+    """
     # TODO: the RGB_tuples list we generate is 10 times longer than it needs to be
     RGB_tuples = label_colors(bg_ID, membrane_ID, n_colors=10, maxlabel=img.max())
     a,b = img.shape
@@ -76,6 +78,8 @@ def labelImg_to_rgb(img, bg_ID=1, membrane_ID=0):
     print(rgb.max())
     # rgb *= 255*255
     return rgb.astype(np.float32) # Preview on Mac only works with 32bit or lower :)
+
+# MISC
 
 def permlabels(img, perm=None):
     """
@@ -92,33 +96,10 @@ def permlabels(img, perm=None):
         img2[img==i] = perm[i]
     return img2
 
-def seg(ground_truth, prediction):
-    """
-    ground_truth and prediction are label-images (2d ndarrays).
-    See definition of SEG: http://ctc2015.gryf.fi.muni.cz/Public/Documents/SEG.pdf
-    """
 
-    mat = matching_matrix(ground_truth, prediction)
+# LOSSES, ERRORS, SCORES
 
-    def jaccard(i):
-        gt_size = np.sum(mat[i,:]) # an int
-        max_match_ind = np.argmax(mat[i,:])
-        if max_match_ind==0:
-            print("match to background: ", i)
-            return 0
-        intersection = mat[i, max_match_ind]
-        if 2*intersection > gt_size:
-            # we have a good match!
-            match_size = np.sum(mat[:,max_match_ind])
-            print(gt_size, intersection, match_size, "matched to id:", max_match_ind)
-            jac = intersection / (gt_size + match_size - intersection)
-            print("jac:", jac)
-            return jac
-        else:
-            return 0
-    return [jaccard(i) for i in range(1, mat.shape[0])]
-
-def matching_matrix(img1, img2):
+def matching_matrix_slow(img1, img2):
     "img1 and img2 must be same shape, and label (uint) images."
     imgs = np.stack((img1, img2), axis=2)
     mat = np.zeros((img1.max()+1, img2.max()+1), dtype=np.uint32)
@@ -127,7 +108,56 @@ def matching_matrix(img1, img2):
         mat[edg[0], edg[1]] += 1
     return mat
 
-def match_score_1(img1, img2):
+@jit
+def matching_matrix(img1, img2):
+    "img1 and img2 must be same shape, and label (uint) images."
+    imgs = np.stack((img1, img2), axis=2)
+    mat = np.zeros((img1.max()+1, img2.max()+1), dtype=np.uint32)
+    a,b,c = imgs.shape
+    for i in range(a):
+        for j in range(b):
+            mat[imgs[i,j,0], imgs[i,j,1]] += 1
+    return mat
+
+# def seg(ground_truth, prediction):
+    # """
+    # ground_truth and prediction are label-images (2d ndarrays).
+    # See definition of SEG: http://ctc2015.gryf.fi.muni.cz/Public/Documents/SEG.pdf
+    # """
+    # mat = matching_matrix(ground_truth, prediction)
+    # return seg(mat)
+
+def seg_onecell(mat, i, verbose=False):
+    """
+    NOTE: this is *not* the jaccard index
+    """
+    gt_size = np.sum(mat[i,:]) # an int
+    max_match_ind = np.argmax(mat[i,:])
+    if max_match_ind==0:
+        if verbose:
+            print("match to background: ", i)
+        return 0
+    intersection = mat[i, max_match_ind]
+    if 2*intersection > gt_size:
+        # we have at least a 50% match!
+        match_size = np.sum(mat[:,max_match_ind])
+        jac = intersection / (gt_size + match_size - intersection)
+        if verbose:
+            print(gt_size, intersection, match_size)
+            print(i, "matched to id:", max_match_ind)
+            print("jac", i, ":", jac)
+        return jac
+    else:
+        return 0
+
+def seg(mat):
+    return np.mean([seg_onecell(mat, i) for i in range(1, mat.shape[0])])
+
+# def match_score_1(img1, img2):
+#     mat = matching_matrix(img1, img2)
+#     return match_score_1(mat)
+
+def match_score_1(mat):
     """
     Compute the matching score from image1 to image2. (2D only)
     First build adjacency matrix between labels in img1 and img2.
@@ -139,7 +169,6 @@ def match_score_1(img1, img2):
     IDEA:
     Faster label-image-comparison by first concatenating id1 and id2 (at same pixel location) into a single number (bitwise?) and then making a histogram, and then undoing the histogram back into a directed graph.
     """
-    mat = matching_matrix(img1, img2)
     # TODO: not 50%, but rather just the max!!! This isn't what we want
     # first map from img1 to img2
     ans = [np.argmax(mat[i,:]) for i in range(mat.shape[0])]
@@ -149,14 +178,13 @@ def match_score_1(img1, img2):
     perfect = list(range(mat.shape[0]))
     perfect = np.array(perfect)
     matches = ans2 == perfect
-    n_matched = len(perfect[matches])
+    # don't count background matching in any of the below
+    n_matched = len(perfect[matches])-1
     n_gt = mat.shape[0]-1
     n_predict = mat.shape[1]-1
     print("{} Best Matches out of {} GT cells and {} predicted cells...".format(n_matched, n_gt, n_predict))
     # print("Perfect matches are: ", perfect[matches])
     return n_matched, n_gt, n_predict
-
-
 
 # or weighted edges with weight corresponding to the number of overlapping pixels
 
