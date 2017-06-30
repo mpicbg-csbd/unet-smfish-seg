@@ -192,7 +192,7 @@ def my_categorical_crossentropy_np(weights =(1., 1.)):
 
 def get_unet_7layer():
     """
-    The information travel distance is 44!
+    The info travel distance is given by analysis.info_travel_dist(3, 3) = 44.
     """
 
     print("\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n")
@@ -271,7 +271,7 @@ def get_unet_7layer():
 
 def get_unet():
     """
-    The information travel distance is 18
+    The info travel distance is given by analysis.info_travel_dist(2, 3) = 20.
     """
 
     print("\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n")
@@ -336,7 +336,7 @@ def get_unet():
 
 def get_unet_mix():
     """
-    The information travel distance gives a window of 29 pixels square.
+    The info travel distance is given by analysis.info_travel_dist(2, 3) = 20.
     """
     if K.image_dim_ordering() == 'th':
         inputs = Input((1, y_width, x_width))
@@ -387,7 +387,7 @@ def get_unet_mix():
 
 def get_unet_old():
     """
-    The information travel distance gives a window of 29 pixels square.
+    The info travel distance is given by analysis.info_travel_dist(2, 3) = 20.
     """
     inputs = Input((1, y_width, x_width))
     conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(inputs)
@@ -433,23 +433,31 @@ def train_unet(grey_imgs, label_imgs, model):
     # Then we can easily identify overfitting by eye.
 
     print("CREATING NDARRAY PATCHES")
-    grey_imgs_small = []
-    label_imgs_small = []
+    grey_leftside = []
+    label_leftside = []
+    grey_rightside = []
+    label_rightside = []
     for grey,lab in zip(grey_imgs, label_imgs):
         a,b = grey.shape
         print("Shape of img:")
         print(a,b)
-        grey_imgs_small.append(grey[:,0:b//2])
-        label_imgs_small.append(lab[:,0:b//2])
-    X,Y = imglists_to_XY(grey_imgs_small, label_imgs_small)
-    # X,Y = imglists_to_XY(grey_imgs, label_imgs)
+        grey_leftside.append(grey[:,0:b//2])
+        label_leftside.append(lab[:,0:b//2])
+        grey_rightside.append(grey[:,b//2:])
+        label_rightside.append(lab[:,b//2:])
 
+    
     print("SPLIT INTO TRAIN AND TEST")
+    print("WE HAVE TO SPLIT THE IMAGES IN HALF FIRST, OTHERWISE THE VALIDATION DATA WILL STILL BE PRESENT IN THE TRAINING DATA, BECAUSE OF OVERLAP.")
     print("X.shape = ", X.shape, " and Y.shape = ", Y.shape)
-    train_ind, test_ind = util.subsample_ind(X, Y, test_fraction=0.2, rand_state=0)
-    np.save(savedir + '/train_ind.npy', train_ind)
+    X_train,Y_train = imglists_to_XY(grey_leftside, label_leftside)
+    X_vali, Y_vali  = imglist_to_XY(grey_rightside, label_rightside)
+    train_ind, test_ind = util.subsample_ind(X_vali, Y_vali, test_fraction=0.2, rand_state=0)
+    # We don't want to validate across a test dataset that is the same size as the train for performance reasons?
+    X_vali, Y_vali = X_vali[test_ind], Y_vali[test_ind]
+    # np.save(savedir + '/train_ind.npy', train_ind)
     np.save(savedir + '/test_ind.npy', test_ind)
-    X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
+    # X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
 
     print("SETUP THE CLASSWEIGHTS")
     # IMPORTANT! The weight for membrane is given by the fraction of non-membrane! (and vice versa)

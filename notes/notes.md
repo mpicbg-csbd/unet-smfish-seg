@@ -1010,17 +1010,54 @@ never create them. Cells with diameter smaller than the downscale factor would j
 
 **We can avoid the problem by just not caring about keeping this property for warped images.** Or even by convincing ourselves that the new number of cells is correct! (if we warp membranes of a cell until they touch in the middle, maybe now a two-cell labeling is more appropriate? But if we warp a membrane so that it becomes very thin and breaks then we merge cells... is that ok? After warping we can have large numbers of isolated membrane pixels, which would probably never actually be a labeling we would get from a real user.
 
+todo: test to see what size warping are appropriate for full size images.
+
+# PROBLEM: I want a way of comparing two similar cell labelings visually.
+This requires permuting the labels of one images s.t. it aligns closely with another image. We can do this using the matching matrix from label_images, but this problem is very similar to the problem of finding an optimal correspondence between c. elegans nuclei! In our case, however, we only have one ground truth labeling, so we want to see how different the proposed labeling is from it. And also, we don't usually expect to have any warping, so a very flexible matching algorithms doesn't make sense. Usually the proposed solution and the ground truth are built on top of the same underlying greyscale image, so you won't ever find that the proposed solution looks the same as the ground truth, but just translated in x,y... 
+
+- Differentiable cell segmentation losses
+- Laurent's idea: warp the distance fields as opposed to the membranes!
+- how much can you warp before ground truth is destroyed
+- matching, warping and cell seg error measures
+
+Using the 50% overlap criterion is one way of generating a matching
+The shared best is another way
+Minimizing some difference between centerpoints is another way
+There are lots of ways.
+A matching is NOT a score!
+A score is a number that depends on this matching and on the original images.
+A matching is a common intermediate for both proposal/ground-truth scoring, as well as per-cell registration a.la Dave & Dagmar's c. elegan's Atlas Matching.
+
+A good API would make a matching a critical kind of data.
+
+label_imgs.py should provide access to all the stuff we want to do with images where pixels have a label semantic. This includes, coloring, permuting, object matching between two label images, and all the things that are related to matching (many-many and one-one) like finding equivalent labels and computing segmentation error scores.
+
+The graphs we represent as matricies in label_imgs are NOT the typical graph representation! They are rectangular matrices which are only capable of representing bipartite graphs!
+
+_There are multiple ways to represent permutations_ and we need to pick one. - It has to work with numba's @jit decorator. Ideally it would also work with the recoloring of label images that we have in the cell_tracker project.
+
+We can represent them as the bipartite graph matching-matrix (0,1-valued), or with a (n,2) shaped array $arr with just the coordinates of the 1's in that matrix, or with a single array $bb of length $arr[:,0].max() where $bb[i] = $arr[i,1].
+
+We're going to use that third representation for doing the numba permutation, but we want to be able to build it from the first and second representations. In every representation we need to be able to keep knowledge of every existing id in both images. This is encoded in mat.shape. _Do we have this info in the 2nd?_... Making this work in the first and 3rd representation requires that our labels in each image form a continuous sequence [0, 1, ..., n] with no gaps. hmmmmmm. OR we can do it in the first matrix representation... no we can't. we *could* encode it into the pixel_sharing_graph, by saying that row-i label overlaps with zero pixels in the paired image. But then this might be confused with trying to build the graph with images of different sizes.
+
+getting a permutation of type 3 from a matching is easy!
+
+# PROBLEM: I want to plot my vector fields and warpings on top of my images? How do i do this?
+
+I think you can just plot the vector filed using quiver and streamplot on top of an imshow??? But then we have to make sure we have the axes dimensions right... I want a way of dynamically checking my screen resolution, screen absolute size, and therefore dpi with python!
+
 
 
 
 # TODO:
 
-1. Remove one-hot encoding
-2. DONE. Remove bordermode = 'same' (change to 'valid')
-3. Add distance penalty
-    - Does this still make sense? Given that Ronneberger used this distance penalty mostly to emphasize the background pixels *in between neighboring cells that had a small gap between them*. This is mostly appropriate to single cells-in-a-dish, and not to tissues.
-4. Predict only distance maps!
-5. Allow training on arbitrary size dataset
-6. Augment with simple rotation and horizontal reflection
-7. Augment with warping
+1. Fix train/test splitting!
+2. Remove one-hot encoding
+3. DONE. Remove bordermode = 'same' (change to 'valid')
+4. Add distance penalty
+    * Does this still make sense? Given that Ronneberger used this distance penalty mostly to emphasize the background pixels *in between neighboring cells that had a small gap between them*. This is mostly appropriate to single cells-in-a-dish, and not to tissues.
+5. Predict only distance maps!
+6. Allow training on arbitrary size dataset
+7. Augment with simple rotation and horizontal reflection
+8. Augment with warping
 

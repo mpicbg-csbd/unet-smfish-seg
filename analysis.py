@@ -110,20 +110,21 @@ if __name__ == '__main__':
     explain_results(sys.argv[1])
 
 
-def info_travel_dist(layers, conv=4):
+def info_travel_dist(layers, conv=3):
     """
     layers: number of down and up layers (e.g. two down followed by two up => layers=2)
-    conv: the number of pixels removed in x and y during each set of convolutions (e.g. two 3x3 convs = 2x2 = 4)
+    conv: the width of the convolution kernel (e.g. "3" for standard 3x3 kernel.)
     returns: the info travel distance == the amount of width that is lost in a patch / 2
     """
+    conv2 = 2*(conv-1)
     width = 0
     for i in range(layers):
-        width -= conv
+        width -= conv2
         width /= 2
-    width -= conv
+    width -= conv2
     for i in range(layers):
         width *= 2
-        width -= conv
+        width -= conv2
     return -width/2
 
 
