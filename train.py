@@ -8,7 +8,7 @@ import json
 import numpy as np
 
 rationale = """
-continue training from the middle of m104, but using a 10x smaller learning_rate.
+Just a short run to evaluate the new validation loss. Start from scratch.
 """
 
 train_params = {
@@ -17,14 +17,14 @@ train_params = {
  'label_tif_folder' : "data3/labeled_data_cellseg/labels/",
  'x_width' : 480,
  'y_width' : 480,
- 'step' : 120,
+ 'step' : 240,
  'batch_size' : 4,
- 'learning_rate' : 1e-5,
+ 'learning_rate' : 1e-4,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 100,
+ 'epochs' : 10,
  'patience' : 30,
 
- 'initial_model_params' : "training/m104/unet_model_weights_checkpoint.h5",
+ 'initial_model_params' : None, #"training/m104/unet_model_weights_checkpoint.h5",
  'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.2,
  'itd' : None,
@@ -39,9 +39,9 @@ def train(train_params):
     train_grey_imgs = []
     train_label_imgs = []
 
-    grey_names = util.sglob(train_params['grey_tif_folder'] + "*.tif")
+    grey_names  = util.sglob(train_params['grey_tif_folder'] + "*.tif")
     label_names = util.sglob(train_params['label_tif_folder'] + "*.tif")
-    grey_imgs = [d.imread(img) for img in grey_names]
+    grey_imgs  = [d.imread(img) for img in grey_names]
     label_imgs = [d.imread(img) for img in label_names]
 
     ## make 0-valued membrane 1-valued (for cellseg labels only)
@@ -59,7 +59,7 @@ def train(train_params):
 
     ## add to list
     train_grey_names += grey_names
-    train_grey_imgs += grey_imgs
+    train_grey_imgs  += grey_imgs
     train_label_imgs += label_imgs
 
     print("Input greyscale and label images:")

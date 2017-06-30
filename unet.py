@@ -449,9 +449,9 @@ def train_unet(grey_imgs, label_imgs, model):
     
     print("SPLIT INTO TRAIN AND TEST")
     print("WE HAVE TO SPLIT THE IMAGES IN HALF FIRST, OTHERWISE THE VALIDATION DATA WILL STILL BE PRESENT IN THE TRAINING DATA, BECAUSE OF OVERLAP.")
-    print("X.shape = ", X.shape, " and Y.shape = ", Y.shape)
     X_train,Y_train = imglists_to_XY(grey_leftside, label_leftside)
-    X_vali, Y_vali  = imglist_to_XY(grey_rightside, label_rightside)
+    print("X_train.shape = ", X_train.shape, " and Y_train.shape = ", Y_train.shape)
+    X_vali, Y_vali  = imglists_to_XY(grey_rightside, label_rightside)
     train_ind, test_ind = util.subsample_ind(X_vali, Y_vali, test_fraction=0.2, rand_state=0)
     # We don't want to validate across a test dataset that is the same size as the train for performance reasons?
     X_vali, Y_vali = X_vali[test_ind], Y_vali[test_ind]

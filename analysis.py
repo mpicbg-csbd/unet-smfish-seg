@@ -1,4 +1,7 @@
 # import skimage.io as io
+
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 from glob import glob
@@ -8,17 +11,21 @@ import sys
 import re
 import numpy as np
 
-import importlib.util
+# import importlib.util
 import json
-import tabulate
-import label_imgs
+from tabulate import tabulate
+import segtools as st
+
+
 
 def explain_training_dir(dr, plots=True, megaplots_axes=None):
-    spec = importlib.util.spec_from_file_location("train", dr + '/train.py')
-    foo = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(foo)
-    rationale = foo.rationale
-    train_params = foo.train_params
+    # spec = importlib.util.spec_from_file_location("train", dr + '/train.py')
+    # foo = importlib.util.module_from_spec(spec)
+    # spec.loader.exec_module(foo)
+    # rationale = foo.rationale
+    # train_params = foo.train_params
+    train_params = json.load(open(dr + '/train_params.json'))
+    rationale = train_params['rationale']
     history = json.load(open(dr + '/history.json'))
     axes_accuracy, axes_loss, color = megaplots_axes
     if plots:
@@ -49,38 +56,49 @@ def explain_training_dir(dr, plots=True, megaplots_axes=None):
     print("{} epochs in {} seconds".format(len(history['acc']), history['train_time']))
     return rationale, train_params, history
 
-def explain_training_directories(dir_or_list_of_dirs, plots=True):
+def explain_training_directories(dirlist, plots=True):
     """
     input: parent directory name or list of training directory names.
     output: plots comparing accuracy and loss over time. prints params, timings & rationale.
     """
-    if type(dir_or_list_of_dirs)==str:
-        dir_or_list_of_dirs = sorted(glob(basedir + '*/'))
 
     fig_accuracy = plt.figure()
     axes_accuracy = fig_accuracy.gca()
     fig_loss = plt.figure()
     axes_loss = fig_loss.gca()
 
-    print("LENGTH: ", len(dir_or_list_of_dirs))
-    colors = label_imgs.pastel_colors_RGB_gap(n_colors=len(dir_or_list_of_dirs), brightness=1.0)
-    print(colors)
-    x = range(len(colors))
-    plt.figure()
-    plt.scatter(x,x,color=colors)
-    plt.show()
+    print("LENGTH: ", len(dirlist))
+    colors = st.pastel_colors_RGB_gap(n_colors=len(dirlist), brightness=1.0)
+    # print(colors)
+    # x = range(len(colors))
+    # plt.figure()
+    # plt.scatter(x,x,color=colors)
+    # plt.show()
+    header = [["Name", "Acc", "Loss", "Data", "Params"]]
+    name_acc_loss = []
+    failedlist = []
 
-    for i in range(len(dir_or_list_of_dirs)):
-        d = dir_or_list_of_dirs[i]
+    for i in range(len(dirlist)):
+        d = dirlist[i]
         try:
             r,t,h = explain_training_dir(d, plots=False, megaplots_axes=(axes_accuracy, axes_loss, colors[i]))
+            data = t['grey_tif_folder']
+            params = t['initial_model_params']
+            name_acc_loss.append([os.path.dirname(dirlist[i]), h['acc'][-1], h['loss'][-1], data, params])
         except (FileNotFoundError, AttributeError):
+            failedlist.append([dirlist[i]])
             pass
+
+    print(tabulate(header + sorted(name_acc_loss, key=lambda x:x[2])))
+    print()
+    print(tabulate([["Failed"]] + failedlist))
 
     axes_accuracy.legend()
     fig_accuracy.show()
     axes_loss.legend()
     fig_loss.show()
+    fig_accuracy.savefig('figs/mega_accuracy.pdf')
+    fig_loss.savefig('figs/mega_loss.pdf')
 
 def explain_results(dir):
     "Get scores, runtime, etc for old-style training without a history.json or train_params.json"
@@ -107,8 +125,9 @@ def explain_results(dir):
         print()
 
 if __name__ == '__main__':
-    explain_results(sys.argv[1])
-
+    dirs = glob('training/m[89]*/') + glob('training/m1??/')
+    print(dirs)
+    explain_training_directories(dirs)
 
 def info_travel_dist(layers, conv=3):
     """
