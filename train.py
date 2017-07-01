@@ -8,7 +8,7 @@ import json
 import numpy as np
 
 rationale = """
-Just a short run to evaluate the new validation loss. Start from scratch.
+Continuation of m108, 10x as long.
 """
 
 train_params = {
@@ -21,10 +21,10 @@ train_params = {
  'batch_size' : 4,
  'learning_rate' : 1e-4,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 10,
+ 'epochs' : 100,
  'patience' : 30,
 
- 'initial_model_params' : None, #"training/m104/unet_model_weights_checkpoint.h5",
+ 'initial_model_params' : "training/m108/unet_model_weights_checkpoint.h5",
  'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.2,
  'itd' : None,
@@ -120,7 +120,6 @@ def train(train_params):
         d.imsave(train_params['savedir'] + "/" + base + '_predict' + ext, combo.astype('float32'))
 
     return history
-
 
 if __name__ == '__main__':
     train_params['savedir'] = sys.argv[1]

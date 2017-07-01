@@ -27,7 +27,6 @@ def explain_training_dir(dr, plots=True, megaplots_axes=None):
     train_params = json.load(open(dr + '/train_params.json'))
     rationale = train_params['rationale']
     history = json.load(open(dr + '/history.json'))
-    axes_accuracy, axes_loss, color = megaplots_axes
     if plots:
         plt.figure()
         plt.title(dr)
@@ -43,6 +42,7 @@ def explain_training_dir(dr, plots=True, megaplots_axes=None):
         plt.savefig(dr + '/accuracy.pdf')
         plt.show()
     if megaplots_axes:
+        axes_accuracy, axes_loss, color = megaplots_axes
         axes_loss.plot(history['loss'], label='loss_'+dr, color=color)
         axes_loss.plot(history['val_loss'], label='val_loss'+dr, color=color)
         axes_accuracy.plot(history['acc'], label='acc'+dr, color=color)
@@ -74,17 +74,20 @@ def explain_training_directories(dirlist, plots=True):
     # plt.figure()
     # plt.scatter(x,x,color=colors)
     # plt.show()
-    header = [["Name", "Acc", "Loss", "Data", "Params"]]
+    header = [["Name", "Acc", "Loss", "Val Acc", "Val Loss", "Data", "Params"]]
     name_acc_loss = []
     failedlist = []
 
     for i in range(len(dirlist)):
         d = dirlist[i]
         try:
-            r,t,h = explain_training_dir(d, plots=False, megaplots_axes=(axes_accuracy, axes_loss, colors[i]))
-            data = t['grey_tif_folder']
+            #r,t,h = explain_training_dir(d, plots=True, megaplots_axes=(axes_accuracy, axes_loss, colors[i]))
+            r,t,h = explain_training_dir(d, plots=True)
+            data = t['grey_tif_folder'][19:]
             params = t['initial_model_params']
-            name_acc_loss.append([os.path.dirname(dirlist[i]), h['acc'][-1], h['loss'][-1], data, params])
+            if params:
+                params = params[:-32]
+            name_acc_loss.append([os.path.dirname(dirlist[i]), h['acc'][-1], h['loss'][-1], h['val_acc'][-1], h['val_loss'][-1], data, params])
         except (FileNotFoundError, AttributeError):
             failedlist.append([dirlist[i]])
             pass
@@ -126,6 +129,7 @@ def explain_results(dir):
 
 if __name__ == '__main__':
     dirs = glob('training/m[89]*/') + glob('training/m1??/')
+    dirs = glob('training/m10?/')
     print(dirs)
     explain_training_directories(dirs)
 
