@@ -21,10 +21,10 @@ train_params = {
  'batch_size' : 4,
  'learning_rate' : 1e-4,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 100,
+ 'epochs' : 3,
  'patience' : 30,
 
- 'initial_model_params' : "training/m108/unet_model_weights_checkpoint.h5",
+ 'initial_model_params' : None, #"training/m108/unet_model_weights_checkpoint.h5",
  'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.2,
  'itd' : None,

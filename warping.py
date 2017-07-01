@@ -5,22 +5,22 @@ plt.ion()
 from scipy.misc import imresize
 import skimage.transform as tform
 from scipy.ndimage import label, zoom, rotate
+import random
 
 structure = [[1,1,1], [1,1,1], [1,1,1]]
 
-def unet_warp_orig(img, stddev=15, w=4, delta=None):
+def unet_warp_orig(img, delta, twolabel=False):
     """
     warp img according to random gaussian vector field.
     Interpolate between a square grid of w**2 random gaussian vectors with standard deviation = stddev
     """
+    deltax, deltay = delta[0], delta[1]
     a,b = img.shape
-    if delta:
-        deltax, deltay = delta[0], delta[1]
-    else:
-        deltax = np.random.normal(loc=0, scale=stddev, size=(w,w))
-        deltay = np.random.normal(loc=0, scale=stddev, size=(w,w))
     deltax = imresize(deltax, size=(a,b), mode='F')
     deltay = imresize(deltay, size=(a,b), mode='F')
+    a1,b1 = deltax.shape
+    # deltax = zoom(deltax, (a/a1,b/b1), order=3)
+    # deltay = zoom(deltay, (a/a1,b/b1), order=3)
     # MAX GRADIENTS should be less than 1 to avoid folds
     dxdx = np.max(np.diff(deltax, axis=0))
     dydx = np.max(np.diff(deltax, axis=1))
@@ -30,7 +30,14 @@ def unet_warp_orig(img, stddev=15, w=4, delta=None):
     delta_big = np.stack((deltax, deltay), axis=0)
     coords = np.indices(img.shape)
     newcoords = delta_big + coords
-    res = tform.warp(img, newcoords, order=1)
+    if twolabel:
+        img = img.astype('float64')
+        res = tform.warp(img, newcoords, order=1)
+        # res = res.astype('uint8')
+        res[res<=0.33] = 0
+        res[res>0.33] = 1
+    else:
+        res = tform.warp(img, newcoords, order=1)
     return res, delta_big, coords
 
 def plot_vector_field(img):
@@ -41,7 +48,8 @@ def plot_vector_field(img):
     y_max at the bottom! This is the opposite of all other plots...
     """
     n = 10
-    res, delta, coords = unet_warp_orig(img)
+    delta = np.random.normal(loc=0, scale=5, size=(2,3,3))
+    res, delta, coords = unet_warp_orig(img, delta=delta, twolabel=True)
     plt.figure()
     plt.imshow(img[::-1])
     plt.figure()
@@ -113,16 +121,32 @@ def warp_label_img(lab, warp_scale = 20, w = 4):
     warped_relabeled = label(membrane_seg, structure=structure)[0]
     return warped_relabeled
 
-def random_augmentation(patch):
+def randomly_augment_patches(patch, ypatch):
     """
     flip, rotate, and warp with some probability
     """
-    if random.random() < 0.5:
-        patch = np.flip(patch, axis=1) # axis=1 is the horizontal axis
-    randangle = (random.random()-0.5)*60 # even dist between ± 30
-    rotate(patch, randangle)
-    if random.random() < 0.9:
-        patch = warp_gaussian(patch, stdev=2, w=10) # good for full-resolution images!
+    if random.random()<0.5:
+        patch = np.flip(patch, axis=1)   # axis=1 is the horizontal axis
+        ypatch = np.flip(ypatch, axis=1) # axis=1 is the horizontal axis
+    if random.random()<0.5:
+        delta = np.random.normal(loc=0, scale=10, size=(2,3,3))
+        patch,_,_ = unet_warp_orig(patch, delta=delta)
+        ypatch,_,_  = unet_warp_orig(ypatch, delta=delta, twolabel=True)
+    if random.random()<0.5:
+        randangle = (random.random()-0.5)*60 # even dist between ± 30
+        patch  = rotate(patch, randangle, reshape=False)
+        ypatch = rotate(ypatch, randangle, reshape=False)
+    return patch, ypatch
+
+def random_augmentation(patch):
+    if random.random()<0.5:
+        patch = np.flip(patch, axis=1)   # axis=1 is the horizontal axis
+    if random.random()<0.5:
+        delta = np.random.normal(loc=0, scale=15, size=(2,3,3))
+        patch,_,_ = unet_warp_orig(patch, delta=delta)
+    if random.random()<0.5:
+        randangle = (random.random()-0.5)*60 # even dist between ± 30
+        patch  = rotate(patch, randangle, reshape=False)
     return patch
 
 def explore_warps(img):

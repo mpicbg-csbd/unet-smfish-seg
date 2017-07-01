@@ -884,7 +884,7 @@ from deep inside the core of tensorflow. in resource_handle_pb2.py
 
 Tensorflow is only provided systemwide on furiosa with python3 and you have to be on one of the GPU nodes to avoid the libcuda error.
 
-# PROBLEM: SOLVED: PROBLEM: trying to import train crashes ipython
+# PROBLEM: SOLVED: PROBLEM: trying to import train crashes ipython on furiosa
 
 This problem is still a pain in the ass. I can't import skimage.io on ipython because it crashes my X server.
 
@@ -1012,7 +1012,7 @@ never create them. Cells with diameter smaller than the downscale factor would j
 
 todo: test to see what size warping are appropriate for full size images.
 
-# PROBLEM: I want a way of comparing two similar cell labelings visually.
+# SOLVED. PROBLEM: I want a way of comparing two similar cell labelings visually.
 This requires permuting the labels of one images s.t. it aligns closely with another image. We can do this using the matching matrix from label_images, but this problem is very similar to the problem of finding an optimal correspondence between c. elegans nuclei! In our case, however, we only have one ground truth labeling, so we want to see how different the proposed labeling is from it. And also, we don't usually expect to have any warping, so a very flexible matching algorithms doesn't make sense. Usually the proposed solution and the ground truth are built on top of the same underlying greyscale image, so you won't ever find that the proposed solution looks the same as the ground truth, but just translated in x,y... 
 
 - Differentiable cell segmentation losses
@@ -1042,22 +1042,49 @@ We're going to use that third representation for doing the numba permutation, bu
 
 getting a permutation of type 3 from a matching is easy!
 
+SOLVED. Now we have a few different kinds of matching (that don't try to do any warping) that are useful steps in building the segmentation Error scores, and we can use them to do label permutation as well to aid visual inspection.
+
+NOTE: That this began to touch on the interesting, but mostly unrelated idea of matchings between warped versions of similar images, ala Dagmar's c.elegans matching, but this would be mostly a distraction :)
+
 # PROBLEM: I want to plot my vector fields and warpings on top of my images? How do i do this?
 
 I think you can just plot the vector filed using quiver and streamplot on top of an imshow??? But then we have to make sure we have the axes dimensions right... I want a way of dynamically checking my screen resolution, screen absolute size, and therefore dpi with python!
 
+# SOLVED: PROBLEM: How do I know which of my previous training sessions I should persue?
 
+I need to test my new train/test splitting. I think that the new (correct) splitting will help prevent the overfitting that we've been seeing. I should find a training session that overfit (in few epochs) and retrain with the new datasets.
+
+Search through all datasets that have a history.json. Find the one with the minimum validation loss. This is the best one. Do this for both down3 and orig size images...
+
+The solution to this problem is the same as the solution to the next one. Improve the analysis.py tool so that you always know which model is best and only move the best ones.
+
+# SOLVED: PROBLEM: My training datasets are too big to store on my local machine
+
+How are we going to move our training and testing datasets between local and remote machines? I want to perform analysis on my local machine, because that's where I can use matplotlib. _Does it work on remote if I use ssh -X ?_ NO IT STILL DOESN'T WORK.
+
+Keep a list of the direcories that you've actually analyzed. And keep track of which ones are best.
+
+Solution: I'll use the analysis module to analyze which results are best, and then just move those over to the `training_best` folder.
+
+# cell_tracker PROBLEM. Tra loss might be bad.
+
+When evaluating a loss on a tracking problem we want an error score that doesn't penalize too harshly when correctly identify a division, but shift it backwards or forwards one frame in time wrt the labeling, because the exact timing of a division can be very unclear in real data, and we certainly don't want it to penalize us twice!
+
+# Question: Do I augment before converting to patches, or after?
+
+- Before gives less diversity, but is computationally easier, but might require more code restructuring.
 
 
 # TODO:
 
-1. Fix train/test splitting!
-2. Remove one-hot encoding
-3. DONE. Remove bordermode = 'same' (change to 'valid')
-4. Add distance penalty
-    * Does this still make sense? Given that Ronneberger used this distance penalty mostly to emphasize the background pixels *in between neighboring cells that had a small gap between them*. This is mostly appropriate to single cells-in-a-dish, and not to tissues.
-5. Predict only distance maps!
+1. DONE. Fix train/test splitting!
+2. DONE. Remove bordermode = 'same' (change to 'valid')
+3. Augment with simple rotation and horizontal reflection
+4. Augment with warping
+5. Compare true cell segmentation scores
 6. Allow training on arbitrary size dataset
-7. Augment with simple rotation and horizontal reflection
-8. Augment with warping
+7. Add distance penalty
+    * Does this still make sense? Given that Ronneberger used this distance penalty mostly to emphasize the background pixels *in between neighboring cells that had a small gap between them*. This is mostly appropriate to single cells-in-a-dish, and not to tissues.
+8. Predict only distance maps!
+9. Remove one-hot encoding
 

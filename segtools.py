@@ -14,26 +14,6 @@ import skimage.io as io
 import colorsys
 from numba import jit
 
-# img2 = io.imread("./20150513_New_data/20150430_eif4g_dome03_slice11.tif")
-# io.imsave('i1.tif', img1[1])
-
-# img1 = io.imread("data/Cell_segmentations_paper/20150430_eif4g_dome03_R3D_MASKS.tif")
-# img1 = img1[0]
-# img2 = img1.copy()
-# img2 = np.roll(img2, 3, axis=0)
-# img2 = np.roll(img2, 3, axis=1)
-
-# # this adds an edge whenever there is *any* overlap
-# dg = nx.DiGraph()
-# for i,j in zip(img1.flatten(), img2.flatten()):
-#     dg.add_edge(i,j)
-
-# first build graph matrix
-# from scipy.ndimage import zoom
-# img1 = zoom(img1, 0.2)
-# img2 = zoom(img2, 0.2)
-
-
 # or get it from scipy.ndimage.morphology import generate_binary_structure
 structure = [[1,1,1], [1,1,1], [1,1,1]] # this is the structure that was used by Benoit & Carine!
 
@@ -86,7 +66,7 @@ def labelImg_to_rgb(img, bg_ID=1, membrane_ID=0):
 # MISC
 
 @jit
-def permute(img, perm):
+def permute_img(img, perm):
     """
     Permute the labels on a labeled image according to `perm`, if `perm` not given
     then permute them randomly.

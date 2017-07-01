@@ -35,13 +35,16 @@ import gputools
 
 structure = [[1,1,1], [1,1,1], [1,1,1]] # this is the structure that was used by Benoit & Carine!
 
+
 def play_with_matchings():
     lab1 = io.imread('data3/labeled_data_cellseg/labels/20150430_eif4g_dome01_R3D_MASKS.tif')[0]
     lab2 = warping.warp_label_img(lab1)
-    mm_pixelwise = st.pixel_sharing_graph(lab1, lab2)
-    return mm_pixelwise
-
-
+    mat = st.pixel_sharing_graph(lab1, lab2)
+    mo = st.matching_overlap(mat)
+    perm = st.permutation_from_matching(mo)
+    permed = st.permute_img(img, perm)
+    res = np.stack((lab1, lab2, permed))
+    return res
 
 def test_ground_truths(verbose=False, warp_scale=0):
     """

@@ -22,17 +22,18 @@ from keras.optimizers import SGD
 
 import skimage.util as skut
 import util
+import warping
 
 # global variables for patch dimensions and stride
-x_width = 120
-y_width = 120
-step = 30
+x_width = 480
+y_width = 480
+step = 120
 
 # example param values. Set them in train.py
 nb_classes = 2
 learning_rate = 0.0005
 membrane_weight_multiplier=1
-batch_size = 32
+batch_size = 4
 epochs = 100
 patience = 20
 savedir="./"
@@ -522,10 +523,12 @@ def train_unet(grey_imgs, label_imgs, model):
 
     return history
 
+
 def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
     epoch = 0
     while (True):
         epoch += 1
+        print("Epoch ", epoch)
         current_idx = 0
         batchnum = 0
         inds = np.arange(X.shape[0])
@@ -533,11 +536,22 @@ def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
         X = X[inds]
         Y = Y[inds]
         while batchnum < steps_per_epoch:
+            print("batchnum: ", batchnum)
             Xbatch, Ybatch = X[current_idx:current_idx+batch_size].copy(), Y[current_idx:current_idx+batch_size].copy()
+            io.imsave('X.tif', Xbatch)
+            io.imsave('Y.tif', Ybatch)
+
             current_idx += batch_size
 
-            # if we're gonna augment, do it here... (applied to both training and validation patches!)
-            # e.g. flip and rotate images randomly
+            for i in range(Xbatch.shape[0]):
+                x = Xbatch[i]
+                y = Ybatch[i]
+                x,y = warping.randomly_augment_patches(x, y)
+                Xbatch[i] = x
+                Ybatch[i] = y
+
+            io.imsave('Xauged.tif', Xbatch)
+            io.imsave('Yauged.tif', Ybatch)
 
             Xbatch = add_singleton_dim(Xbatch)
             Ybatch = labels_to_activations(Ybatch)

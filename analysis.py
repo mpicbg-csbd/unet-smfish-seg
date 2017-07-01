@@ -17,7 +17,6 @@ from tabulate import tabulate
 import segtools as st
 
 
-
 def explain_training_dir(dr, plots=True, megaplots_axes=None):
     # spec = importlib.util.spec_from_file_location("train", dr + '/train.py')
     # foo = importlib.util.module_from_spec(spec)
