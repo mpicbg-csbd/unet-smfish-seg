@@ -1,8 +1,9 @@
 import unet
 from glob import glob
+import skimage.io as io
 
-imglist = [unet.io.imread(img) for img in glob('data3/labeled_data_cellseg/greyscales/down3x/*.tif')]
-lablist = [unet.io.imread(img) for img in glob('data3/labeled_data_cellseg/labels/down3x/*.tif')]
+imglist = [io.imread(img, plugin='tifffile') for img in glob('data3/labeled_data_cellseg/greyscales/down3x/*.tif')]
+lablist = [io.imread(img, plugin='tifffile') for img in glob('data3/labeled_data_cellseg/labels/down3x/*.tif')]
 
 for img in lablist:
 	img[img!=0]=2

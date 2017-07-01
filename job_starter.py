@@ -12,11 +12,9 @@ def setup_new_dir_and_return_dirname():
     return saveDir
 
 def main(script, direct):
-
     print(script, direct)
-
     os.makedirs(direct)
-    filesToMove = ["unet.py", script]
+    filesToMove = ["unet.py", script, "warping.py"]
     for f in filesToMove:
         shutil.copy(f, direct)
 

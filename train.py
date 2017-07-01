@@ -8,7 +8,7 @@ import json
 import numpy as np
 
 rationale = """
-Continuation of m108, 10x as long.
+m108 params, starting from scratch, with warping (bugtest)
 """
 
 train_params = {

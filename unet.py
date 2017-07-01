@@ -528,7 +528,6 @@ def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
     epoch = 0
     while (True):
         epoch += 1
-        print("Epoch ", epoch)
         current_idx = 0
         batchnum = 0
         inds = np.arange(X.shape[0])
@@ -536,10 +535,9 @@ def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
         X = X[inds]
         Y = Y[inds]
         while batchnum < steps_per_epoch:
-            print("batchnum: ", batchnum)
             Xbatch, Ybatch = X[current_idx:current_idx+batch_size].copy(), Y[current_idx:current_idx+batch_size].copy()
-            io.imsave('X.tif', Xbatch)
-            io.imsave('Y.tif', Ybatch)
+            io.imsave('X.tif', Xbatch, plugin='tifffile')
+            io.imsave('Y.tif', Ybatch, plugin='tifffile')
 
             current_idx += batch_size
 
@@ -550,8 +548,8 @@ def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
                 Xbatch[i] = x
                 Ybatch[i] = y
 
-            io.imsave('Xauged.tif', Xbatch)
-            io.imsave('Yauged.tif', Ybatch)
+            io.imsave('Xauged.tif', Xbatch, plugin='tifffile')
+            io.imsave('Yauged.tif', Ybatch, plugin='tifffile')
 
             Xbatch = add_singleton_dim(Xbatch)
             Ybatch = labels_to_activations(Ybatch)
