@@ -80,8 +80,8 @@ def explain_training_directories(dirlist, plots=True):
     for i in range(len(dirlist)):
         d = dirlist[i]
         try:
-            #r,t,h = explain_training_dir(d, plots=True, megaplots_axes=(axes_accuracy, axes_loss, colors[i]))
-            r,t,h = explain_training_dir(d, plots=True)
+            #r,t,h = explain_training_dir(d, plots=plots, megaplots_axes=(axes_accuracy, axes_loss, colors[i]))
+            r,t,h = explain_training_dir(d, plots=plots)
             data = t['grey_tif_folder'][19:]
             params = t['initial_model_params']
             if params:
@@ -127,10 +127,9 @@ def explain_results(dir):
         print()
 
 if __name__ == '__main__':
-    dirs = glob('training/m[89]*/') + glob('training/m1??/')
-    dirs = glob('training/m10?/')
-    print(dirs)
-    explain_training_directories(dirs)
+    dirs_old = glob('training/m[89]*/') + glob('training/m10[0123456]/') # hadn't fixed the val_loss yet
+    dirs = glob('training/m10[789]/') + glob('training/m1[123]?/') # after fixing the val_loss
+    explain_training_directories(dirs, plots=True)
 
 def info_travel_dist(layers, conv=3):
     """

@@ -1,6 +1,16 @@
-import unet
 from glob import glob
+import sys
+sys.path.insert(0, "/home/broaddus/.local/lib/python3.5/site-packages/")
+print('\n'.join(sys.path))
+
+import pkg_resources
+pkg_resources.require("scikit-image>=0.13.0")
+
+import skimage
+print("skimage version: ", skimage.__version__)
+
 import skimage.io as io
+import unet
 
 imglist = [io.imread(img, plugin='tifffile') for img in glob('data3/labeled_data_cellseg/greyscales/down3x/*.tif')]
 lablist = [io.imread(img, plugin='tifffile') for img in glob('data3/labeled_data_cellseg/labels/down3x/*.tif')]
