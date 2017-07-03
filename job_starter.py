@@ -4,7 +4,6 @@ import platform
 import sys
 import shutil
 
-
 def setup_new_dir_and_return_dirname():
     number = int(util.sglob('results/*')[-1][-4:])
     saveDir = 'results/trial{:04d}/'.format(number+1)

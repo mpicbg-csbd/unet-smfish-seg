@@ -12,13 +12,12 @@ from keras.layers import Convolution2D
 from keras.layers import Input, MaxPooling2D, UpSampling2D, Reshape, core, Dropout
 from keras.layers.convolutional import Conv2D
 from keras.layers.merge import Concatenate
-from keras.optimizers import Adam
+from keras.optimizers import Adam, SGD
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStopping, TensorBoard
 from keras import backend as K
 from keras.utils import np_utils
 # from keras.utils.visualize_util import plot
 from keras.preprocessing.image import ImageDataGenerator
-from keras.optimizers import SGD
 
 import skimage.util as skut
 import util
@@ -40,8 +39,11 @@ savedir="./"
 n_convolutions_first_layer = 32
 dropout_fraction = 0.2
 itd = 20
-
-# setup X and Y for feeding into the model
+momentum = 0.9
+warping_size = 0
+flipLR = False
+rotate_angle_max = 0
+optimizer = 'adam'
 
 def sample_patches(data, patch_size, n_samples=100, verbose=False):
     """
@@ -471,7 +473,12 @@ def train_unet(grey_imgs, label_imgs, model):
     class_relative_frequncies = {0: w0, 1: w1}
     print(class_relative_frequncies)
 
-    model.compile(optimizer=Adam(lr = learning_rate), loss=my_categorical_crossentropy_ndim4(weights=(w0, w1)), metrics=['accuracy'])
+    if optimizer == 'sgd':
+        optim = SGD(lr=learning_rate, momentum=momentum)
+    elif optimizer == 'adam':
+        optim = Adam(lr = learning_rate)
+
+    model.compile(optimizer=optim, loss=my_categorical_crossentropy_ndim4(weights=(w0, w1)), metrics=['accuracy'])
 
     # Setup callbacks
     print("SETUP CALLBACKS")
@@ -523,7 +530,6 @@ def train_unet(grey_imgs, label_imgs, model):
 
     return history
 
-
 def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
     epoch = 0
     while (True):
@@ -536,20 +542,20 @@ def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
         Y = Y[inds]
         while batchnum < steps_per_epoch:
             Xbatch, Ybatch = X[current_idx:current_idx+batch_size].copy(), Y[current_idx:current_idx+batch_size].copy()
-            io.imsave('X.tif', Xbatch, plugin='tifffile')
-            io.imsave('Y.tif', Ybatch, plugin='tifffile')
+            #io.imsave('X.tif', Xbatch, plugin='tifffile')
+            #io.imsave('Y.tif', Ybatch, plugin='tifffile')
 
             current_idx += batch_size
 
             for i in range(Xbatch.shape[0]):
                 x = Xbatch[i]
                 y = Ybatch[i]
-                x,y = warping.randomly_augment_patches(x, y)
+                x,y = warping.randomly_augment_patches(x, y, flipLR, warping_size, rotate_angle_max)
                 Xbatch[i] = x
                 Ybatch[i] = y
 
-            io.imsave('Xauged.tif', Xbatch, plugin='tifffile')
-            io.imsave('Yauged.tif', Ybatch, plugin='tifffile')
+            #io.imsave('Xauged.tif', Xbatch, plugin='tifffile')
+            #io.imsave('Yauged.tif', Ybatch, plugin='tifffile')
 
             Xbatch = add_singleton_dim(Xbatch)
             Ybatch = labels_to_activations(Ybatch)

@@ -9,7 +9,9 @@ import os
 import shutil
 import sys
 import re
+
 import numpy as np
+import pandas as pd
 
 # import importlib.util
 import json
@@ -17,90 +19,129 @@ from tabulate import tabulate
 import segtools as st
 
 
-def explain_training_dir(dr, plots=True, megaplots_axes=None):
-    # spec = importlib.util.spec_from_file_location("train", dr + '/train.py')
-    # foo = importlib.util.module_from_spec(spec)
-    # spec.loader.exec_module(foo)
-    # rationale = foo.rationale
-    # train_params = foo.train_params
+dirs_old = glob('training/m[6789]?/') + glob('training/m10[01234567]/') # hadn't fixed the val_loss yet
+dirs = glob('training/m10[89]/') + glob('training/m1[123]?/') # after fixing the val_loss
+
+show_these = ['batch_size',
+	'dropout_fraction',
+	'flipLR',
+	'grey_tif_folder',
+	'initial_model_params',
+	'learning_rate',
+	'model',
+	'membrane_weight_multiplier',
+	'momentum',
+	'n_convolutions_first_layer',
+	'rotate_angle_max',
+	'warping_size',
+	'X_train_shape',
+	'trained_epochs',
+	'train_time',]
+
+sort_by_these = ['acc',
+		'val_acc',
+		'loss',
+		'val_loss']
+
+# header = [["Name", "Acc", "Loss", "Val Acc", "Val Loss", "Data", "Params"]]
+
+def explain_training_dir(dr):
     train_params = json.load(open(dr + '/train_params.json'))
     rationale = train_params['rationale']
     history = json.load(open(dr + '/history.json'))
-    if plots:
-        plt.figure()
-        plt.title(dr)
-        plt.plot(history['loss'], label='loss_')
-        plt.plot(history['val_loss'], label='val_loss')
-        plt.legend()
-        plt.savefig(dr + '/loss.pdf')
-        plt.figure()
-        plt.title(dr)
-        plt.plot(history['acc'], label='acc')
-        plt.plot(history['val_acc'], label='val_acc')
-        plt.legend()
-        plt.savefig(dr + '/accuracy.pdf')
-        plt.show()
-    if megaplots_axes:
-        axes_accuracy, axes_loss, color = megaplots_axes
-        axes_loss.plot(history['loss'], label='loss_'+dr, color=color)
-        axes_loss.plot(history['val_loss'], label='val_loss'+dr, color=color)
-        axes_accuracy.plot(history['acc'], label='acc'+dr, color=color)
-        axes_accuracy.plot(history['val_acc'], label='val_acc'+dr, color=color)
-    print("\n\n")
-    print(dr)
-    print(rationale)
-    print(train_params)
-    print(history['loss'][-1], history['val_loss'][-1])
-    print(history['acc'][-1], history['val_acc'][-1])
-    print("{} epochs in {} seconds".format(len(history['acc']), history['train_time']))
+    # print("\n\n")
+    # print(dr)
+    # print(rationale)
+    # print(train_params)
+    # print(history['loss'][-1], history['val_loss'][-1])
+    # print(history['acc'][-1], history['val_acc'][-1])
+    # print("{} epochs in {} seconds".format(len(history['acc']), history['train_time']))
     return rationale, train_params, history
 
-def explain_training_directories(dirlist, plots=True):
-    """
-    input: parent directory name or list of training directory names.
-    output: plots comparing accuracy and loss over time. prints params, timings & rationale.
-    """
-
+def make_megaplot(dirlist, show=False):
     fig_accuracy = plt.figure()
     axes_accuracy = fig_accuracy.gca()
     fig_loss = plt.figure()
     axes_loss = fig_loss.gca()
-
-    print("LENGTH: ", len(dirlist))
     colors = st.pastel_colors_RGB_gap(n_colors=len(dirlist), brightness=1.0)
+
     # print(colors)
     # x = range(len(colors))
     # plt.figure()
     # plt.scatter(x,x,color=colors)
     # plt.show()
-    header = [["Name", "Acc", "Loss", "Val Acc", "Val Loss", "Data", "Params"]]
+
+    for i in range(len(dirlist)):
+        dr = dirlist[i]
+        c = colors[i]
+        try:
+            history = json.load(open(dr + '/history.json'))
+            axes_loss.plot(history['loss'], label='loss_'+dr, color=c)
+            axes_loss.plot(history['val_loss'], label='val_loss'+dr, color=c)
+            axes_accuracy.plot(history['acc'], label='acc'+dr, color=c)
+            axes_accuracy.plot(history['val_acc'], label='val_acc'+dr, color=c)
+        except (FileNotFoundError, AttributeError):
+            failedlist.append([dr])
+
+    axes_accuracy.legend()
+    axes_loss.legend()
+    fig_accuracy.savefig('figs/mega_accuracy.pdf')
+    fig_loss.savefig('figs/mega_loss.pdf')
+    if show:
+        fig_accuracy.show()
+        fig_loss.show()
+
+def add_plots_to_traindir(dr, show=False):
+    history = json.load(open(dr + '/history.json'))
+    plt.figure()
+    plt.title(dr)
+    plt.plot(history['loss'], label='loss_')
+    plt.plot(history['val_loss'], label='val_loss')
+    plt.legend()
+    plt.savefig(dr + '/loss.pdf')
+    plt.figure()
+    plt.title(dr)
+    plt.plot(history['acc'], label='acc')
+    plt.plot(history['val_acc'], label='val_acc')
+    plt.legend()
+    plt.savefig(dr + '/accuracy.pdf')
+    if show:
+      plt.show()
+
+def td_summary(dirlist):
+    """
+    training directory summary
+    input: list of training directory names
+    output: printed summary table, sorted by loss
+    """
     name_acc_loss = []
     failedlist = []
+    t_list = []
+    h_list = []
+    d_list = []
 
     for i in range(len(dirlist)):
         d = dirlist[i]
         try:
-            #r,t,h = explain_training_dir(d, plots=plots, megaplots_axes=(axes_accuracy, axes_loss, colors[i]))
-            r,t,h = explain_training_dir(d, plots=plots)
-            data = t['grey_tif_folder'][19:]
-            params = t['initial_model_params']
-            if params:
-                params = params[:-32]
-            name_acc_loss.append([os.path.dirname(dirlist[i]), h['acc'][-1], h['loss'][-1], h['val_acc'][-1], h['val_loss'][-1], data, params])
+            r,t,h = explain_training_dir(d)
+            d_list.append(d) 
+            t_list.append(t)
+            h_list.append(h)
+            #data = t['grey_tif_folder'][19:]
+            #params = t['initial_model_params']
+            #if params:
+            #    params = params[:-32]
+            #name_acc_loss.append([os.path.dirname(dirlist[i]), h['acc'][-1], h['loss'][-1], h['val_acc'][-1], h['val_loss'][-1], data, params])
         except (FileNotFoundError, AttributeError):
             failedlist.append([dirlist[i]])
-            pass
 
-    print(tabulate(header + sorted(name_acc_loss, key=lambda x:x[2])))
-    print()
-    print(tabulate([["Failed"]] + failedlist))
-
-    axes_accuracy.legend()
-    fig_accuracy.show()
-    axes_loss.legend()
-    fig_loss.show()
-    fig_accuracy.savefig('figs/mega_accuracy.pdf')
-    fig_loss.savefig('figs/mega_loss.pdf')
+    df = pd.DataFrame(t_list, index=d_list)
+    df2 = pd.DataFrame(h_list, index=d_list)
+    df = df.join(df2)
+    df.to_csv('summary.csv')
+    # print(tabulate(header + sorted(name_acc_loss, key=lambda x:x[4])))
+    print(tabulate([["Failed|Ongoing"]] + failedlist))
+    return df
 
 def explain_results(dir):
     "Get scores, runtime, etc for old-style training without a history.json or train_params.json"
@@ -126,11 +167,6 @@ def explain_results(dir):
             print("IOerror")
         print()
 
-if __name__ == '__main__':
-    dirs_old = glob('training/m[89]*/') + glob('training/m10[0123456]/') # hadn't fixed the val_loss yet
-    dirs = glob('training/m10[789]/') + glob('training/m1[123]?/') # after fixing the val_loss
-    explain_training_directories(dirs, plots=True)
-
 def info_travel_dist(layers, conv=3):
     """
     layers: number of down and up layers (e.g. two down followed by two up => layers=2)
@@ -148,7 +184,20 @@ def info_travel_dist(layers, conv=3):
         width -= conv2
     return -width/2
 
-
+if __name__ == '__main__':
+    df = td_summary(dirs + dirs_old)
+    # df.sort_values(sort_by_these)
+    ind = [np.argmin(np.array(val_loss)) for val_loss in df['val_loss']]
+    print(ind)
+    df['ind'] = ind
+    df['acc_f'] = [x[i] for x,i in zip(df['acc'], ind)]
+    df['loss_f'] = [x[i] for x,i in zip(df['loss'], ind)]
+    df['val_acc_f'] = [x[i] for x,i in zip(df['val_acc'], ind)]
+    df['val_loss_f'] = [x[i] for x,i in zip(df['val_loss'], ind)]
+    df['grey_tif_folder'] = [os.path.normpath(x).split(os.path.sep)[1:] for x in df['grey_tif_folder']]
+    df['traindir'] = [int(os.path.normpath(x).split(os.path.sep)[-1][1:]) for x in df.index]
+    df.to_pickle('summary.pkl')
+    
 
 
 

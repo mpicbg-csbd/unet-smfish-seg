@@ -12,7 +12,7 @@ Check out predictions of m90 on original sized images! With fixed boundary effec
 
 predict_params = {
  'savedir' : './',
- 'model_weights' : 'training/m104/unet_model_weights_checkpoint.h5',
+ 'model_weights' : 'training/m129/unet_model_weights_checkpoint.h5',
  'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/",
  'x_width' : 480,
  'y_width' : 480,

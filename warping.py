@@ -26,7 +26,7 @@ def unet_warp_orig(img, delta, twolabel=False):
     dydx = np.max(np.diff(deltax, axis=1))
     dxdy = np.max(np.diff(deltay, axis=0))
     dydy = np.max(np.diff(deltay, axis=1))
-    print("MAX GRADS", dxdx, dydx, dxdy, dydy)
+    # print("MAX GRADS", dxdx, dydx, dxdy, dydy)
     delta_big = np.stack((deltax, deltay), axis=0)
     coords = np.indices(img.shape)
     newcoords = delta_big + coords
@@ -121,21 +121,23 @@ def warp_label_img(lab, warp_scale = 20, w = 4):
     warped_relabeled = label(membrane_seg, structure=structure)[0]
     return warped_relabeled
 
-def randomly_augment_patches(patch, ypatch):
+def randomly_augment_patches(patch, ypatch, flipLR, warping_size, rotate_angle_max):
     """
     flip, rotate, and warp with some probability
     """
-    if random.random()<0.5:
-        patch = np.flip(patch, axis=1)   # axis=1 is the horizontal axis
-        ypatch = np.flip(ypatch, axis=1) # axis=1 is the horizontal axis
-    if random.random()<0.5:
-        delta = np.random.normal(loc=0, scale=10, size=(2,3,3))
-        patch,_,_ = unet_warp_orig(patch, delta=delta)
-        ypatch,_,_  = unet_warp_orig(ypatch, delta=delta, twolabel=True)
-    if random.random()<0.5:
-        randangle = (random.random()-0.5)*60 # even dist between ± 30
-        patch  = rotate(patch, randangle, reshape=False)
-        ypatch = rotate(ypatch, randangle, reshape=False)
+    if flipLR:
+        if random.random()<0.5:
+            patch = np.flip(patch, axis=1)   # axis=1 is the horizontal axis
+            ypatch = np.flip(ypatch, axis=1) # axis=1 is the horizontal axis
+
+    sc = random.random()*warping_size
+    delta = np.random.normal(loc=0, scale=sc, size=(2,3,3))
+    patch,_,_ = unet_warp_orig(patch, delta=delta)
+    ypatch,_,_  = unet_warp_orig(ypatch, delta=delta, twolabel=True)
+
+    randangle = (random.random()-0.5)*2*rotate_angle_max 
+    patch  = rotate(patch, randangle, reshape=False)
+    ypatch = rotate(ypatch, randangle, reshape=False)
     return patch, ypatch
 
 def random_augmentation(patch):

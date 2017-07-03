@@ -1,6 +1,11 @@
 import sys
-import unet
+sys.path.insert(0, "/home/broaddus/.local/lib/python3.5/site-packages/")
+import pkg_resources
+pkg_resources.require("scikit-image>=0.13.0")
+import skimage
 from skimage.io import imread
+
+import unet
 import datasets as d
 import util
 import time
@@ -8,7 +13,8 @@ import json
 import numpy as np
 
 rationale = """
-m108 params, starting from scratch, with warping (bugtest)
+SGD. High learn rate. High momentum.
+Same as 119==131, but with all the augmentations.
 """
 
 train_params = {
@@ -18,17 +24,25 @@ train_params = {
  'x_width' : 480,
  'y_width' : 480,
  'step' : 240,
- 'batch_size' : 4,
- 'learning_rate' : 1e-4,
+
+ 'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 3,
+ 'epochs' : 300,
  'patience' : 30,
 
+ 'optimizer' : 'sgd', # 'sgd' or 'adam' (adam ignores momentum)
+ 'learning_rate' : 1e-3, #3.16e-5,
+ 'momentum' : 0.99,
+
+ 'warping_size' : 10,
+ 'flipLR' : True,
+ 'rotate_angle_max' : 30,
+
+ 'model' : 'unet_7layer',
  'initial_model_params' : None, #"training/m108/unet_model_weights_checkpoint.h5",
  'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.2,
  'itd' : None,
- 'model' : 'unet_7layer',
 }
 
 
@@ -80,6 +94,10 @@ def train(train_params):
     unet.patience = train_params['patience']
     unet.n_convolutions_first_layer = train_params['n_convolutions_first_layer']
     unet.dropout_fraction = train_params['dropout_fraction']
+    unet.momentum = train_params['momentum']
+    unet.warping_size = train_params['warping_size']
+    unet.flipLR = train_params['flipLR']
+    unet.rotate_angle_max = train_params['rotate_angle_max']
 
     if train_params['model'] == 'unet_7layer':
         model = unet.get_unet_7layer()
