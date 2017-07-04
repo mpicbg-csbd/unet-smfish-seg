@@ -66,16 +66,21 @@ show_these = [
     ]
 
 sort_by_these = [
-    'loss_f',
     'val_loss_f',
+    'loss_f',
     'traindir',
     'acc_f',
     'val_acc_f',
     ]
 
 
+import matplotlib.pyplot as plt
+plt.ion()
+
+df = pd.read_pickle('summary.pkl')
+
+
 def display_best():
-    import matplotlib.pyplot as plt
     plt.ion()
     df = pd.read_pickle('summary.pkl')
     pd.set_option('expand_frame_repr', False)
@@ -83,22 +88,25 @@ def display_best():
     print(best[show_these])
     for i in range(len(best)):
         row = best.iloc[i]
-        print(type(row))
         plt.plot(row['loss'], label=row.name)
         plt.plot(row['val_loss'], '--', label=row.name)
     plt.legend()
 
-if False:
+def scatterplots():
     df.plot.scatter('traindir', 'loss_f')
     df.plot.scatter('traindir', 'val_loss_f')
     df.plot.scatter('train_time', 'val_loss_f')
+    df.plot.scatter('loss_f', 'val_loss_f')
 
-if False:
+def summary_text():
     # os.path.normpath(a).split(os.path.sep)
     # Remember that directories starting with m108 have the correct val_loss
     df = pd.read_pickle('summary.pkl')
     pd.set_option('expand_frame_repr', False)
     print(df.sort_values(sort_by_these)[show_these][df.traindir > 107])
-    df[df.traindir > 107].plot.scatter('traindir', 'val_loss_f')
-    # plt.figure()
-    df[df.traindir > 107].plot.scatter('loss_f', 'val_loss_f')
+
+
+
+
+
+

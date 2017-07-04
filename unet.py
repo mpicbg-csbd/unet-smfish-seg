@@ -455,11 +455,11 @@ def train_unet(grey_imgs, label_imgs, model):
     X_train,Y_train = imglists_to_XY(grey_leftside, label_leftside)
     print("X_train.shape = ", X_train.shape, " and Y_train.shape = ", Y_train.shape)
     X_vali, Y_vali  = imglists_to_XY(grey_rightside, label_rightside)
-    train_ind, test_ind = util.subsample_ind(X_vali, Y_vali, test_fraction=0.2, rand_state=0)
+    # train_ind, test_ind = util.subsample_ind(X_vali, Y_vali, test_fraction=0.2, rand_state=0)
     # We don't want to validate across a test dataset that is the same size as the train for performance reasons?
-    X_vali, Y_vali = X_vali[test_ind], Y_vali[test_ind]
+    # X_vali, Y_vali = X_vali[test_ind], Y_vali[test_ind]
     # np.save(savedir + '/train_ind.npy', train_ind)
-    np.save(savedir + '/test_ind.npy', test_ind)
+    # np.save(savedir + '/test_ind.npy', test_ind)
     # X_train, Y_train, X_vali, Y_vali = X[train_ind], Y[train_ind], X[test_ind], Y[test_ind]
 
     print("SETUP THE CLASSWEIGHTS")
