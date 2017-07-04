@@ -1074,6 +1074,57 @@ When evaluating a loss on a tracking problem we want an error score that doesn't
 
 - Before gives less diversity, but is computationally easier, but might require more code restructuring.
 
+# ERROR: The cluster can't use imread or imresize?
+
+The solution for imread was to specify that plugin='tifffile'
+
+(Pdb) c
+Using TensorFlow backend.
+Traceback (most recent call last):
+  File "/sw/apps/python/3.5.1/lib/python3.5/pdb.py", line 1661, in main
+    pdb._runscript(mainpyfile)
+  File "/sw/apps/python/3.5.1/lib/python3.5/pdb.py", line 1542, in _runscript
+    self.run(statement)
+  File "/sw/apps/python/3.5.1/lib/python3.5/bdb.py", line 431, in run
+    exec(cmd, globals, locals)
+  File "<string>", line 1, in <module>
+  File "/lustre/projects/project-broaddus/carine_smFISH_seg/test.py", line 1, in <module>
+    import unet
+  File "/lustre/projects/project-broaddus/carine_smFISH_seg/test.py", line 5, in <listcomp>
+    lablist = [unet.io.imread(img) for img in glob('data3/labeled_data_cellseg/labels/down3x/*.tif')]
+  File "/sw/apps/python/3.5.1/lib/python3.5/site-packages/scikit_image-0.10.1-py3.5-linux-x86_64.egg/skimage/io/_io.py", line 97, in imread
+    img = call_plugin('imread', fname, plugin=plugin, **plugin_args)
+  File "/sw/apps/python/3.5.1/lib/python3.5/contextlib.py", line 77, in __exit__
+    self.gen.throw(type, value, traceback)
+  File "/sw/apps/python/3.5.1/lib/python3.5/site-packages/scikit_image-0.10.1-py3.5-linux-x86_64.egg/skimage/io/util.py", line 35, in file_or_url_context
+    yield resource_name
+  File "/sw/apps/python/3.5.1/lib/python3.5/site-packages/scikit_image-0.10.1-py3.5-linux-x86_64.egg/skimage/io/_io.py", line 97, in imread
+    img = call_plugin('imread', fname, plugin=plugin, **plugin_args)
+  File "/sw/apps/python/3.5.1/lib/python3.5/site-packages/scikit_image-0.10.1-py3.5-linux-x86_64.egg/skimage/io/manage_plugins.py", line 209, in call_plugin
+    return func(*args, **kwargs)
+  File "/sw/apps/python/3.5.1/lib/python3.5/site-packages/scikit_image-0.10.1-py3.5-linux-x86_64.egg/skimage/io/_plugins/pil_plugin.py", line 34, in imread
+    im = np.fromstring(im.tostring(), dtype)
+  File "/home/broaddus/.local/lib/python3.5/site-packages/PIL/Image.py", line 712, in tostring
+    raise NotImplementedError("tostring() has been removed. "
+NotImplementedError: tostring() has been removed. Please call tobytes() instead
+
+
+We can fix this problem by making sure that we use the correct version of scikit_image. See tests/warp.py and the way it uses pkg_resources and sys.path. NOTE: that I couldn't find any way having python3 *prefer* my .local site-packages over the main one in /sw/apps without adding it explicitly to the head of the list at runtime. $PYTHONPATH adds it to the END of the list, which is not good enough.
+
+
+
+
+
+
+# PROBLEM: I'm getting divide-by-zero errors when running prediction after training.
+
+# PROBLEM: prediction still has square artifacts, but only visible on weak/untrained models.
+
+I can still see the squares! This shouldn't happen, or?
+
+
+
+
 
 # TODO:
 

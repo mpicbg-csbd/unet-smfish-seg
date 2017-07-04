@@ -45,7 +45,6 @@ train_params = {
  'itd' : None,
 }
 
-
 def train(train_params):
     start_time = time.time()
 

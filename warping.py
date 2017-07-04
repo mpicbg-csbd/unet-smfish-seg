@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 plt.ion()
 from scipy.misc import imresize
 import skimage.transform as tform
-from scipy.ndimage import label, zoom, rotate
+from scipy.ndimage import label, zoom, rotate, distance_transform_edt
 import random
 
 structure = [[1,1,1], [1,1,1], [1,1,1]]
@@ -31,11 +31,17 @@ def unet_warp_orig(img, delta, twolabel=False):
     coords = np.indices(img.shape)
     newcoords = delta_big + coords
     if twolabel:
-        img = img.astype('float64')
-        res = tform.warp(img, newcoords, order=1)
-        # res = res.astype('uint8')
-        res[res<=0.33] = 0
-        res[res>0.33] = 1
+        dis = img.copy() # distance_from_membrane
+        dis[dis==0]=2
+        dis[dis==1]=0
+        dis = distance_transform_edt(dis)
+        res = tform.warp(dis, newcoords, order=3)
+        res[res<=0.75] = 0
+        res[res>0.75]  = 1
+        res[res==0] = 2
+        res[res==1] = 0
+        res[res==2] = 1
+        res = res.astype('uint8')
     else:
         res = tform.warp(img, newcoords, order=1)
     return res, delta_big, coords

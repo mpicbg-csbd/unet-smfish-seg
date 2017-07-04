@@ -22,28 +22,6 @@ import segtools as st
 dirs_old = glob('training/m[6789]?/') + glob('training/m10[01234567]/') # hadn't fixed the val_loss yet
 dirs = glob('training/m10[89]/') + glob('training/m1[123]?/') # after fixing the val_loss
 
-show_these = ['batch_size',
-	'dropout_fraction',
-	'flipLR',
-	'grey_tif_folder',
-	'initial_model_params',
-	'learning_rate',
-	'model',
-	'membrane_weight_multiplier',
-	'momentum',
-	'n_convolutions_first_layer',
-	'rotate_angle_max',
-	'warping_size',
-	'X_train_shape',
-	'trained_epochs',
-	'train_time',]
-
-sort_by_these = ['acc',
-		'val_acc',
-		'loss',
-		'val_loss']
-
-# header = [["Name", "Acc", "Loss", "Val Acc", "Val Loss", "Data", "Params"]]
 
 def explain_training_dir(dr):
     train_params = json.load(open(dr + '/train_params.json'))
@@ -186,7 +164,6 @@ def info_travel_dist(layers, conv=3):
 
 if __name__ == '__main__':
     df = td_summary(dirs + dirs_old)
-    # df.sort_values(sort_by_these)
     ind = [np.argmin(np.array(val_loss)) for val_loss in df['val_loss']]
     print(ind)
     df['ind'] = ind
@@ -197,7 +174,4 @@ if __name__ == '__main__':
     df['grey_tif_folder'] = [os.path.normpath(x).split(os.path.sep)[1:] for x in df['grey_tif_folder']]
     df['traindir'] = [int(os.path.normpath(x).split(os.path.sep)[-1][1:]) for x in df.index]
     df.to_pickle('summary.pkl')
-    
-
-
 
