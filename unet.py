@@ -50,8 +50,9 @@ def imglist_to_X(greylist):
     """turn list of images into ndarray of patches, labels and their coordinates. Used for
     both training and testing."""
 
-    coords = [patchmaker.regular_patch_coords(img, (y_width, x_width), step) for img in greylist]
-    greypatches = [patchmaker.sample_patches_from_img(c,g) for c,g in zip(coords, greylist)]
+    shape = (y_width, x_width)
+    coords = [patchmaker.regular_patch_coords(img, shape, step) for img in greylist]
+    greypatches = [patchmaker.sample_patches_from_img(crd,img,shape) for crd,img in zip(coords, greylist)]
     X = np.concatenate(tuple(greypatches), axis=0)
 
     # normalize X per patch
@@ -63,8 +64,9 @@ def imglist_to_X(greylist):
 def imglist_to_Y(labellist):
     "turn list of images into ndarray of patches, labels and their coordinates"
 
-    coords = [patchmaker.regular_patch_coords(img, (y_width, x_width), step) for img in labellist]
-    labelpatches = [patchmaker.sample_patches_from_img(c,g) for c,g in zip(coords, labellist)]
+    shape = (y_width, x_width)
+    coords = [patchmaker.regular_patch_coords(img, shape, step) for img in labellist]
+    labelpatches = [patchmaker.sample_patches_from_img(crd,lab,shape) for crd,lab in zip(coords, labellist)]
     Y = np.concatenate(tuple(labelpatches), axis=0)
     return Y
 

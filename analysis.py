@@ -1,7 +1,7 @@
 # import skimage.io as io
 
-import matplotlib as mpl
-mpl.use('Agg')
+# import matplotlib as mpl
+# mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 from glob import glob
@@ -165,4 +165,7 @@ if __name__ == '__main__':
     df['grey_tif_folder'] = [os.path.normpath(x).split(os.path.sep)[1:] for x in df['grey_tif_folder']]
     df['traindir'] = [int(os.path.normpath(x).split(os.path.sep)[-1][1:]) for x in df.index]
     df.to_pickle('summary.pkl')
+    for d in dirs[-10:-5]:
+        print(d)
+        add_plots_to_traindir(d)
 

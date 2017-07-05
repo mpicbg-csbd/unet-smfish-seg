@@ -14,18 +14,16 @@ import numpy as np
 import analysis
 
 rationale = """
-With Augmentation!
-Down3 sized data. Smaller patches 240.
-5 layer. Adam. Correct validation data.
+Try 64 convolutions in the first layer. n_pool=4. No augmentation.
 """
 
 train_params = {
  'savedir' : './',
- 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down3x/",
- 'label_tif_folder' : "data3/labeled_data_cellseg/labels/down3x/",
- 'x_width' : 240,
- 'y_width' : 240,
- 'step' : 120,
+ 'grey_tif_folder'  : "data3/labeled_data_cellseg/greyscales/",
+ 'label_tif_folder' : "data3/labeled_data_cellseg/labels/",
+ 'x_width' : 480,
+ 'y_width' : 480,
+ 'step'    : 240,
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
@@ -33,7 +31,7 @@ train_params = {
  'patience' : 30,
 
  'optimizer' : 'adam', # 'sgd' or 'adam' (adam ignores momentum)
- 'learning_rate' : 3.16e-4, #3.16e-5,
+ 'learning_rate' : 1.00e-5, #3.16e-5,
  'momentum' : 0.99,
 
  'warping_size' : 10,
@@ -41,8 +39,8 @@ train_params = {
  'rotate_angle_max' : 30,
 
  'initial_model_params' : None, #"training/m108/unet_model_weights_checkpoint.h5",
- 'n_pool' : 3,
- 'n_convolutions_first_layer' : 32,
+ 'n_pool' : 4,
+ 'n_convolutions_first_layer' : 64,
  'dropout_fraction' : 0.2,
  'itd' : None,
 }
@@ -82,6 +80,11 @@ def train(train_params):
         print(n,g.shape, l.shape)
 
     # valid training and prediction params (change these before prediction!)
+    assert train_params['x_width'] == train_params['y_width']
+    xw = train_params['x_width']
+    np = train_params['n_pool']
+    # this shows that our patches can be cut in half n_pool times and still have interger size
+    assert xw%(2**np)==0
     unet.savedir = train_params['savedir']
     unet.x_width = train_params['x_width']
     unet.y_width = train_params['y_width']
@@ -106,6 +109,7 @@ def train(train_params):
     itd = analysis.info_travel_dist(train_params['n_pool'])
     unet.itd = itd
     train_params['itd'] = itd
+    train_params['rationale'] = rationale
 
     print(model.summary())
     print(itd)
@@ -125,10 +129,6 @@ def train(train_params):
     history.history['avg_time_per_epoch'] = train_time / trained_epochs
     history.history['avg_time_per_batch'] = train_time / (trained_epochs * history.history['steps_per_epoch'])
     history.history['avg_time_per_sample'] = train_time / (trained_epochs * history.history['X_train_shape'][0])
-    json.dump(history.history, open(train_params['savedir'] + '/history.json', 'w'))
-
-    train_params['rationale'] = rationale
-    json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
 
     for name in grey_names:
         img = d.imread(name)
@@ -138,6 +138,7 @@ def train(train_params):
         path, base, ext = util.path_base_ext(name)
         d.imsave(train_params['savedir'] + "/" + base + '_predict' + ext, combo.astype('float32'))
 
+    json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
     return history
 
 if __name__ == '__main__':

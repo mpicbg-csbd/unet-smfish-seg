@@ -21,7 +21,8 @@ def sample_patches(data, patch_size, n_samples=100, verbose=False):
     res = np.stack([data[r[0] - patch_size[0] // 2:r[0] + patch_size[0] - patch_size[0] // 2, r[1] - patch_size[1] // 2:r[1] + patch_size[1] - patch_size[1] // 2] for r in zip(*rand_inds)])
     return res
 
-def sample_patches_from_img(coords, img):
+def sample_patches_from_img(coords, img, shape):
+    y_width, x_width = shape
     assert coords[:,0].max() <= img.shape[0]-x_width
     assert coords[:,1].max() <= img.shape[1]-y_width
     patches = np.zeros(shape=(coords.shape[0], x_width, y_width), dtype=img.dtype)
@@ -29,7 +30,8 @@ def sample_patches_from_img(coords, img):
         patches[m] = img[ind[0]:ind[0]+x_width, ind[1]:ind[1]+y_width]
     return patches
 
-def random_patch_coords(img, n):
+def random_patch_coords(img, n, shape):
+    y_width, x_width = shape
     xc = np.random.randint(img.shape[0]-x_width, size=n)
     yc = np.random.randint(img.shape[1]-y_width, size=n)
     return np.stack((xc, yc), axis=1)
