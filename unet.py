@@ -22,6 +22,7 @@ from keras.preprocessing.image import ImageDataGenerator
 import skimage.util as skut
 import util
 import warping
+import patchmaker
 
 # global variables for patch dimensions and stride
 x_width = 480
@@ -45,87 +46,12 @@ flipLR = False
 rotate_angle_max = 0
 optimizer = 'adam'
 
-def sample_patches(data, patch_size, n_samples=100, verbose=False):
-    """
-    sample 2d patches of size patch_size from data
-    """
-
-    assert np.all([s <= d for d, s in zip(data.shape, patch_size)])
-
-    # change filter_mask to something different if needed
-    filter_mask = np.ones_like(data)
-
-    # get the valid indices
-    border_slices = tuple([slice(s // 2, d - s + s // 2 + 1) for s, d in zip(patch_size, data.shape)])
-    valid_inds = np.where(filter_mask[border_slices])
-
-    if len(valid_inds[0]) == 0:
-        raise Exception("could not find anything to sample from...")
-
-    valid_inds = [v + s.start for s, v in zip(border_slices, valid_inds)]
-
-    # sample
-    sample_inds = np.random.randint(0, len(valid_inds[0]), n_samples)
-
-    rand_inds = [v[sample_inds] for v in valid_inds]
-
-    res = np.stack([data[r[0] - patch_size[0] // 2:r[0] + patch_size[0] - patch_size[0] // 2, r[1] - patch_size[1] // 2:r[1] + patch_size[1] - patch_size[1] // 2] for r in zip(*rand_inds)])
-
-    return res
-
-def sample_patches_from_img(coords, img):
-    assert coords[:,0].max() <= img.shape[0]-x_width
-    assert coords[:,1].max() <= img.shape[1]-y_width
-    patches = np.zeros(shape=(coords.shape[0], x_width, y_width), dtype=img.dtype)
-    for m,ind in enumerate(coords):
-        patches[m] = img[ind[0]:ind[0]+x_width, ind[1]:ind[1]+y_width]
-    return patches
-
-def random_patch_coords(img, n):
-    xc = np.random.randint(img.shape[0]-x_width, size=n)
-    yc = np.random.randint(img.shape[1]-y_width, size=n)
-    return np.stack((xc, yc), axis=1)
-
-def regular_patch_coords(img):
-    coords = []
-    dy, dx = img.shape
-    dy, dx = dy-y_width, dx-x_width
-    for y in range(0,dy,step):
-        for x in range(0,dx,step):
-            coords.append((y,x))
-    return np.array(coords)
-
-def rebuild_img_from_patch_activations(x_y, patchact, coords):
-    "TODO: potentially add more ways of recombining than a simple average, i.e. maximum"
-    # x,y are final shape of the image
-    x,y = x_y
-    n_samp, dx, dy, nclasses = patchact.shape
-    zeros_img = np.zeros(shape=(x,y,nclasses))
-    count_img = np.zeros(shape=(x,y,nclasses))
-    print("This image contains Nans: ", np.sum(map(util.count_nans, patchact)))
-
-    # ignore parts of the image with boundary effects
-    mask = np.ones(patchact[0].shape)
-    mm = itd
-    mask[:,0:mm] = 0
-    mask[:,-mm:] = 0
-    mask[0:mm,:] = 0
-    mask[-mm:,:] = 0
-
-    for cord,patch in zip(coords, patchact):
-        x,y = cord
-        zeros_img[x:x+dx, y:y+dy] += patch*mask
-        count_img[x:x+dx, y:y+dy] += np.ones_like(patch)*mask
-
-    print(list(map(util.count_nans, [zeros_img, count_img])))
-    return zeros_img/count_img
-
 def imglist_to_X(greylist):
     """turn list of images into ndarray of patches, labels and their coordinates. Used for
     both training and testing."""
 
-    coords = list(map(regular_patch_coords, greylist))
-    greypatches = [sample_patches_from_img(c,g) for c,g in zip(coords, greylist)]
+    coords = [patchmaker.regular_patch_coords(img, (y_width, x_width), step) for img in greylist]
+    greypatches = [patchmaker.sample_patches_from_img(c,g) for c,g in zip(coords, greylist)]
     X = np.concatenate(tuple(greypatches), axis=0)
 
     # normalize X per patch
@@ -137,8 +63,8 @@ def imglist_to_X(greylist):
 def imglist_to_Y(labellist):
     "turn list of images into ndarray of patches, labels and their coordinates"
 
-    coords = list(map(regular_patch_coords, labellist))
-    labelpatches = [sample_patches_from_img(c,g) for c,g in zip(coords, labellist)]
+    coords = [patchmaker.regular_patch_coords(img, (y_width, x_width), step) for img in labellist]
+    labelpatches = [patchmaker.sample_patches_from_img(c,g) for c,g in zip(coords, labellist)]
     Y = np.concatenate(tuple(labelpatches), axis=0)
     return Y
 
@@ -201,11 +127,11 @@ def get_unet_7layer():
     print("\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n")
 
     if K.image_dim_ordering() == 'th':
-      inputs = Input((1, y_width, x_width))
+      inputs = Input((1, None, None))
       concatax = 1
       chan = 'channels_first'
     if K.image_dim_ordering() == 'tf':
-      inputs = Input((y_width, x_width, 1))
+      inputs = Input((None, None, 1))
       concatax = 3
       chan = 'channels_last'
 
@@ -280,11 +206,11 @@ def get_unet():
     print("\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n")
 
     if K.image_dim_ordering() == 'th':
-      inputs = Input((1, y_width, x_width))
+      inputs = Input((1, None, None))
       concatax = 1
       chan = 'channels_first'
     if K.image_dim_ordering() == 'tf':
-      inputs = Input((y_width, x_width, 1))
+      inputs = Input((None, None, 1))
       concatax = 3
       chan = 'channels_last'
 
@@ -577,6 +503,6 @@ def predict_single_image(model, img, batch_size=32):
         Y_pred = Y_pred.reshape((-1, y_width, x_width, 2))
 
     # WARNING TODO: This will break when we change the coords used in `imglist_to_X`
-    coords = regular_patch_coords(img)
-    res = rebuild_img_from_patch_activations(img.shape, Y_pred, coords)
+    coords = patchmaker.regular_patch_coords(img)
+    res = patchmaker.piece_together(Y_pred, coords, x_y=img.shape, border=itd)
     return res[:,:,1].astype(np.float32)

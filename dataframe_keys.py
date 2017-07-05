@@ -45,12 +45,12 @@ show_these = [
     'grey_tif_folder',
     'initial_model_params',
     'learning_rate',
-    # 'model',
+    'model',
     # 'membrane_weight_multiplier',
     # 'momentum',
     # 'n_convolutions_first_layer',
     # 'rotate_angle_max',
-    # 'warping_size',
+    'warping_size',
     'X_train_shape',
     'trained_epochs',
     'train_time',
@@ -80,11 +80,11 @@ plt.ion()
 df = pd.read_pickle('summary.pkl')
 
 
-def display_best():
+def display_best(n_best=6):
     plt.ion()
     df = pd.read_pickle('summary.pkl')
     pd.set_option('expand_frame_repr', False)
-    best = df[df.traindir > 107].sort_values(sort_by_these).iloc[:6]
+    best = df[df.traindir > 107].sort_values(sort_by_these).iloc[:n_best]
     print(best[show_these])
     for i in range(len(best)):
         row = best.iloc[i]
@@ -103,7 +103,10 @@ def summary_text():
     # Remember that directories starting with m108 have the correct val_loss
     df = pd.read_pickle('summary.pkl')
     pd.set_option('expand_frame_repr', False)
-    print(df.sort_values(sort_by_these)[show_these][df.traindir > 107])
+    best = df.sort_values(sort_by_these)[show_these][df.traindir > 107]
+    print(best)
+    top = df.sort_values(sort_by_these)[df.traindir > 107].iloc[0]
+    return top
 
 
 

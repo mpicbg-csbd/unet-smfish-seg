@@ -145,19 +145,19 @@ def explain_results(dir):
             print("IOerror")
         print()
 
-def info_travel_dist(layers, conv=3):
+def info_travel_dist(n_maxpool, conv=3):
     """
-    layers: number of down and up layers (e.g. two down followed by two up => layers=2)
+    n_maxpool: number of 2x downsampling steps
     conv: the width of the convolution kernel (e.g. "3" for standard 3x3 kernel.)
     returns: the info travel distance == the amount of width that is lost in a patch / 2
     """
     conv2 = 2*(conv-1)
     width = 0
-    for i in range(layers):
+    for i in range(n_maxpool):
         width -= conv2
         width /= 2
     width -= conv2
-    for i in range(layers):
+    for i in range(n_maxpool):
         width *= 2
         width -= conv2
     return -width/2

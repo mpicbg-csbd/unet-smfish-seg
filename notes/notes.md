@@ -1121,6 +1121,11 @@ We can fix this problem by making sure that we use the correct version of scikit
 # PROBLEM: prediction still has square artifacts, but only visible on weak/untrained models.
 
 I can still see the squares! This shouldn't happen, or?
+Let's write a test...
+I want to:
+1. take an image apart and put it back together exactly the same way.
+2. make sure that the parts of my images that are within the border of completely valid convolutions give exactly the same results from different patches.
+
 
 
 
