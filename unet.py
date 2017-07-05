@@ -94,37 +94,23 @@ def imglists_to_XY(greylist, labellist):
 
 # setup and train the model
 
-def my_categorical_crossentropy_ndim4(weights =(1., 1.)):
+def my_categorical_crossentropy(weights=(1., 1.)):
+    # replace K with numpy (and eps with 1e-7) to get a function we can actually evaluate (not just compile)!
+    mean = K.mean
+    log = K.log
+    eps = K.epsilon()
     def catcross(y_true, y_pred):
-        # only use the valid part of the result! as if we had only made valid convolutions, etc
+        # only use the valid part of the result! as if we had only made valid convolutions and done reshaping
         y_true_valid = y_true[:,itd:-itd,itd:-itd,:]
         y_pred_valid = y_pred[:,itd:-itd,itd:-itd,:]
-        return -(weights[0] * K.mean(y_true_valid[:,:,:,0]*K.log(y_pred_valid[:,:,:,0]+K.epsilon())) +
-                 weights[1] * K.mean(y_true_valid[:,:,:,1]*K.log(y_pred_valid[:,:,:,1]+K.epsilon())))
+        return -(weights[0] * mean(y_true_valid[:,:,:,0] * log(y_pred_valid[:,:,:,0] + eps)) +
+                 weights[1] * mean(y_true_valid[:,:,:,1] * log(y_pred_valid[:,:,:,1] + eps)))
     return catcross
 
-def my_categorical_crossentropy(weights =(1., 1.)):
-    def catcross(y_true, y_pred):
-        return -(weights[0] * K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon())) +
-                 weights[1] * K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
-
-        # return -(K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon()))+K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
-    return catcross
-
-def my_categorical_crossentropy_np(weights =(1., 1.)):
-    def catcross(y_true, y_pred):
-        return -(weights[0] * np.mean(y_true[:,:,0]*np.log(y_pred[:,:,0]+K.epsilon())) +
-                 weights[1] * np.mean(y_true[:,:,1]*np.log(y_pred[:,:,1]+K.epsilon())))
-
-        # return -(K.mean(y_true[:,:,0]*K.log(y_pred[:,:,0]+K.epsilon()))+K.mean(y_true[:,:,1]*K.log(y_pred[:,:,1]+K.epsilon())))
-    return catcross
-
-def get_unet_7layer():
+def get_unet_n_pool(n_pool, n_convolutions_first_layer=32, dropout_fraction=0.2):
     """
-    The info travel distance is given by analysis.info_travel_dist(3, 3) = 44.
+    The info travel distance is given by analysis.info_travel_dist(n_pool, 3)
     """
-
-    print("\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n")
 
     if K.image_dim_ordering() == 'th':
       inputs = Input((1, None, None))
@@ -135,231 +121,72 @@ def get_unet_7layer():
       concatax = 3
       chan = 'channels_last'
 
-
     def Conv(w):
         return Conv2D(w, (3,3), padding='same', data_format=chan, activation='relu')
     def Pool():
         return MaxPooling2D(pool_size=(2,2), data_format=chan)
     def Upsa():
         return UpSampling2D(size=(2,2), data_format=chan)
+    
+    def cdcp(s, inpt):
+        """
+        conv, drop, conv, pool
+        """
+        conv = Conv(s)(inpt)
+        drop = Dropout(d)(conv)
+        conv = Conv(s)(drop)
+        pool = Pool()(conv)
+        return conv, pool
 
-    # number of convolutions in first layer
+    def uccdc(s, inpt, skip):
+        """
+        up, cat, conv, drop, conv
+        """
+        up   = Upsa()(inpt)
+        cat  = Concatenate(axis=concatax)([up, skip])
+        conv = Conv(s)(cat)
+        drop = Dropout(d)(conv)
+        conv = Conv(s)(drop)
+        return conv
+
+    # once we've defined the above terms, the entire unet just takes a few lines ;)
     s = n_convolutions_first_layer
-    # dropout fraction
     d = dropout_fraction
+    
+    # holds the output of convolutions on the contracting path
+    conv_layers = []
 
-    ## Begin U-net
-    conv1 = Conv(s)(inputs)
-    conv1 = Dropout(d)(conv1)
-    conv1 = Conv(s)(conv1)
-  
-    pool1 = Pool()(conv1)
+    # the first conv comes from the inputs
+    conv, pool = cdcp(s, inputs)
+    conv_layers.append(conv)
 
-    conv2 = Conv(2*s)(pool1)
-    conv2 = Dropout(d)(conv2)
-    conv2 = Conv(2*s)(conv2)
+    # then the recursively describeable contracting part
+    for _ in range(n_pool-1):
+        s *= 2
+        conv, pool = cdcp(s, pool)
+        conv_layers.append(conv)
 
-    pool2 = Pool()(conv2)
+    # the flat bottom. no max pooling.
+    s *= 2
+    conv_bottom = Conv(s)(pool)
+    conv_bottom = Dropout(d)(conv_bottom)
+    conv_bottom = Conv(s)(conv_bottom)
+    
+    # now each time we cut s in half and build the next UCCDC
+    s = s//2
+    up = uccdc(s, conv_bottom, conv_layers[-1])
 
-    conv3 = Conv(4*s)(pool2)
-    conv3 = Dropout(d)(conv3)
-    conv3 = Conv(4*s)(conv3)
+    # recursively describeable expanding path
+    for conv in reversed(conv_layers[:-1]):
+        s = s//2
+        up = uccdc(s, up, conv)
 
-    pool3 = Pool()(conv3)
-
-    conv4 = Conv(8*s)(pool3)
-    conv4 = Dropout(d)(conv4)
-    conv4 = Conv(8*s)(conv4)
-
-    up1   = Upsa()(conv4)
-    cat1  = Concatenate(axis=concatax)([up1, conv3])
-
-    conv5 = Conv(2*s)(cat1)
-    conv5 = Dropout(d)(conv5)
-    conv5 = Conv(2*s)(conv5)
-
-    up2   = Upsa()(conv5)
-    cat2  = Concatenate(axis=concatax)([up2, conv2])
-
-    conv6 = Conv(2*s)(cat2)
-    conv6 = Dropout(d)(conv6)
-    conv6 = Conv(2*s)(conv6)
-
-    up3   = Upsa()(conv6)
-    cat3  = Concatenate(axis=concatax)([up3, conv1])
-
-    conv7 = Conv(s)(cat3)
-    conv7 = Dropout(d)(conv7)
-    conv7 = Conv(s)(conv7)
-
-    acti_layer = Conv2D(2, (1, 1), padding='same', data_format=chan, activation='relu')(conv7)
-    softm = lambda x: softmax(x, axis=concatax)
-    acti_layer = core.Activation(softm)(acti_layer)
-
+    # final (1,1) convolutions and activation
+    acti_layer = Conv2D(2, (1, 1), padding='same', data_format=chan, activation='relu')(up)
     if K.image_dim_ordering() == 'th':
         acti_layer = core.Permute((2,3,1))(acti_layer)
-
+    acti_layer = core.Activation(softmax)(acti_layer)
     model = Model(inputs=inputs, outputs=acti_layer)
-    return model
-
-def get_unet():
-    """
-    The info travel distance is given by analysis.info_travel_dist(2, 3) = 20.
-    """
-
-    print("\n\nK dim orderin is! : ", K.image_dim_ordering(), "\n\n")
-
-    if K.image_dim_ordering() == 'th':
-      inputs = Input((1, None, None))
-      concatax = 1
-      chan = 'channels_first'
-    if K.image_dim_ordering() == 'tf':
-      inputs = Input((None, None, 1))
-      concatax = 3
-      chan = 'channels_last'
-
-    # parameters describing U-net
-    def Conv(w):
-        return Conv2D(w, (3,3), padding='same', data_format=chan, activation='relu')
-    def Pool():
-        return MaxPooling2D(pool_size=(2,2), data_format=chan)
-    def Upsa():
-        return UpSampling2D(size=(2,2), data_format=chan)
-
-    s = n_convolutions_first_layer
-    d = dropout_fraction
-
-    ## Begin U-net
-    conv1 = Conv(s)(inputs)
-    conv1 = Dropout(d)(conv1)
-    conv1 = Conv(s)(conv1)
-  
-    pool1 = Pool()(conv1)
-
-    conv2 = Conv(2*s)(pool1)
-    conv2 = Dropout(d)(conv2)
-    conv2 = Conv(2*s)(conv2)
-
-    pool2 = Pool()(conv2)
-
-    conv3 = Conv(4*s)(pool2)
-    conv3 = Dropout(d)(conv3)
-    conv3 = Conv(4*s)(conv3)
-
-    up1   = Upsa()(conv3)
-    cat1  = Concatenate(axis=concatax)([up1, conv2])
-
-    conv4 = Conv(2*s)(cat1)
-    conv4 = Dropout(d)(conv4)
-    conv4 = Conv(2*s)(conv4)
-
-    up2   = Upsa()(conv4)
-    cat2  = Concatenate(axis=concatax)([up2, conv1])
-
-    conv5 = Conv(s)(cat2)
-    conv5 = Dropout(d)(conv5)
-    conv5 = Conv(s)(conv5)
-
-    conv6 = Conv2D(2, (1, 1), padding='same', data_format=chan, activation='relu')(conv5)
-    # softm = lambda x: softmax(x, axis=concatax)
-    def softm(x):
-        return softmax(x, axis=concatax)
-    conv7 = core.Activation(softm)(conv6)
-
-    if K.image_dim_ordering() == 'th':
-        conv7 = core.Permute((2,3,1))(conv7)
-
-    model = Model(inputs=inputs, outputs=conv7)
-    return model
-
-def get_unet_mix():
-    """
-    The info travel distance is given by analysis.info_travel_dist(2, 3) = 20.
-    """
-    if K.image_dim_ordering() == 'th':
-        inputs = Input((1, y_width, x_width))
-        concatax = 1
-        chan = 'channels_first'
-    if K.image_dim_ordering() == 'tf':
-        inputs = Input((y_width, x_width, 1))
-        concatax = 3
-        chan = 'channels_last'
-
-    conv1 = Conv2D(32, (3, 3), padding='same', data_format=chan, activation='relu')(inputs)
-    conv1 = Dropout(0.2)(conv1)
-    conv1 = Conv2D(32, (3, 3), padding='same', data_format=chan, activation='relu')(conv1)
-    pool1 = MaxPooling2D(pool_size=(2, 2), data_format=chan)(conv1)
-
-    conv2 = Conv2D(64, (3, 3), padding='same', data_format=chan, activation='relu')(pool1)
-    conv2 = Dropout(0.2)(conv2)
-    conv2 = Conv2D(64, (3, 3), padding='same', data_format=chan, activation='relu')(conv2)
-    pool2 = MaxPooling2D(pool_size=(2, 2), data_format=chan)(conv2)
-
-    conv3 = Conv2D(128, (3, 3), padding='same', data_format=chan, activation='relu')(pool2)
-    conv3 = Dropout(0.2)(conv3)
-    conv3 = Conv2D(128, (3, 3), padding='same', data_format=chan, activation='relu')(conv3)
-
-    up1 = UpSampling2D(size=(2,2), data_format=chan)(conv3)
-    cat1 = Concatenate(axis=concatax)([up1, conv2])
-    conv4 = Conv2D(64, (3, 3), padding='same', data_format=chan, activation='relu')(cat1)
-    conv4 = Dropout(0.2)(conv4)
-    conv4 = Conv2D(64, (3, 3), padding='same', data_format=chan, activation='relu')(conv4)
-
-    up2 = UpSampling2D(size=(2, 2), data_format=chan)(conv4)
-    cat2 = Concatenate(axis=concatax)([up2, conv1])
-
-    conv5 = Conv2D(32, (3, 3), padding='same', data_format=chan, activation='relu')(cat2)
-    conv5 = Dropout(0.2)(conv5)
-    conv5 = Conv2D(32, (3, 3), padding='same', data_format=chan, activation='relu')(conv5)
-
-    conv6 = Conv2D(2, (1, 1), padding='same', data_format=chan, activation='relu')(conv5)
-    if K.image_dim_ordering() == 'th':
-        conv6 = core.Reshape((2, y_width*x_width))(conv6)
-        conv6 = core.Permute((2,1))(conv6)
-    elif K.image_dim_ordering() == 'tf':
-        conv6 = core.Reshape((y_width*x_width, 2))(conv6)
-    conv7 = core.Activation('softmax')(conv6)
-
-    model = Model(input=inputs, output=conv7)
-    return model
-
-def get_unet_old():
-    """
-    The info travel distance is given by analysis.info_travel_dist(2, 3) = 20.
-    """
-    inputs = Input((1, y_width, x_width))
-    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(inputs)
-    conv1 = Dropout(0.2)(conv1)
-    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv1)
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-    #
-    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(pool1)
-    conv2 = Dropout(0.2)(conv2)
-    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(conv2)
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-    #
-    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(pool2)
-    conv3 = Dropout(0.2)(conv3)
-    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(conv3)
-
-    up1 = merge([UpSampling2D(size=(2, 2))(conv3), conv2], mode='concat', concat_axis=1)
-    conv4 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(up1)
-    conv4 = Dropout(0.2)(conv4)
-    conv4 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(conv4)
-    #
-    up2 = merge([UpSampling2D(size=(2, 2))(conv4), conv1], mode='concat', concat_axis=1)
-    conv5 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(up2)
-    conv5 = Dropout(0.2)(conv5)
-    conv5 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv5)
-    #
-    # here nb_classes used to be just the number 2
-    conv6 = Convolution2D(2, 1, 1, activation='relu',border_mode='same')(conv5)
-    conv6 = core.Reshape((2, y_width*x_width))(conv6)
-    conv6 = core.Permute((2,1))(conv6)
-    ############
-    conv7 = core.Activation('softmax')(conv6)
-
-    model = Model(input=inputs, output=conv7)
     return model
 
 # ---- PUBLIC INTERFACE ----
@@ -413,7 +240,7 @@ def train_unet(grey_imgs, label_imgs, model):
     elif optimizer == 'adam':
         optim = Adam(lr = learning_rate)
 
-    model.compile(optimizer=optim, loss=my_categorical_crossentropy_ndim4(weights=(w0, w1)), metrics=['accuracy'])
+    model.compile(optimizer=optim, loss=my_categorical_crossentropy(weights=(w0, w1)), metrics=['accuracy'])
 
     # Setup callbacks
     print("SETUP CALLBACKS")

@@ -1076,7 +1076,7 @@ When evaluating a loss on a tracking problem we want an error score that doesn't
 
 # ERROR: The cluster can't use imread or imresize?
 
-The solution for imread was to specify that plugin='tifffile'
+The solution for imread was to specify that plugin='tifffile'. This is not necessary if we upgrade to scikit-image 0.13.0, which we had to do in order to get the correct skimage.morphology.warp function!
 
 (Pdb) c
 Using TensorFlow backend.
@@ -1108,15 +1108,11 @@ Traceback (most recent call last):
     raise NotImplementedError("tostring() has been removed. "
 NotImplementedError: tostring() has been removed. Please call tobytes() instead
 
-
 We can fix this problem by making sure that we use the correct version of scikit_image. See tests/warp.py and the way it uses pkg_resources and sys.path. NOTE: that I couldn't find any way having python3 *prefer* my .local site-packages over the main one in /sw/apps without adding it explicitly to the head of the list at runtime. $PYTHONPATH adds it to the END of the list, which is not good enough.
 
+# GONE. PROBLEM: I'm getting divide-by-zero errors when running prediction after training.
 
-
-
-
-
-# PROBLEM: I'm getting divide-by-zero errors when running prediction after training.
+But I can see many places where I would divide by zero... is this actually a problem? You can divide one numpy array by another, where you divide 0/0 you get a nan. 1/0 gives inf. -1/0 gives -inf.
 
 # SOLVED: PROBLEM: prediction still has square artifacts, but only visible on weak/untrained models.
 
@@ -1128,10 +1124,24 @@ I want to:
 
 These sqaureish / straight-line-ish artifacts are a direct result of the model! Not the process by which the image is broken into patches or sewn back together. Strange! Is this something innate to unets, or is it also present in our training data???
 
-# PROBLEM: I use matplotlib in multiple places. I need a global setting on the cluster that forces me to use the Agg backend!
+# SOLVED. PROBLEM: I use matplotlib in multiple places. I need a global setting on the cluster that forces me to use the Agg backend!
 
 I don't know how to use a new version of a package I've installed myself without forcibly adding it to the sys.path at the head of the list (this is not platform independent!)
 
+use the matplotlibrc file on the cluster with default backend : Agg
+
+# PROBLEM: I can't save my model architecture because it uses a custom activation function.
+
+This activation function is just a softmax that has it's axis depend on the tensorflow|theano flag! (I could add a conditional permute? but this wouldn't appear in the model!)
+
+I guess I could have my model (and loss) just depend on whether we're using...
+Does the conditional permutation already in the code *actually work?*??
+
+# PROBLEM: I can't group my tests to a separate tests folder.
+
+Apparently you aren't supposed to call tests as you would call scripts...
+
+# PROBLEM: Some of my simple tests require unet, but not keras or any model. Just the generators! The generators have no dependence on keras! Should I separate them?
 
 
 

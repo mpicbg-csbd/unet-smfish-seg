@@ -11,6 +11,7 @@ import util
 import time
 import json
 import numpy as np
+import analysis
 
 rationale = """
 With Augmentation!
@@ -39,8 +40,8 @@ train_params = {
  'flipLR' : True,
  'rotate_angle_max' : 30,
 
- 'model' : 'unet_5layer',
  'initial_model_params' : None, #"training/m108/unet_model_weights_checkpoint.h5",
+ 'n_pool' : 3,
  'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.2,
  'itd' : None,
@@ -99,16 +100,16 @@ def train(train_params):
     unet.flipLR = train_params['flipLR']
     unet.rotate_angle_max = train_params['rotate_angle_max']
 
-    if train_params['model'] == 'unet_7layer':
-        model = unet.get_unet_7layer()
-        unet.itd = 44
-        train_params['itd'] = 44
-    elif train_params['model'] == 'unet_5layer':
-        model = unet.get_unet()
-        unet.itd = 20
-        train_params['itd'] = 20
+    model = unet.get_unet_n_pool(train_params['n_pool'], 
+                                 train_params['n_convolutions_first_layer'],
+                                 train_params['dropout_fraction'])
+    itd = analysis.info_travel_dist(train_params['n_pool'])
+    unet.itd = itd
+    train_params['itd'] = itd
 
     print(model.summary())
+    print(itd)
+
     if train_params['initial_model_params']:
         model.load_weights(train_params['initial_model_params'])
 
