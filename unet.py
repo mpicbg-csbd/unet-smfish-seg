@@ -135,10 +135,14 @@ def get_unet_7layer():
       concatax = 3
       chan = 'channels_last'
 
+
     def Conv(w):
         return Conv2D(w, (3,3), padding='same', data_format=chan, activation='relu')
-    Pool = MaxPooling2D(pool_size=(2,2), data_format=chan)
-    Upsa = UpSampling2D(size=(2,2), data_format=chan)
+    def Pool():
+        return MaxPooling2D(pool_size=(2,2), data_format=chan)
+    def Upsa():
+        return UpSampling2D(size=(2,2), data_format=chan)
+
     # number of convolutions in first layer
     s = n_convolutions_first_layer
     # dropout fraction
@@ -149,39 +153,39 @@ def get_unet_7layer():
     conv1 = Dropout(d)(conv1)
     conv1 = Conv(s)(conv1)
   
-    pool1 = Pool(conv1)
+    pool1 = Pool()(conv1)
 
     conv2 = Conv(2*s)(pool1)
     conv2 = Dropout(d)(conv2)
     conv2 = Conv(2*s)(conv2)
 
-    pool2 = Pool(conv2)
+    pool2 = Pool()(conv2)
 
     conv3 = Conv(4*s)(pool2)
     conv3 = Dropout(d)(conv3)
     conv3 = Conv(4*s)(conv3)
 
-    pool3 = Pool(conv3)
+    pool3 = Pool()(conv3)
 
     conv4 = Conv(8*s)(pool3)
     conv4 = Dropout(d)(conv4)
     conv4 = Conv(8*s)(conv4)
 
-    up1   = Upsa(conv4)
+    up1   = Upsa()(conv4)
     cat1  = Concatenate(axis=concatax)([up1, conv3])
 
     conv5 = Conv(2*s)(cat1)
     conv5 = Dropout(d)(conv5)
     conv5 = Conv(2*s)(conv5)
 
-    up2   = Upsa(conv5)
+    up2   = Upsa()(conv5)
     cat2  = Concatenate(axis=concatax)([up2, conv2])
 
     conv6 = Conv(2*s)(cat2)
     conv6 = Dropout(d)(conv6)
     conv6 = Conv(2*s)(conv6)
 
-    up3   = Upsa(conv6)
+    up3   = Upsa()(conv6)
     cat3  = Concatenate(axis=concatax)([up3, conv1])
 
     conv7 = Conv(s)(cat3)
@@ -217,8 +221,11 @@ def get_unet():
     # parameters describing U-net
     def Conv(w):
         return Conv2D(w, (3,3), padding='same', data_format=chan, activation='relu')
-    Pool = MaxPooling2D(pool_size=(2,2), data_format=chan)
-    Upsa = UpSampling2D(size=(2,2), data_format=chan)
+    def Pool():
+        return MaxPooling2D(pool_size=(2,2), data_format=chan)
+    def Upsa():
+        return UpSampling2D(size=(2,2), data_format=chan)
+
     s = n_convolutions_first_layer
     d = dropout_fraction
 
@@ -227,26 +234,26 @@ def get_unet():
     conv1 = Dropout(d)(conv1)
     conv1 = Conv(s)(conv1)
   
-    pool1 = Pool(conv1)
+    pool1 = Pool()(conv1)
 
     conv2 = Conv(2*s)(pool1)
     conv2 = Dropout(d)(conv2)
     conv2 = Conv(2*s)(conv2)
 
-    pool2 = Pool(conv2)
+    pool2 = Pool()(conv2)
 
     conv3 = Conv(4*s)(pool2)
     conv3 = Dropout(d)(conv3)
     conv3 = Conv(4*s)(conv3)
 
-    up1   = Upsa(conv3)
+    up1   = Upsa()(conv3)
     cat1  = Concatenate(axis=concatax)([up1, conv2])
 
     conv4 = Conv(2*s)(cat1)
     conv4 = Dropout(d)(conv4)
     conv4 = Conv(2*s)(conv4)
 
-    up2   = Upsa(conv4)
+    up2   = Upsa()(conv4)
     cat2  = Concatenate(axis=concatax)([up2, conv1])
 
     conv5 = Conv(s)(cat2)
@@ -254,7 +261,9 @@ def get_unet():
     conv5 = Conv(s)(conv5)
 
     conv6 = Conv2D(2, (1, 1), padding='same', data_format=chan, activation='relu')(conv5)
-    softm = lambda x: softmax(x, axis=concatax)
+    # softm = lambda x: softmax(x, axis=concatax)
+    def softm(x):
+        return softmax(x, axis=concatax)
     conv7 = core.Activation(softm)(conv6)
 
     if K.image_dim_ordering() == 'th':

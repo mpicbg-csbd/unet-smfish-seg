@@ -72,5 +72,7 @@ def piece_together(patches, coords, shape=None, border=0):
         zeros_img[x:x+dx, y:y+dy] += patch*mask
         count_img[x:x+dx, y:y+dy] += np.ones_like(patch)*mask
 
-    print(list(map(util.count_nans, [zeros_img, count_img])))
-    return zeros_img/count_img
+    # print(list(map(util.count_nans, [zeros_img, count_img])))
+    
+    res = zeros_img/count_img
+    return res

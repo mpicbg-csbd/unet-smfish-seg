@@ -1118,7 +1118,7 @@ We can fix this problem by making sure that we use the correct version of scikit
 
 # PROBLEM: I'm getting divide-by-zero errors when running prediction after training.
 
-# PROBLEM: prediction still has square artifacts, but only visible on weak/untrained models.
+# SOLVED: PROBLEM: prediction still has square artifacts, but only visible on weak/untrained models.
 
 I can still see the squares! This shouldn't happen, or?
 Let's write a test...
@@ -1126,7 +1126,11 @@ I want to:
 1. take an image apart and put it back together exactly the same way.
 2. make sure that the parts of my images that are within the border of completely valid convolutions give exactly the same results from different patches.
 
+These sqaureish / straight-line-ish artifacts are a direct result of the model! Not the process by which the image is broken into patches or sewn back together. Strange! Is this something innate to unets, or is it also present in our training data???
 
+# PROBLEM: I use matplotlib in multiple places. I need a global setting on the cluster that forces me to use the Agg backend!
+
+I don't know how to use a new version of a package I've installed myself without forcibly adding it to the sys.path at the head of the list (this is not platform independent!)
 
 
 
@@ -1135,8 +1139,8 @@ I want to:
 
 1. DONE. Fix train/test splitting!
 2. DONE. Remove bordermode = 'same' (change to 'valid')
-3. Augment with simple rotation and horizontal reflection
-4. Augment with warping
+3. DONE. Augment with simple rotation and horizontal reflection
+4. DONE. Augment with warping
 5. Compare true cell segmentation scores
 6. Allow training on arbitrary size dataset
 7. Add distance penalty
