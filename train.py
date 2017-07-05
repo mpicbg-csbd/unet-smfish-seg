@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, "/home/broaddus/.local/lib/python3.5/site-packages/")
+sys.path.insert(0, "/projects/project-broaddus/.local/lib/python3.5/site-packages/")
 import pkg_resources
 pkg_resources.require("scikit-image>=0.13.0")
 import skimage
@@ -13,32 +13,33 @@ import json
 import numpy as np
 
 rationale = """
-SGD. High learn rate. High momentum.
-Same as 119==131, but with all the augmentations.
+With Augmentation!
+Down3 sized data. Smaller patches 240.
+5 layer. Adam. Correct validation data.
 """
 
 train_params = {
  'savedir' : './',
- 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/",
- 'label_tif_folder' : "data3/labeled_data_cellseg/labels/",
- 'x_width' : 480,
- 'y_width' : 480,
- 'step' : 240,
+ 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/down3x/",
+ 'label_tif_folder' : "data3/labeled_data_cellseg/labels/down3x/",
+ 'x_width' : 240,
+ 'y_width' : 240,
+ 'step' : 120,
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
  'epochs' : 300,
  'patience' : 30,
 
- 'optimizer' : 'sgd', # 'sgd' or 'adam' (adam ignores momentum)
- 'learning_rate' : 1e-3, #3.16e-5,
+ 'optimizer' : 'adam', # 'sgd' or 'adam' (adam ignores momentum)
+ 'learning_rate' : 3.16e-4, #3.16e-5,
  'momentum' : 0.99,
 
  'warping_size' : 10,
  'flipLR' : True,
  'rotate_angle_max' : 30,
 
- 'model' : 'unet_7layer',
+ 'model' : 'unet_5layer',
  'initial_model_params' : None, #"training/m108/unet_model_weights_checkpoint.h5",
  'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.2,

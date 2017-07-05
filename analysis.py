@@ -18,9 +18,8 @@ import json
 from tabulate import tabulate
 import segtools as st
 
-
-dirs_old = glob('training/m[6789]?/') + glob('training/m10[01234567]/') # hadn't fixed the val_loss yet
-dirs = glob('training/m10[89]/') + glob('training/m1[123]?/') # after fixing the val_loss
+dirs_old = glob('training/m?/') + glob('training/m[123456789]?/') + glob('training/m10[01234567]/') # hadn't fixed the val_loss yet
+dirs = glob('training/m10[89]/') + glob('training/m1[1234567]?/') # after fixing the val_loss
 
 
 def explain_training_dir(dr):
@@ -105,19 +104,12 @@ def td_summary(dirlist):
             d_list.append(d) 
             t_list.append(t)
             h_list.append(h)
-            #data = t['grey_tif_folder'][19:]
-            #params = t['initial_model_params']
-            #if params:
-            #    params = params[:-32]
-            #name_acc_loss.append([os.path.dirname(dirlist[i]), h['acc'][-1], h['loss'][-1], h['val_acc'][-1], h['val_loss'][-1], data, params])
         except (FileNotFoundError, AttributeError):
             failedlist.append([dirlist[i]])
 
     df = pd.DataFrame(t_list, index=d_list)
     df2 = pd.DataFrame(h_list, index=d_list)
     df = df.join(df2)
-    df.to_csv('summary.csv')
-    # print(tabulate(header + sorted(name_acc_loss, key=lambda x:x[4])))
     print(tabulate([["Failed|Ongoing"]] + failedlist))
     return df
 
@@ -160,12 +152,11 @@ def info_travel_dist(n_maxpool, conv=3):
     for i in range(n_maxpool):
         width *= 2
         width -= conv2
-    return -width/2
+    return int(-width/2)
 
 if __name__ == '__main__':
-    df = td_summary(dirs + dirs_old)
+    df = td_summary(dirs_old + dirs)
     ind = [np.argmin(np.array(val_loss)) for val_loss in df['val_loss']]
-    print(ind)
     df['ind'] = ind
     df['acc_f'] = [x[i] for x,i in zip(df['acc'], ind)]
     df['loss_f'] = [x[i] for x,i in zip(df['loss'], ind)]
