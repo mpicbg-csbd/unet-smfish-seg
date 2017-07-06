@@ -1143,6 +1143,15 @@ Apparently you aren't supposed to call tests as you would call scripts...
 
 # PROBLEM: Some of my simple tests require unet, but not keras or any model. Just the generators! The generators have no dependence on keras! Should I separate them?
 
+# BIG ISSUE FIXED
+
+Fixed the connection bugs in 5&7 layer unets earlier today.
+Then found out I had MORE bugs in the number of convolutions in my 7-layer net.
+Now I've got an awesome n-layer net. n_pool counts the number of pooling operations.
+5 layer was n_pool=2
+7 layer was n_pool=3
+but we can try 4,5,6, etc!
+In the Ronneberger paper they use a network with '23 convolutional layers' which works out to n_pool = 5!
 
 
 # TODO:

@@ -27,7 +27,8 @@ for img in lablist:
 X,Y = unet.imglists_to_XY(imglist, lablist)
 
 print(X.shape, Y.shape)
-gen = unet.batch_generator_patches(X, Y, 100)
+unet.batch_size = 16
+gen = unet.batch_generator_patches(X, Y, 10)
 x,y = next(gen)
 print(x.shape, y.shape)
 x,y = x[:,:,:,0], y[:,:,:,1]

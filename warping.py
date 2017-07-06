@@ -131,6 +131,14 @@ def randomly_augment_patches(patch, ypatch, flipLR, warping_size, rotate_angle_m
     """
     flip, rotate, and warp with some probability
     """
+
+    m = random.random()*patch.mean()
+    s = random.random()*patch.std()
+    noise = np.random.normal(m,s,patch.shape).astype(patch.dtype)/4
+    patch += noise
+    patch -= patch.min()
+    patch /= patch.max()
+
     if flipLR:
         if random.random()<0.5:
             patch = np.flip(patch, axis=1)   # axis=1 is the horizontal axis

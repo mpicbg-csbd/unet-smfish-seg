@@ -46,6 +46,7 @@ show_these = [
     'initial_model_params',
     'learning_rate',
     'model',
+    'avg_time_per_epoch',
     # 'membrane_weight_multiplier',
     # 'momentum',
     # 'n_convolutions_first_layer',
@@ -97,6 +98,8 @@ def scatterplots():
     df.plot.scatter('traindir', 'val_loss_f')
     df.plot.scatter('train_time', 'val_loss_f')
     df.plot.scatter('loss_f', 'val_loss_f')
+    df.plot.scatter('learning_rate', 'avg_time_per_epoch')
+    df.plot.scatter('warping_size', 'avg_time_per_epoch')
 
 def summary_text():
     # os.path.normpath(a).split(os.path.sep)
