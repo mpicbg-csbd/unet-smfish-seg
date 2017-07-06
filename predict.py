@@ -5,43 +5,36 @@ import datasets as d
 import util
 import json
 import numpy as np
+import os
 
 rationale = """
-Check out predictions of m90 on original sized images! With fixed boundary effect regions!
+Test out predict.py refactor.
 """
 
 predict_params = {
  'savedir' : './',
- 'model_weights' : 'training/m129/unet_model_weights_checkpoint.h5',
+ 'model_weights' : 'training/m161/unet_model_weights_checkpoint.h5',
  'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/",
- 'x_width' : 480,
- 'y_width' : 480,
- 'step' : 120,
  'batch_size' : 4,
- 'n_convolutions_first_layer' : 32,
- 'dropout_fraction' : 0.2,
- 'itd' : None,
- 'model' : 'unet_7layer',
 }
 
 def predict(predict_params):
-    predict_image_names = util.sglob(predict_params['grey_tif_folder'] + '*.tif')
+    model_dir = os.path.dirname(predict_params['model_weights'])
+    train_params = json.load(open(model_dir + '/train_params.json'))
+    predict_params['grey_tif_folder'] = train_params['grey_tif_folder']
 
-    unet.savedir = predict_params['savedir']
-    unet.x_width = predict_params['x_width']
-    unet.y_width = predict_params['y_width']
-    unet.step = predict_params['step']
-
-    if predict_params['model'] == 'unet_7layer':
-        model = unet.get_unet_7layer()
-        unet.itd = 44
-        predict_params['itd'] = 44
-    elif predict_params['model'] == 'unet_5layer':
-        model = unet.get_unet()
-        unet.itd = 20
-        predict_params['itd'] = 20
-
+    model = unet.get_unet_n_pool(train_params['n_pool'], 
+                                 train_params['n_convolutions_first_layer'],
+                                 train_params['dropout_fraction'])
+    print(model.summary())
     model.load_weights(predict_params['model_weights'])
+
+    unet.savedir = train_params['savedir']
+    unet.x_width = train_params['x_width']
+    unet.y_width = train_params['y_width']
+    unet.step    = train_params['step']
+    
+    predict_image_names = util.sglob(predict_params['grey_tif_folder'] + '*.tif')
 
     for name in predict_image_names:
         img = d.imread(name)

@@ -44,7 +44,7 @@ def regular_patch_coords(img, patchshape, step):
             coords.append((y,x))
     return np.array(coords)
 
-def piece_together(patches, coords, shape=None, border=0):
+def piece_together(patches, coords, imgshape=None, border=0):
     """
     patches must all be same shape!
     patches.shape = (sample, x, y, channel)
@@ -53,8 +53,8 @@ def piece_together(patches, coords, shape=None, border=0):
     """
 
     # x,y are final shape of the image
-    if shape:
-        x_size, y_size = shape
+    if imgshape:
+        x_size, y_size = imgshape
     else:
         x_size = coords[:,0].max() + patches.shape[0] + 1
         y_size = coords[:,1].max() + patches.shape[1] + 1
