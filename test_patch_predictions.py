@@ -39,35 +39,44 @@ def small_patches(img, lab, w, dy):
 
 def predict(model, X):
         X = X[:,:,:,np.newaxis]
-        res = model.predict(z, batch_size=1)
+        res = model.predict(X, batch_size=1)
         res = res[:,:,:,1]
         return res
 
 def test_unet():
         # prepare input
         img,lab = get_imglab()
-        w = 500
+        w = 480
         dy =20
         img1,img2,lab1,lab2 = small_patches(img, lab, w, dy)
         X = np.stack([img1, img2])
 
-        n_pool = 4
+        n_pool = 2
         m = unet.get_unet_n_pool(n_pool)
-        m.load_weights('training/m162/unet_model_weights_checkpoint.h5')
-        print(model.summary())
+        m.load_weights('training/m150/unet_model_weights_checkpoint.h5')
+        print(m.summary())
 
         Y = predict(m, X)
 
         itd = analysis.info_travel_dist(n_pool)
         print("ITD: ", itd)
-        io.imsave('img_test.tif', Y)
-        io.imsave('res_test.tif', res)
-        goodimgs = Y[:,itd:-itd,itd:-itd]
-        goodres = res[:,itd:-itd,itd:-itd]
-        t1 = goodimgs[0,:-dy]==goodimgs[1,dy:]
-        t2 = goodres[0,:-dy]==goodres[1,dy:]
-        assert np.alltrue(t1)
-        assert np.alltrue(t2)
+        io.imsave('img_test.tif', X)
+        io.imsave('res_test.tif', Y)
+        test_XY(X,Y,itd,dy)
+
+def test_XY(X,Y,itd,dy):
+        goodimgs = X[:,itd:-itd,itd:-itd]
+        goodres =  Y[:,itd:-itd,itd:-itd]
+        x0 = goodimgs[0,dy:]
+        x1 = goodimgs[1,:-dy]
+        y0 = goodres[0,dy:] 
+        y1 = goodres[1,:-dy]
+        print(y0.sum(), y1.sum())
+        assert np.alltrue(x0==x1)
+        assert np.alltrue(y0==y1)
 
 if __name__ == '__main__':
+        # X = io.imread('img_test.tif')
+        # Y = io.imread('res_test.tif')
+        # test_XY(X,Y,160,20)
         test_unet()
