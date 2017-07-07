@@ -1,4 +1,5 @@
 import sys
+sys.path.insert(0, "../.local/lib/python3.5/site-packages/")
 import unet
 from skimage.io import imread
 import datasets as d
@@ -13,7 +14,7 @@ Test out predict.py refactor.
 
 predict_params = {
  'savedir' : './',
- 'model_weights' : 'training/m161/unet_model_weights_checkpoint.h5',
+ 'model_weights' : 'training/m162/unet_model_weights_checkpoint.h5',
  'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/",
  'batch_size' : 4,
 }
@@ -32,11 +33,14 @@ def predict(predict_params):
     unet.savedir = train_params['savedir']
     unet.x_width = train_params['x_width']
     unet.y_width = train_params['y_width']
-    unet.step    = train_params['step']
+    #unet.itd = train_params['itd']
+    unet.itd = 190 #train_params['itd']
+    #unet.step    = train_params['step']
+    unet.step    = 100 #500 #310
     
     predict_image_names = util.sglob(predict_params['grey_tif_folder'] + '*.tif')
 
-    for name in predict_image_names:
+    for name in predict_image_names[:2]:
         img = d.imread(name)
         print(name, img.shape)
         res = unet.predict_single_image(model, img, batch_size=predict_params['batch_size'])

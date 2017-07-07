@@ -45,6 +45,7 @@ warping_size = 0
 flipLR = False
 rotate_angle_max = 0
 optimizer = 'adam'
+noise = True
 
 def imglist_to_X(greylist):
     """turn list of images into ndarray of patches, labels and their coordinates. Used for
@@ -314,7 +315,7 @@ def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
             for i in range(Xbatch.shape[0]):
                 x = Xbatch[i]
                 y = Ybatch[i]
-                x,y = warping.randomly_augment_patches(x, y, flipLR, warping_size, rotate_angle_max)
+                x,y = warping.randomly_augment_patches(x, y, noise, flipLR, warping_size, rotate_angle_max)
                 Xbatch[i] = x
                 Ybatch[i] = y
 

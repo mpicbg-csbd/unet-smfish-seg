@@ -14,9 +14,9 @@ import numpy as np
 import analysis
 
 rationale = """
-Added noise to augmentation. Might not be a good idea. The training data already looks as much like the test data as possible!
+Decrease Learning Rate. Tiny augmentation.
 Continue from the most promising run so far: m158.
-Decrease learning rate 10x.
+Try new step determined from itd.
 """
 
 train_params = {
@@ -36,9 +36,10 @@ train_params = {
  'learning_rate' : 1.00e-5, #3.16e-5,
  'momentum' : 0.99,
 
- 'warping_size' : 10,
+ 'noise':True,
+ 'warping_size' : 5,
  'flipLR' : True,
- 'rotate_angle_max' : 30,
+ 'rotate_angle_max' : 10,
 
  'initial_model_params' : "training/m158/unet_model_weights_checkpoint.h5",
  'n_pool' : 4,
@@ -112,6 +113,7 @@ def train(train_params):
     unet.warping_size = train_params['warping_size']
     unet.flipLR = train_params['flipLR']
     unet.rotate_angle_max = train_params['rotate_angle_max']
+    unet.noise = train_params['noise']
 
     model = unet.get_unet_n_pool(train_params['n_pool'], 
                                  train_params['n_convolutions_first_layer'],

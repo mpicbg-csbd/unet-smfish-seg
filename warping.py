@@ -127,17 +127,18 @@ def warp_label_img(lab, warp_scale = 20, w = 4):
     warped_relabeled = label(membrane_seg, structure=structure)[0]
     return warped_relabeled
 
-def randomly_augment_patches(patch, ypatch, flipLR, warping_size, rotate_angle_max):
+def randomly_augment_patches(patch, ypatch, noise, flipLR, warping_size, rotate_angle_max):
     """
     flip, rotate, and warp with some probability
     """
 
-    m = random.random()*patch.mean()
-    s = random.random()*patch.std()
-    noise = np.random.normal(m,s,patch.shape).astype(patch.dtype)/4
-    patch += noise
-    patch -= patch.min()
-    patch /= patch.max()
+    if noise:
+        m = random.random()*patch.mean()
+        s = random.random()*patch.std()
+        noise = np.random.normal(m,s,patch.shape).astype(patch.dtype)/4
+        patch += noise
+        patch -= patch.min()
+        patch /= patch.max()
 
     if flipLR:
         if random.random()<0.5:
