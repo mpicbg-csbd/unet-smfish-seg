@@ -44,11 +44,11 @@ def predict(model, X):
         return res
 
 def test_unet():
-	# prepare input
-	img,lab = get_imglab()
-	w = 500
+        # prepare input
+        img,lab = get_imglab()
+        w = 500
         dy =20
-	img1,img2,lab1,lab2 = small_patches(img, lab, w, dy)
+        img1,img2,lab1,lab2 = small_patches(img, lab, w, dy)
         X = np.stack([img1, img2])
 
         n_pool = 4
@@ -58,12 +58,12 @@ def test_unet():
 
         Y = predict(m, X)
 
-	itd = analysis.info_travel_dist(n_pool)
-	print("ITD: ", itd)
-	io.imsave('img_test.tif', Y)
-	io.imsave('res_test.tif', res)
-	goodimgs = Y[:,itd:-itd,itd:-itd]
-	goodres = res[:,itd:-itd,itd:-itd]
+        itd = analysis.info_travel_dist(n_pool)
+        print("ITD: ", itd)
+        io.imsave('img_test.tif', Y)
+        io.imsave('res_test.tif', res)
+        goodimgs = Y[:,itd:-itd,itd:-itd]
+        goodres = res[:,itd:-itd,itd:-itd]
         t1 = goodimgs[0,:-dy]==goodimgs[1,dy:]
         t2 = goodres[0,:-dy]==goodres[1,dy:]
         assert np.alltrue(t1)
