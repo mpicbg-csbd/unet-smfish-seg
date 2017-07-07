@@ -46,6 +46,8 @@ show_these = [
     'initial_model_params',
     'learning_rate',
     'model',
+    'np',
+    'n_pool',
     'avg_time_per_epoch',
     # 'membrane_weight_multiplier',
     # 'momentum',
@@ -80,6 +82,11 @@ plt.ion()
 
 df = pd.read_pickle('summary.pkl')
 
+def add_npool(df):
+    d = {'unet_5layer':2, 'unet_7layer' : 3}
+    m = df['model']
+    n = df['n_pool']
+    df['np'] = [d.get(mi, ni) for mi,ni in zip(m,n)]
 
 def display_best(n_best=6):
     plt.ion()
@@ -105,6 +112,7 @@ def summary_text():
     # os.path.normpath(a).split(os.path.sep)
     # Remember that directories starting with m108 have the correct val_loss
     df = pd.read_pickle('summary.pkl')
+    add_npool(df)
     pd.set_option('expand_frame_repr', False)
     best = df.sort_values(sort_by_these)[show_these][df.traindir > 107]
     print(best)

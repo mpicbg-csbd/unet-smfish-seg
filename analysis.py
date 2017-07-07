@@ -26,13 +26,6 @@ def explain_training_dir(dr):
     train_params = json.load(open(dr + '/train_params.json'))
     rationale = train_params['rationale']
     history = json.load(open(dr + '/history.json'))
-    # print("\n\n")
-    # print(dr)
-    # print(rationale)
-    # print(train_params)
-    # print(history['loss'][-1], history['val_loss'][-1])
-    # print(history['acc'][-1], history['val_acc'][-1])
-    # print("{} epochs in {} seconds".format(len(history['acc']), history['train_time']))
     return rationale, train_params, history
 
 def make_megaplot(dirlist, show=False):

@@ -17,6 +17,9 @@ import analysis
 import skimage.io as io
 import unet
 
+import matplotlib.pyplot as plt
+plt.ion()
+
 def get_imglab():
         img = io.imread('data3/labeled_data_cellseg/greyscales/20150430_eif4g_dome07_slice9.tif')
         lab = io.imread('data3/labeled_data_cellseg/labels/20150430_eif4g_dome07_R3D_MASKS.tif')[0]
@@ -25,50 +28,46 @@ def get_imglab():
         lab[lab==2]=0
         return img, lab
 
-def get_imgs(img, lab, dx):
+def small_patches(img, lab, w, dy):
         a = 1300
-        b = a + 20
-        img500 = img[a:a+dx, a:a+dx]
-        lab500 = lab[a:a+dx, a:a+dx]
-        img600 = img[b:b+dx, a:a+dx]
-        lab600 = lab[b:b+dx, a:a+dx]
-        return img500,img600,lab500,lab600
+        b = a + dy
+        img1 = img[a:a+w, a:a+w]
+        lab1 = lab[a:a+w, a:a+w]
+        img2 = img[b:b+w, a:a+w]
+        lab2 = lab[b:b+w, a:a+w]
+        return img1,img2,lab1,lab2
 
-def predict():
+def predict(model, X):
+        X = X[:,:,:,np.newaxis]
+        res = model.predict(z, batch_size=1)
+        res = res[:,:,:,1]
+        return res
+
+def test_unet():
 	# prepare input
 	img,lab = get_imglab()
-	dx = 100
-	img1,img2,lab1,lab2 = get_imgs(img, lab, dx)
-	dx,dy = img1.shape
-	i1 = np.reshape(img1, (dx,dy,1))
-	i2 = np.reshape(img2, (dx,dy,1))
-	z = np.stack((i1, i2))
-	print(z.shape)
+	w = 500
+        dy =20
+	img1,img2,lab1,lab2 = small_patches(img, lab, w, dy)
+        X = np.stack([img1, img2])
 
-	# prepare model
-	# m = unet.get_unet_7layer()
-	# m.load_weights('m136/unet_model_weights_checkpoint.h5')
-	m = unet.get_unet()
-	m.load_weights('training/m150/unet_model_weights_checkpoint.h5')
-	print(m.summary())
+        n_pool = 4
+        m = unet.get_unet_n_pool(n_pool)
+        m.load_weights('training/m162/unet_model_weights_checkpoint.h5')
+        print(model.summary())
 
-	# predict
-	res = m.predict(z, batch_size=1)
-	
-        # save and compare output
-	res = res[:,:,:,1]
-	itd = analysis.info_travel_dist(2)
+        Y = predict(m, X)
+
+	itd = analysis.info_travel_dist(n_pool)
 	print("ITD: ", itd)
-	imgs = np.stack((img1, img2))
-	io.imsave('img12.tif', imgs)
-	io.imsave('res12.tif', res)
-	goodimgs = imgs[:,itd:-itd,itd:-itd]
+	io.imsave('img_test.tif', Y)
+	io.imsave('res_test.tif', res)
+	goodimgs = Y[:,itd:-itd,itd:-itd]
 	goodres = res[:,itd:-itd,itd:-itd]
-	return img1, img2, res
+        t1 = goodimgs[0,:-dy]==goodimgs[1,dy:]
+        t2 = goodres[0,:-dy]==goodres[1,dy:]
+        assert np.alltrue(t1)
+        assert np.alltrue(t2)
 
 if __name__ == '__main__':
-        predict()
-
-# res = unet.predict_single_image(model, img500, batch_size=predict_params['batch_size'])
-# combo = np.stack((img500, res), axis=0)
-# plt.imshow(combo)
+        test_unet()

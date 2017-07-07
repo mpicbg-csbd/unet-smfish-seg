@@ -974,7 +974,7 @@ I thought that a 10x multiplier was helping me learn, but it was really unnecess
 
 You have to use from scipy.misc import imresize, and call it with imresize(..., mode='F')
 
-# QUESTION: How do we surpass human performance?
+# Open QUESTION: How do we surpass human performance?
 
 First, we must learn to identify cells as well as an amateur, then as well as an expert. In every case we eliminate the errors that result from carelessness -- simply forgetting to label all parts of the image. And of course, we will surpass human performance in terms of speed. But if all our ground truth labels come from expert|amaterur labelings (with careless forgetting and mislabelings included), how does our accuracy every surpass theirs?
 
@@ -992,7 +992,7 @@ Image calssifiation as a decoding problem?
 
 Also, we want the function "equality up to permutation". We can test for this by first building the matching matrix, then seeing if there is a permutation of this matrix that makes it diagonal. And we can do a super-short hack-check, just by testing to see if it is square! If not, then we know the two images are not equivalent up to permutation...
 
-# PROBLEM: How do we augment our labelings?
+# half solved. PROBLEM: How do we augment our labelings?
 
 We need to make sure that the warping doesn't accidentally destroy the nice property that our cell segmentations are given by thresholding the membrane segmentation (with 8-connected cells). *How can we test this?* If we warp the membrane, we expect the number of cells to remain the same!
 *They do not.* Thus, we have a problem. With even very small warps, we lose some cells due to the appearance of gaps in the membrane.
@@ -1003,22 +1003,23 @@ Yeah, we want to be able to scale our ground truth up and down, just like our or
 
 _Potential solutions_
 
+- laurent's idea. do the warping on the distance map.
 - Convert to svg (whatever continuous representation) before warping
 
 For downscaling, we had a similar problem, but we would only lose cells,
 never create them. Cells with diameter smaller than the downscale factor would just disappear. But to solve that we would upscale back to orig size afterwards, and accept that we would just get a certain number of the cells wrong.
 
+solved. I'm doing the warping on the distance maps for labeled images, this helps with the interpolation/warping? How does this compare with just taking all of the non-zero labeled pixels to be foreground (membrane)?
+
 **We can avoid the problem by just not caring about keeping this property for warped images.** Or even by convincing ourselves that the new number of cells is correct! (if we warp membranes of a cell until they touch in the middle, maybe now a two-cell labeling is more appropriate? But if we warp a membrane so that it becomes very thin and breaks then we merge cells... is that ok? After warping we can have large numbers of isolated membrane pixels, which would probably never actually be a labeling we would get from a real user.
 
 todo: test to see what size warping are appropriate for full size images.
 
-# SOLVED. PROBLEM: I want a way of comparing two similar cell labelings visually.
-This requires permuting the labels of one images s.t. it aligns closely with another image. We can do this using the matching matrix from label_images, but this problem is very similar to the problem of finding an optimal correspondence between c. elegans nuclei! In our case, however, we only have one ground truth labeling, so we want to see how different the proposed labeling is from it. And also, we don't usually expect to have any warping, so a very flexible matching algorithms doesn't make sense. Usually the proposed solution and the ground truth are built on top of the same underlying greyscale image, so you won't ever find that the proposed solution looks the same as the ground truth, but just translated in x,y... 
 
-- Differentiable cell segmentation losses
-- Laurent's idea: warp the distance fields as opposed to the membranes!
-- how much can you warp before ground truth is destroyed
-- matching, warping and cell seg error measures
+
+# SOLVED. PROBLEM: I want a way of comparing two similar cell labelings visually.
+
+This requires permuting the labels of one images s.t. it aligns closely with another image. We can do this using the matching matrix from label_images, but this problem is very similar to the problem of finding an optimal correspondence between c. elegans nuclei! In our case, however, we only have one ground truth labeling, so we want to see how different the proposed labeling is from it. And also, we don't usually expect to have any warping, so a very flexible matching algorithms doesn't make sense. Usually the proposed solution and the ground truth are built on top of the same underlying greyscale image, so you won't ever find that the proposed solution looks the same as the ground truth, but just translated in x,y... 
 
 Using the 50% overlap criterion is one way of generating a matching
 The shared best is another way
@@ -1074,9 +1075,9 @@ When evaluating a loss on a tracking problem we want an error score that doesn't
 
 - Before gives less diversity, but is computationally easier, but might require more code restructuring.
 
-# ERROR: The cluster can't use imread or imresize?
+# solved. ERROR: The cluster can't use imread or imresize?
 
-The solution for imread was to specify that plugin='tifffile'. This is not necessary if we upgrade to scikit-image 0.13.0, which we had to do in order to get the correct skimage.morphology.warp function!
+The solution for imread was to specify that plugin='tifffile'. This is not necessary if we upgrade to scikit-image 0.13.0, which we had to do in order to get the correct skimage.morphology.warp function! Also, we got the PIL version of imresize working after installing pillow library.
 
 (Pdb) c
 Using TensorFlow backend.
@@ -1110,9 +1111,9 @@ NotImplementedError: tostring() has been removed. Please call tobytes() instead
 
 We can fix this problem by making sure that we use the correct version of scikit_image. See tests/warp.py and the way it uses pkg_resources and sys.path. NOTE: that I couldn't find any way having python3 *prefer* my .local site-packages over the main one in /sw/apps without adding it explicitly to the head of the list at runtime. $PYTHONPATH adds it to the END of the list, which is not good enough.
 
-# GONE. PROBLEM: I'm getting divide-by-zero errors when running prediction after training.
+# PROBLEM: divide by zero when combining patchwise predictions.
 
-But I can see many places where I would divide by zero... is this actually a problem? You can divide one numpy array by another, where you divide 0/0 you get a nan. 1/0 gives inf. -1/0 gives -inf.
+But I can see many places where I would divide by zero... is this actually a problem? You can divide one numpy array by another, where you divide 0/0 you get a nan. 1/0 gives inf. -1/0 gives -inf. It sometimes gives me a RuntimeWarning, but other times it stops my program!
 
 # SOLVED: PROBLEM: prediction still has square artifacts, but only visible on weak/untrained models.
 
@@ -1130,12 +1131,17 @@ I don't know how to use a new version of a package I've installed myself without
 
 use the matplotlibrc file on the cluster with default backend : Agg
 
-# PROBLEM: I can't save my model architecture because it uses a custom activation function.
+# solved. PROBLEM: I can't save my model architecture because it uses a custom activation function.
 
 This activation function is just a softmax that has it's axis depend on the tensorflow|theano flag! (I could add a conditional permute? but this wouldn't appear in the model!)
 
 I guess I could have my model (and loss) just depend on whether we're using...
 Does the conditional permutation already in the code *actually work?*??
+
+Solved.
+1. the conditionals works because they are evaulated at model build time.
+2. by moving the conditional permute before the softmax I can use the standard softmax function.
+
 
 # PROBLEM: I can't group my tests to a separate tests folder.
 
@@ -1153,6 +1159,49 @@ Now I've got an awesome n-layer net. n_pool counts the number of pooling operati
 but we can try 4,5,6, etc!
 In the Ronneberger paper they use a network with '23 convolutional layers' which works out to n_pool = 5!
 
+# bad solution: PROBLEM: $pythonpath env var always has .egg files at the top, so I can't have a default preference for my own installed libraries!
+
+see: 
+https://stackoverflow.com/questions/5984523/eggs-in-path-before-pythonpath-environment-variable
+
+It's easy-install's problem, apparently, and I probably can't change that.
+
+The only solution that works for me is to prepend the projects/project-broaddes/.local/ directory to the sys.path list at the start of each script!
+
+# BUG: my patchwork reconstruction produces visible square artifacts
+
+By increasing the step, keeping dx at 480, and keeping itd at 92 I expect to see..... AT LEAST at 20 pix gap between patches.
+I can see a 20px gap at the very top of the image. This means my itd is set to 20px! clearly wrong. Does a 20px itd explain the 60px gap between patches? yes... remove 20px twice for itd and add 20px gap from step=500. This means I'm probably setting itd to 20, when I don't mean to...
+Found the bug. It was only in "predict.py". We have to set itd before calling predict_single_image, or it will take the default itd, which is 20. Duh.
+
+This did not fully solve the problem! I can still see straight-line artifacts! But they are fewer and further apart.
+
+Another piece of evidence. The bottom gap is 382 pixels. It is possible that the bottom gap is larger, because we only sample patches if they fit entirely within the image. So the largest possible gap would be our patch size-1=479. [and the smallest should be 0+itd=92] Since this cuts off a piece of our image, we'll have to fix it!
+
+And now the patches are 296 wide. This is the correct width according to our formula! Does this mean that our formula for calculating itd is wrong?
+
+I guess that trying a larger itd will fix the problem. How about itd = 140, so patches are 480-2*140 = 200 px wide...
+
+This still produces artifacts!
+
+Now let's try itd=190 and step = 100.
+
+Still artifacts.
+Maybe the problem *isn't* my itd, but just the way that I put patches back together... Let's see...
+
+# PROBLEM: memory easily exhausted when I run tensorflow from iPython
+
+and now CUDNN_STATUS_INTERNAL_ERROR ggguguugggg
+
+
+
+
+
+
+
+
+
+
 
 # TODO:
 
@@ -1166,4 +1215,9 @@ In the Ronneberger paper they use a network with '23 convolutional layers' which
     * Does this still make sense? Given that Ronneberger used this distance penalty mostly to emphasize the background pixels *in between neighboring cells that had a small gap between them*. This is mostly appropriate to single cells-in-a-dish, and not to tissues.
 8. Predict only distance maps!
 9. Remove one-hot encoding
+
+- Differentiable cell segmentation losses
+- Laurent's idea: warp the distance fields as opposed to the membranes!
+- how much can you warp before ground truth is destroyed
+- matching, warping and cell seg error measures
 
