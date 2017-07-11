@@ -1189,7 +1189,19 @@ Now let's try itd=190 and step = 100.
 Still artifacts.
 Maybe the problem *isn't* my itd, but just the way that I put patches back together... Let's see...
 
-# PROBLEM: memory easily exhausted when I run tensorflow from iPython
+----
+
+New test. Run prediction on patches that are almost entirely overlapping. They should be almost entirely identical... How far do the differences propagate?
+
+----
+
+new hypothesis: I should be using imglist_to_X and normalizing patches before feeding them into predict? Shouldn't this make previously overlapping patches no longer the same? is this what's causing the line artifacts???
+- this still doesn't solve the problem of what's causing the differences between Y patches in our test_patch_predictions.py?
+
+
+
+
+# PROBLEM: memory easily exhausted when I run tensorflow from iPython (on my mac)
 
 and now CUDNN_STATUS_INTERNAL_ERROR ggguguugggg
 

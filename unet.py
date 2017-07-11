@@ -55,7 +55,10 @@ def imglist_to_X(greylist):
     coords = [patchmaker.regular_patch_coords(img, patchshape, step) for img in greylist]
     greypatches = [patchmaker.sample_patches_from_img(crd, img, patchshape) for crd,img in zip(coords, greylist)]
     X = np.concatenate(tuple(greypatches), axis=0)
+    X = normalize_X(X)
+    return X
 
+def normalize_X(X):
     # normalize X per patch
     mi = np.amin(X,axis = (1,2), keepdims = True)
     ma = np.amax(X,axis = (1,2), keepdims = True)+1.e-10

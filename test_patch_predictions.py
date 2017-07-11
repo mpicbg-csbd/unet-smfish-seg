@@ -50,6 +50,7 @@ def test_unet():
         dy =20
         img1,img2,lab1,lab2 = small_patches(img, lab, w, dy)
         X = np.stack([img1, img2])
+        X = unet.normalize_X(X)
 
         n_pool = 2
         m = unet.get_unet_n_pool(n_pool)
