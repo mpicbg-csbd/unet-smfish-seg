@@ -4,57 +4,75 @@ test patchmaker. Make sure that we can take apart and piece back together random
 
 import numpy as np
 import matplotlib.pyplot as plt
+plt.ion()
 
 import patchmaker
 
-imgshape = (1075, 1075)
-patch_shape = (100,100)
-step = 50
+def make_img_patches_coords(img_shape, patch_shape, step):
+	img = np.indices(img_shape)/img_shape[0]*8*np.pi
+	img = np.cos(img[0])*np.cos(img[1]/4)
+	coords  = patchmaker.square_grid_coords(img, step)
+	patches = patchmaker.sample_patches_from_img(coords, img, patch_shape)
+	return img, patches, coords
 
-img = np.indices(imgshape)/imgshape[0]*8*np.pi
-img = np.cos(img[0])*np.cos(img[1])
-# coords  = patchmaker.regular_patch_coords(img, patch_shape, step)
-coords  = patchmaker.square_grid_coords(img, step)
-patches = patchmaker.sample_patches_from_img(coords, img, patch_shape)
+def test_img_patches_coords(img, patches, coords, border=10):
+	img2    = patchmaker.piece_together(patches, coords)
+	img2    = img2[:,:,0]
+	a,b = img.shape
+	a2,b2 = img2.shape
+	a3,b3 = min(a,a2), min(b,b2)
+	res     = img[:a3,:b3]==img2[:a3,:b3]
+	assert np.alltrue(res)
 
-img2    = patchmaker.piece_together(patches, coords)
-img2    = img2[:,:,0]
-a,b = img.shape
-a2,b2 = img2.shape
-a3,b3 = min(a,a2), min(b,b2)
-res     = img[:a3,:b3]==img2[:a3,:b3]
-assert np.alltrue(res)
+	img3    = patchmaker.piece_together(patches, coords, imgshape=img.shape)
+	img3    = img3[:,:,0]
+	mask = np.isnan(img3)
+	assert np.alltrue(img[~mask]==img3[~mask])
 
-img3    = patchmaker.piece_together(patches, coords, imgshape)
-img3    = img3[:,:,0]
-mask = np.isnan(img3)
-assert np.alltrue(img[~mask]==img3[~mask])
+	img4 = patchmaker.piece_together(patches, coords, imgshape=img.shape, border=border)
+	img4 = img4[:,:,0]
+	mask = np.isnan(img4)
+	assert np.alltrue(img[~mask]==img4[~mask])
 
-img4 = patchmaker.piece_together(patches, coords, imgshape, border=10)
-img4 = img4[:,:,0]
-mask = np.isnan(img4)
-assert np.alltrue(img[~mask]==img4[~mask])
+	img5 = patchmaker.piece_together(patches, coords, border=border)
+	img5 = img5[:,:,0]
 
-img5 = patchmaker.piece_together(patches, coords, border=10)
-img5 = img5[:,:,0]
-# a,b  = img.shape
-# a5,b5 = img5.shape
-# a6,b6 = min(a,a5), min(b,b5)
-# res   = img[:a6,:b6]==img5[:a6,:b6]
-# mask = np.isnan(img5)
-# assert np.alltrue(img[~mask]==img5[~mask])
+	def plot():
+		plt.imshow(img, interpolation='nearest')
+		plt.figure()
+		plt.imshow(img2, interpolation='nearest')
+		plt.figure()
+		plt.imshow(img3, interpolation='nearest')
+		plt.figure()
+		plt.imshow(img4, interpolation='nearest')
+		plt.figure()
+		plt.imshow(img5, interpolation='nearest')
+
+	return plot
 
 
-def plot():
-	plt.imshow(img, interpolation='nearest')
-	plt.figure()
-	plt.imshow(img2, interpolation='nearest')
-	plt.figure()
-	plt.imshow(img3, interpolation='nearest')
-	plt.figure()
-	plt.imshow(img4, interpolation='nearest')
-	plt.figure()
-	plt.imshow(img5, interpolation='nearest')
+def test1():
+	img_shape = (1075, 1075)
+	patch_shape = (100,100)
+	step = 50
+	img, patches, coords = make_img_patches_coords(img_shape, patch_shape, step)
+	plot = test_img_patches_coords(img, patches, coords)
+	plot()
+
+def test2():
+	img_shape = (2857, 6271)
+	patch_shape = (480, 480)
+	border = 92
+	step = 480 - 2*border
+	img, patches, coords = make_img_patches_coords(img_shape, patch_shape, step)
+	plot = test_img_patches_coords(img, patches, coords)
+	plot()
+
+if __name__ == '__main__':
+	test1()
+	test2()
+
+
 
 
 thoughts1 = """
@@ -79,6 +97,13 @@ NOTE: setting border to nonzero in piece_together gives us a border on the upper
 This is because the nan border in img4 is cut off at the end because of our reshaping. Let's try with no imgshape and see...
 
 OK, patchmaker looks good :)
+
+Testing unet revealed that our method for fixing the size of the resulting image patch is wrong. It prevents the patch from being too large,
+but doesn't fix it if it's too small... Why would our patch be too small? Let's test the exact case from the unet... 
+size from ... data3/labeled_data_cellseg/greyscales/20150128_fig10_slice10.tif 
+
+Fixed the undersize problem in piece_together.
+
 """
 
 

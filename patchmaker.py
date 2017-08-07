@@ -84,10 +84,14 @@ def piece_together(patches, coords, imgshape=None, border=0):
     if patches.ndim == 3:
         patches = patches[:,:,:,np.newaxis]
     n_samp, dx, dy, channels = patches.shape
+    
     x_size = coords[:,0].max() + dx
     y_size = coords[:,1].max() + dy
-    zeros_img = np.zeros(shape=(x_size,y_size,channels))
-    count_img = np.zeros(shape=(x_size,y_size,channels))
+    if imgshape:
+        x_host, y_host = imgshape
+        x_size, y_size = max(x_size, x_host), max(y_size, y_host)
+    zeros_img = np.zeros(shape=(x_size, y_size,channels))
+    count_img = np.zeros(shape=(x_size, y_size,channels))
 
     # ignore parts of the image with boundary effects
     mask = np.ones((dx, dy, channels))

@@ -1214,6 +1214,9 @@ This test was with m162, with itd=92 and step = 480-2*92=296. [The width of patc
 
 - can i pull images apart and piece them back together exactly the same as before? yes, i tested this! does the pipeline i use for prediction do exactly this if i use the identity function instead of my normal net?
 
+After fixing/changing patchmaker I know that I can sample patches and put them back together correctly, but I still get square artifacts near the boundaries of my patches. I think it must be due to the normalization. Let's try turning that off (or doing it image-wise) and see what we get...
+
+
 # PROBLEM: memory easily exhausted when I run tensorflow from iPython (on my mac)
 
 and now CUDNN_STATUS_INTERNAL_ERROR ggguguugggg
