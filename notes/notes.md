@@ -1198,16 +1198,25 @@ New test. Run prediction on patches that are almost entirely overlapping. They s
 new hypothesis: I should be using imglist_to_X and normalizing patches before feeding them into predict? Shouldn't this make previously overlapping patches no longer the same? is this what's causing the line artifacts???
 - this still doesn't solve the problem of what's causing the differences between Y patches in our test_patch_predictions.py?
 
+new test: Compare a full-image patch prediction with and without normalization. I suspect that removing normalization will get rid of the square artifacts, although it might degrade prediction accuracy. The solution would be to replace all patch-wise normalization with image-wise...
 
+OK, now I've tried with and without normalization. The normalization makes X1!=X2, and of course Y1!=Y2, just like in the no-normalization case.
 
+So even though my Y images fail the test, they look very similar! I can't see any differences. But the difference between the normalized and non-normalized outputs is very large. Turns out there *are* differences, but only a very small number.
+
+I found the differences! (in the non-normalized images) They are near the boundaries of the membrane! All throughout the image! Why is this?
+
+TO TEST: what happens if you send the same patch through multiple times? Does the net produce exactly the same result?
+
+But I *still* see square artifacts in images without any normalization! what is going on here?
+
+This test was with m162, with itd=92 and step = 480-2*92=296. [The width of patches is exactly this 296.]
+
+- can i pull images apart and piece them back together exactly the same as before? yes, i tested this! does the pipeline i use for prediction do exactly this if i use the identity function instead of my normal net?
 
 # PROBLEM: memory easily exhausted when I run tensorflow from iPython (on my mac)
 
 and now CUDNN_STATUS_INTERNAL_ERROR ggguguugggg
-
-
-
-
 
 
 
@@ -1229,7 +1238,7 @@ and now CUDNN_STATUS_INTERNAL_ERROR ggguguugggg
 9. Remove one-hot encoding
 
 - Differentiable cell segmentation losses
-- Laurent's idea: warp the distance fields as opposed to the membranes!
-- how much can you warp before ground truth is destroyed
-- matching, warping and cell seg error measures
+- DONE: Laurent's idea: warp the distance fields as opposed to the membranes!
+- how much can you warp before ground truth is destroyed?
+- complete set of matching, warping and cell seg error measures
 

@@ -21,14 +21,29 @@ def sample_patches(data, patch_size, n_samples=100, verbose=False):
     res = np.stack([data[r[0] - patch_size[0] // 2:r[0] + patch_size[0] - patch_size[0] // 2, r[1] - patch_size[1] // 2:r[1] + patch_size[1] - patch_size[1] // 2] for r in zip(*rand_inds)])
     return res
 
-def sample_patches_from_img(coords, img, shape):
+## get patches from an image given coordinates and patch shapes.
+
+def sample_patches_from_img(coords, img, shape, boundary_cond='mirror'):
+    """
+    TODO: enable boundary conditions on all sides of the img, not just bottom and right.
+    """
     y_width, x_width = shape
-    assert coords[:,0].max() <= img.shape[0]-x_width
-    assert coords[:,1].max() <= img.shape[1]-y_width
+    # assert coords[:,0].max() <= img.shape[0]-x_width
+    # assert coords[:,1].max() <= img.shape[1]-y_width
+    if boundary_cond=='mirror':
+        a,b = img.shape
+        img2 = np.zeros((2*a, 2*b))
+        img2[:a, :b] = img.copy()
+        img2[a:2*a, :b] = img[::-1,:].copy()
+        img2[:a,b:2*b] = img[:,::-1].copy()
+        img2[a:2*a, b:2*b] = img[::-1, ::-1].copy()
+        img = img2
     patches = np.zeros(shape=(coords.shape[0], x_width, y_width), dtype=img.dtype)
     for m,ind in enumerate(coords):
         patches[m] = img[ind[0]:ind[0]+x_width, ind[1]:ind[1]+y_width]
     return patches
+
+## Different ways of sampling pixel coordinates from an image
 
 def random_patch_coords(img, n, shape):
     y_width, x_width = shape
@@ -36,6 +51,8 @@ def random_patch_coords(img, n, shape):
     yc = np.random.randint(img.shape[1]-y_width, size=n)
     return np.stack((xc, yc), axis=1)
 
+## deprecated because we don't want coordinates to depend on patchshape
+@DeprecationWarning
 def regular_patch_coords(img, patchshape, step):
     coords = []
     dy, dx = img.shape[0]-patchshape[0], img.shape[1]-patchshape[1]
@@ -44,37 +61,51 @@ def regular_patch_coords(img, patchshape, step):
             coords.append((y,x))
     return np.array(coords)
 
+def square_grid_coords(img, step):
+    a,b = img.shape
+    a2,ar = divmod(a, step)
+    b2,br = divmod(b, step)
+    ind = np.indices((a2, b2))
+    ind *= step
+    ind = np.reshape(ind, (2, a2*b2))
+    ind = np.transpose(ind)
+    return ind
+
+## piece together a single image from a list of coordinates and patches
+
 def piece_together(patches, coords, imgshape=None, border=0):
     """
     patches must all be same shape!
-    patches.shape = (sample, x, y, channel)
-    coords.shape = (sample, 2 or 3 == patches.ndim-2)
+    patches.shape = (sample, x, y, channel) or (sample, x, y)
+    coords.shape = (sample, 2)
     TODO: potentially add more ways of recombining than a simple average, i.e. maximum, etc
     """
 
-    # x,y are final shape of the image
-    if imgshape:
-        x_size, y_size = imgshape
-    else:
-        x_size = coords[:,0].max() + patches.shape[0] + 1
-        y_size = coords[:,1].max() + patches.shape[1] + 1
+    if patches.ndim == 3:
+        patches = patches[:,:,:,np.newaxis]
     n_samp, dx, dy, channels = patches.shape
+    x_size = coords[:,0].max() + dx
+    y_size = coords[:,1].max() + dy
     zeros_img = np.zeros(shape=(x_size,y_size,channels))
     count_img = np.zeros(shape=(x_size,y_size,channels))
 
     # ignore parts of the image with boundary effects
-    mask = np.ones(patches[0].shape)
-    mask[:,0:border] = 0
-    mask[:,-border:] = 0
-    mask[0:border,:] = 0
-    mask[-border:,:] = 0
+    mask = np.ones((dx, dy, channels))
+    if border>0:
+        mask[:,0:border] = 0
+        mask[:,-border:] = 0
+        mask[0:border,:] = 0
+        mask[-border:,:] = 0
 
-    for cord,patch in zip(coords, patches):
+    for cord, patch in zip(coords, patches):
         x,y = cord
         zeros_img[x:x+dx, y:y+dy] += patch*mask
         count_img[x:x+dx, y:y+dy] += np.ones_like(patch)*mask
 
-    # print(list(map(util.count_nans, [zeros_img, count_img])))
+    if imgshape:
+        a,b = imgshape
+        zeros_img = zeros_img[:a,:b]
+        count_img = count_img[:a,:b]
     
     res = zeros_img/count_img
     return res
