@@ -52,10 +52,17 @@ def imglist_to_X(greylist):
     both training and testing."""
 
     patchshape = (y_width, x_width)
-    coords = [patchmaker.regular_patch_coords(img, patchshape, step) for img in greylist]
+    # normalize per image
+    def normimg(img):
+        mn,mx = img.min(), img.max()+1e-10
+        img -= mn
+        img = img/(mx-mn)
+        return img
+    greylist = [normimg(img) for img in greylist]
+    coords = [patchmaker.square_grid_coords(img, step) for img in greylist]
     greypatches = [patchmaker.sample_patches_from_img(crd, img, patchshape) for crd,img in zip(coords, greylist)]
     X = np.concatenate(tuple(greypatches), axis=0)
-    X = normalize_X(X)
+    #X = normalize_X(X)
     return X
 
 def normalize_X(X):
@@ -69,7 +76,7 @@ def imglist_to_Y(labellist):
     "turn list of images into ndarray of patches, labels and their coordinates"
 
     patchshape = (y_width, x_width)
-    coords = [patchmaker.regular_patch_coords(img, patchshape, step) for img in labellist]
+    coords = [patchmaker.square_grid_coords(img, step) for img in labellist]
     labelpatches = [patchmaker.sample_patches_from_img(crd, lab, patchshape) for crd,lab in zip(coords, labellist)]
     Y = np.concatenate(tuple(labelpatches), axis=0)
     return Y
@@ -336,17 +343,21 @@ def batch_generator_patches(X,Y, steps_per_epoch, verbose=False):
 def predict_single_image(model, img, batch_size=32):
     "unet predict on a greyscale img"
     X = imglist_to_X([img])
-    X = add_singleton_dim(X)
-    Y_pred = model.predict(X, batch_size=batch_size)
-    print("Y_pred shape: ", Y_pred.shape)
+    X2 = add_singleton_dim(X)
+    Y_pred = model.predict(X2, batch_size=batch_size)
 
     if Y_pred.ndim == 3:
         print("NDIM 3, ")
         Y_pred = Y_pred.reshape((-1, y_width, x_width, 2))
 
+    Y_pred = Y_pred[...,1]
+    print("Y_pred shape: ", Y_pred.shape)
+    io.imsave('Ypred.tif', Y_pred)
     # WARNING TODO: This will break when we change the coords used in `imglist_to_X`
 
-    patchshape = (y_width, x_width)
-    coords = patchmaker.regular_patch_coords(img, patchshape, step)
+    coords = patchmaker.square_grid_coords(img, step)
     res = patchmaker.piece_together(Y_pred, coords, imgshape=img.shape, border=itd)
-    return res[:,:,1].astype(np.float32)
+    #xres = patchmaker.piece_together(X, coords, imgshape=img.shape, border=itd)
+    print("TEST*: ", img.shape, res.shape)
+    return res[...,0].astype(np.float32)
+    #return xres[...,0].astype(np.float32)

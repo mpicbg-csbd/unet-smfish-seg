@@ -1,12 +1,14 @@
 import sys
 sys.path.insert(0, "../.local/lib/python3.5/site-packages/")
-import unet
-from skimage.io import imread
-import datasets as d
+import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID" # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 import util
 import json
 import numpy as np
-import os
+from skimage.io import imread
+import unet
+import datasets as d
 
 rationale = """
 Test out predict.py refactor.
@@ -34,19 +36,20 @@ def predict(predict_params):
     unet.x_width = train_params['x_width']
     unet.y_width = train_params['y_width']
     #unet.itd = train_params['itd']
-    unet.itd = 190 #train_params['itd']
-    #unet.step    = train_params['step']
-    unet.step    = 100 #500 #310
-    
+    unet.itd = 100 #190 #train_params['itd']
+    #unet.step = train_params['step']
+    unet.step  = unet.x_width - 2*unet.itd #92 #100 #500 #310
+
     predict_image_names = util.sglob(predict_params['grey_tif_folder'] + '*.tif')
 
-    for name in predict_image_names[:2]:
+    for name in predict_image_names[:1]:
         img = d.imread(name)
         print(name, img.shape)
         res = unet.predict_single_image(model, img, batch_size=predict_params['batch_size'])
+        print("Res shape", res.shape)
         combo = np.stack((img, res), axis=0)
         path, base, ext =  util.path_base_ext(name)
-        d.imsave(predict_params['savedir'] + "/" + base + '_predict' + ext, combo.astype('float32'))
+        d.imsave(predict_params['savedir'] + "/" + base + '_predict_' + str(unet.itd) + ext, combo.astype('float32'))
 
 if __name__ == '__main__':
     predict_params['savedir'] = sys.argv[1]

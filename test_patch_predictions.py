@@ -1,13 +1,17 @@
-import numpy as np
-
-# import matplotlib as mpl
-# mpl.use('Agg')
-# import matplotlib.pyplot as plt
-# plt.ion()
 import sys
 sys.path.insert(0, "../.local/lib/python3.5/site-packages/")
 import pkg_resources
 pkg_resources.require("scikit-image>=0.13.0")
+
+import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID" # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+import numpy as np
+# import matplotlib as mpl
+# mpl.use('Agg')
+# import matplotlib.pyplot as plt
+# plt.ion()
 
 import skimage
 print("skimage version: ", skimage.__version__)
@@ -50,20 +54,24 @@ def test_unet():
         dy =20
         img1,img2,lab1,lab2 = small_patches(img, lab, w, dy)
         X = np.stack([img1, img2])
-        X = unet.normalize_X(X)
+        # X = unet.normalize_X(X)
 
         n_pool = 2
         m = unet.get_unet_n_pool(n_pool)
         m.load_weights('training/m150/unet_model_weights_checkpoint.h5')
         print(m.summary())
 
-        Y = predict(m, X)
+        Ys = []
+        for _ in range(200):
+            Y = predict(m, X)
+            Ys.append(Y)
+        Ys = np.array(Ys)
 
         itd = analysis.info_travel_dist(n_pool)
         print("ITD: ", itd)
         io.imsave('img_test.tif', X)
-        io.imsave('res_test.tif', Y)
-        test_XY(X,Y,itd,dy)
+        io.imsave('res_test_multi.tif', Ys)
+        #test_XY(X,Y,itd,dy)
 
 def test_XY(X,Y,itd,dy):
         goodimgs = X[:,itd:-itd,itd:-itd]
@@ -73,8 +81,8 @@ def test_XY(X,Y,itd,dy):
         y0 = goodres[0,dy:] 
         y1 = goodres[1,:-dy]
         print(y0.sum(), y1.sum())
-        assert np.alltrue(x0==x1)
-        assert np.alltrue(y0==y1)
+        print("X1==X2? : ", np.alltrue(x0==x1))
+        print("Y1==Y2? : ", np.alltrue(y0==y1))
 
 if __name__ == '__main__':
         # X = io.imread('img_test.tif')
