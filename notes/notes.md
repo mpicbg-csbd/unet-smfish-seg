@@ -1216,6 +1216,91 @@ This test was with m162, with itd=92 and step = 480-2*92=296. [The width of patc
 
 After fixing/changing patchmaker I know that I can sample patches and put them back together correctly, but I still get square artifacts near the boundaries of my patches. I think it must be due to the normalization. Let's try turning that off (or doing it image-wise) and see what we get...
 
+Normalizing the entire X image as a whole made the problem worse! How can that be... What are the remaining alternatives...
+
+observations... 
+1. the problem looks worse outside the main body of the tissue.
+2. worse *without* patch-wise normalization...
+
+remaining hypotheses...
+
+1. We're still using patchmaker wrong.
+2. The Unet border effects travel further than `itd`.
+3. We're changing the patches somehow without knowing it.
+4. The unet introduces square artifacts *by iteself*.
+
+*What is the distance between patches we observe?*
+
+*Also, let's test patchmaker on real images, in case they look different.*
+*We can even test on a series of convolutions?* No we should test on just setting the border pixels a different color...
+
+After looking closely at the results of pasting squares together and knowing that the calculations for the inter-patch distance are correct I can say the artifacts do not come from the Unet itself and we're not changing the patches... It's either 1 or 2. And it looks like the math for putting patches together is OK. So it really must be #2?
+
+Yes, this has been confirmed by testing the unet module and patchmaker modules together on the cluster. We can use Unet module to create X patches, then put them back together and the result is pixel-for-pixel identical (ignoring left and top boundaries).
+
+So remaining hypotheses are:
+1. We don't understand ITD / how large the border should be
+2. The model has *learned* to make these square artifacts in cerain situations.
+
+Test: find a region with bad square artifacts. is it on/near the border?
+try making the ITD very large. Try running unet prediction centered on that artifact. Actually, just compare the results of two different border width computations. If the border really doesn't matter, (and thus the model has 
+square artifacts built in) then they should be pixel-for-pixel identical.
+
+After making test6()...
+
+1. Border size does have an effect on the output, even when border size is greater than the ITD.
+2. The differences between the images seem to be stronger where there is signal in the image.
+
+Let's add another hypothesis:
+The Unet is not deterministic. The bright lines are coming from the unet and have nothing to do with our borders, but they ALSO have nothing to do with our training data! Maybe somehow a small amount of gpu memory is getting overwritten during prediction/testing?
+
+The next thing to test is to make sure that the output is deterministic, so we get the exact same output if we keep the border size const...
+
+Now, apparently the GPU performs non-deterministic sum reductions... which might be the cause of my straight-line artifacts...
+
+Ran the tests and that's not the issue!
+
+IMPORTANT: Also, there are *clear* horizontal artifacts in the results of a single patch going through the m150 classifier with itd=20... What causes this? This can't be the result of patchmaker, obviously, and with the recent results it also can't be a problem with the GPU. It just looks like I have horizontal artifacts coming from my classifier!
+
+But these are *not* the same horizontal artifacts that I see. In the images I see marks that align with patchborders. They look like misalignments, but it might just be that the function doesn't commute with translations like I thought. I can test this by replacing the unet predict function with one that just destroys patch borders and nothing else.
+
+When using the CPU I see some small differences within the valid regions of two patches that overlap a small amount.
+
+Current Hypotheses:
+- Just because there are patch lines with the step spacing doesn't mean there is a problem with patchmaker. There might be a problem with the Unet, or at least our assumptions about what the Unet does.
+  + The unet differs when running on CPU and GPU. The GPU may even be partly stochastic.
+  + The very simple patch test w the CPU still left some small unexplained differences at the northern boundary.
+  + CPU differs from GPU, but still doesn't fix the square artifacts.
+  - We know that we can change the boundary regions in any way w/out changing result as long as we don't use Unet module... just internal stuff.
+- You are calculating the ITD wrong. You should use the same input sizes as the Unet paper, and only use "valid" convolutions.
+
+And only run things on your local machine.
+
+MAYBE SOLVED:
+
+We were wrong about the ITD, sortof. We calculated the boundary correctly, but we were still missing some interesting piece of info. There is a pyramidal set of square grids imposed on each patch by the 2x2 max-pooling. If these grids are not aligned between neighboring patches, then their predictions will differ. Although in practice these differences are slight, they could in principle be large. In short, the max-pooling breaks the translational symmetry of the convolutions.
+
+TODO: We should be able to run backprop through the net to see which pixels in the input have their weights updated, and how strongly. We really want to be able to analyze a net automatically, with a function to count all the paths in the net from a pixel in the input to one in the output. This is related to visualizing pixel patches that strongly light up a single feature in some middle layer. 
+
+UPDATE:
+If we only move our window by 1 pixel, then values all throughout the patch are changed, but if we move by 4 (2^d, where d = n-max-pool layers), then only the boundaries are changed! But the change in the boundaries is greater than we'd expect from our ITD calculations... it was 22 instead of 20. Hmmmm....
+
+SOLVED!
+
+By making the step length between patches an integer multiple of the largest max-pooling pixel size (= 2^d) we get perfectly smooth images!
+
+Remaining issues:
+
+- What cased the square artifacts in the individual patches? 
+  + Hypothesis: failing to normalize X.
++ Where & Why are CPU & GPU different? Is GPU deterministic?
+  * Hypothesis: GPU will introduce small random noise in output, uncorrelated with signal.
+
+NOTE:
+Both the step AND the patch width should be multiples of 2^d !!!!! But this means that they can't in general differ by 2*border_width = info travel dist....
+
+
+
 
 # PROBLEM: memory easily exhausted when I run tensorflow from iPython (on my mac)
 

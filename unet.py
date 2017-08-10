@@ -50,7 +50,6 @@ noise = True
 def imglist_to_X(greylist):
     """turn list of images into ndarray of patches, labels and their coordinates. Used for
     both training and testing."""
-
     patchshape = (y_width, x_width)
     # normalize per image
     def normimg(img):
@@ -74,7 +73,6 @@ def normalize_X(X):
 
 def imglist_to_Y(labellist):
     "turn list of images into ndarray of patches, labels and their coordinates"
-
     patchshape = (y_width, x_width)
     coords = [patchmaker.square_grid_coords(img, step) for img in labellist]
     labelpatches = [patchmaker.sample_patches_from_img(crd, lab, patchshape) for crd,lab in zip(coords, labellist)]

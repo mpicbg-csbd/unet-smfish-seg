@@ -90,7 +90,7 @@ def piece_together(patches, coords, imgshape=None, border=0):
     if imgshape:
         x_host, y_host = imgshape
         x_size, y_size = max(x_size, x_host), max(y_size, y_host)
-    zeros_img = np.zeros(shape=(x_size, y_size,channels))
+    patch_img = np.zeros(shape=(x_size, y_size,channels))
     count_img = np.zeros(shape=(x_size, y_size,channels))
 
     # ignore parts of the image with boundary effects
@@ -103,13 +103,16 @@ def piece_together(patches, coords, imgshape=None, border=0):
 
     for cord, patch in zip(coords, patches):
         x,y = cord
-        zeros_img[x:x+dx, y:y+dy] += patch*mask
+        patch_img[x:x+dx, y:y+dy] += patch*mask
         count_img[x:x+dx, y:y+dy] += np.ones_like(patch)*mask
 
+    # if imgshape:
+    #     a,b = imgshape
+    #     patch_img = patch_img[:a,:b]
+    #     count_img = count_img[:a,:b]
+    
+    res = patch_img/count_img
     if imgshape:
         a,b = imgshape
-        zeros_img = zeros_img[:a,:b]
-        count_img = count_img[:a,:b]
-    
-    res = zeros_img/count_img
+        res = res[:a, :b]
     return res
