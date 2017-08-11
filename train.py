@@ -14,18 +14,16 @@ import numpy as np
 import analysis
 
 rationale = """
-Decrease Learning Rate. Tiny augmentation.
-Continue from the most promising run so far: m158.
-Try new step determined from itd.
+First un with all data. Removed the augmentation. Large patch sizes.
 """
 
 train_params = {
  'savedir' : './',
  'grey_tif_folder'  : "data3/labeled_data_cellseg/greyscales/",
  'label_tif_folder' : "data3/labeled_data_cellseg/labels/",
- 'x_width' : 480,
- 'y_width' : 480,
- 'step'    : None,
+ 'x_width' : 800,
+ 'y_width' : 800,
+ 'step'    : 560, #None,
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
@@ -33,15 +31,15 @@ train_params = {
  'patience' : 30,
 
  'optimizer' : 'adam', # 'sgd' or 'adam' (adam ignores momentum)
- 'learning_rate' : 1.00e-5, #3.16e-5,
+ 'learning_rate' : 1.00e-4, #3.16e-5,
  'momentum' : 0.99,
 
- 'noise':True,
- 'warping_size' : 5,
- 'flipLR' : True,
- 'rotate_angle_max' : 10,
+ 'noise':False, #True,
+ 'warping_size' : 0, #5,
+ 'flipLR' : False, #True,
+ 'rotate_angle_max' : 0, #10,
 
- 'initial_model_params' : "training/m158/unet_model_weights_checkpoint.h5",
+ 'initial_model_params' : None, #"training/m158/unet_model_weights_checkpoint.h5",
  'n_pool' : 4,
  'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.2,
@@ -52,11 +50,11 @@ def train(train_params):
     start_time = time.time()
 
     train_grey_names = []
-    train_grey_imgs = []
+    train_grey_imgs  = []
     train_label_imgs = []
 
-    grey_names  = util.sglob(train_params['grey_tif_folder'] + "*.tif")
-    label_names = util.sglob(train_params['label_tif_folder'] + "*.tif")
+    grey_names   = d.get_all_big_tifs(train_params['grey_tif_folder'])
+    label_names  = d.get_all_big_tifs(train_params['label_tif_folder'])
     grey_imgs  = [d.imread(img) for img in grey_names]
     label_imgs = [d.imread(img) for img in label_names]
 
@@ -96,7 +94,7 @@ def train(train_params):
     itd = analysis.info_travel_dist(train_params['n_pool'])
     unet.itd = itd
     train_params['itd'] = itd
-    train_params['step'] = train_params['x_width'] - 2*itd
+    #train_params['step'] = 560 #train_params['x_width'] - 2*itd
     unet.step = train_params['step']
     train_params['rationale'] = rationale
     json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))

@@ -1,3 +1,4 @@
+import os
 from glob import glob
 import skimage.io as io
 import numpy as np
@@ -55,8 +56,22 @@ seg_labels = lambda : sglob("data3/labeled_data_cellseg/labels/*.tif")
 seg_labels_small3x = lambda : sglob("data3/labeled_data_cellseg/labels/down3x/*.tif")
 seg_labels_small6x = lambda : sglob("data3/labeled_data_cellseg/labels/down6x/*.tif")
 
+# EXTRA DATA: full-size greyscale and label images annotated by cell segmentation pipeline 
+seg_images_extra = sglob("data3/labeled_data_cellseg/greyscales/*timeseries*/*.tif")
 
 
+def get_all_big_tifs(basedir):
+    count = 0
+    tiflist = []
+    for a,b,c in os.walk(basedir):
+        for img in c:
+            if img.endswith(".tif") and 'down' not in a:
+                count += 1
+                d_name = os.path.join(a, img)
+                print(d_name)
+                tiflist.append(d_name)
+    print(count)
+    return tiflist
 
 
 def imsave(fname, img, **kwargs):
