@@ -32,13 +32,14 @@ def sample_patches_from_img(coords, img, shape, boundary_cond='mirror'):
     # assert coords[:,1].max() <= img.shape[1]-y_width
     if boundary_cond=='mirror':
         a,b = img.shape
-        img2 = np.zeros((2*a, 2*b))
+        img2 = np.zeros((2*a, 2*b), dtype=img.dtype)
         img2[:a, :b] = img.copy()
         img2[a:2*a, :b] = img[::-1,:].copy()
         img2[:a,b:2*b] = img[:,::-1].copy()
         img2[a:2*a, b:2*b] = img[::-1, ::-1].copy()
         img = img2
     patches = np.zeros(shape=(coords.shape[0], x_width, y_width), dtype=img.dtype)
+    print("A:", img.dtype)
     for m,ind in enumerate(coords):
         patches[m] = img[ind[0]:ind[0]+x_width, ind[1]:ind[1]+y_width]
     return patches

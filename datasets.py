@@ -3,6 +3,7 @@ from glob import glob
 import skimage.io as io
 import numpy as np
 import util
+import patchmaker
 
 def sglob(string):
     return sorted(glob(string))
@@ -60,27 +61,127 @@ seg_labels_small6x = lambda : sglob("data3/labeled_data_cellseg/labels/down6x/*.
 seg_images_extra = sglob("data3/labeled_data_cellseg/greyscales/*timeseries*/*.tif")
 
 
+def split_in_half_for_train_test(grey_imgs, label_imgs):
+    print("CREATING NDARRAY PATCHES")
+    grey_leftside   = []
+    label_leftside  = []
+    grey_rightside  = []
+    label_rightside = []
+    for grey,lab in zip(grey_imgs, label_imgs):
+        a,b = grey.shape
+        print("Shape of img:")
+        print(a,b)
+        grey_leftside.append(grey[:,0:b//2])
+        label_leftside.append(lab[:,0:b//2])
+        grey_rightside.append(grey[:,b//2:])
+        label_rightside.append(lab[:,b//2:])
+
+    print("SPLIT INTO TRAIN AND TEST")
+    print("WE HAVE TO SPLIT THE IMAGES IN HALF FIRST, OTHERWISE THE VALIDATION DATA WILL STILL BE PRESENT IN THE TRAINING DATA, BECAUSE OF OVERLAP.")
+    X_train,Y_train = imglists_to_XY(grey_leftside, label_leftside)
+    print("X_train.shape = ", X_train.shape, " and Y_train.shape = ", Y_train.shape)
+    X_vali, Y_vali  = imglists_to_XY(grey_rightside, label_rightside)
+    return X_train,Y_train,X_vali,Y_vali
+
+def build_X():
+    greys = get_all_big_tifs("data3/labeled_data_cellseg/greyscales/")
+    labels = get_all_big_tifs("data3/labeled_data_cellseg/labels/")
+    count = 0
+    end = 51
+    stakk = []
+    for a,b in zip(greys[:end], labels[:end]):
+        img = imread(a)
+        print(img.dtype)
+        lab = imread(b)
+        print(lab.dtype)
+        lab = lab[1]
+        # d.imsave('lab.tif', lab)
+        coords = patchmaker.square_grid_coords(img, 600)
+        img_pat = patchmaker.sample_patches_from_img(coords, img, (800, 800))
+        print(img_pat.dtype)
+        img_pat -= img_pat.min(axis=(1,2), keepdims=True)
+        img_pat = img_pat.astype('uint16')
+        img_pat *= (2**16-1)//img_pat.max(axis=(1,2), keepdims=True)
+        lab_pat = patchmaker.sample_patches_from_img(coords, lab, (800, 800))
+        # lab_pat[lab_pat!=0]=2
+        # lab_pat[lab_pat==0]=1
+        # lab_pat[lab_pat==2]=0
+        patches = np.stack([img_pat, lab_pat], axis=1)
+        # d.imsave('patches{:03d}.tif'.format(count), patches)
+        stakk.append(patches)
+        # stack = np.concatenate([stack, patches], axis=0)
+        count += 1
+    stakk = np.concatenate(stakk, axis=0)
+    return stakk
+
 def get_all_big_tifs(basedir):
     count = 0
     tiflist = []
     for a,b,c in os.walk(basedir):
         for img in c:
             if img.endswith(".tif") and 'down' not in a:
-                count += 1
-                d_name = os.path.join(a, img)
-                print(d_name)
-                tiflist.append(d_name)
+                if 'timeseries' in img and 'MembraneMiddle' in img:
+                    if 'zoomed' in img:
+                        count += 1
+                        d_name = os.path.join(a, img)
+                        print(d_name)
+                        tiflist.append(d_name)
+                else:
+                    count += 1
+                    d_name = os.path.join(a, img)
+                    print(d_name)
+                    tiflist.append(d_name)
     print(count)
     return tiflist
 
-
-def imsave(fname, img, **kwargs):
-    io.imsave(fname, img, compress=6, plugin='tifffile', **kwargs)
+def imsave(fname, img, axes='TYXC', **kwargs):
+    io.imsave(fname, img, compress=6, plugin='tifffile', metadata={'axes':axes}, imagej=True, **kwargs)
 
 def imread(fname, **kwargs):
     return io.imread(fname, plugin='tifffile', **kwargs)
 
 # ---- HOW WE MADE THE DATA
+
+x_width, y_width = 800,800
+step = 600
+
+def imglist_to_X(greylist):
+    """turn list of images into ndarray of patches, labels and their coordinates. Used for
+    both training and testing."""
+    patchshape = (y_width, x_width)
+    # normalize per image
+    def normimg(img):
+        mn,mx = img.min(), img.max()+1e-10
+        img -= mn
+        img = img/(mx-mn)
+        return img
+    greylist = [normimg(img) for img in greylist]
+    coords = [patchmaker.square_grid_coords(img, step) for img in greylist]
+    greypatches = [patchmaker.sample_patches_from_img(crd, img, patchshape) for crd,img in zip(coords, greylist)]
+    X = np.concatenate(tuple(greypatches), axis=0)
+    #X = normalize_X(X)
+    return X
+
+def imglists_to_XY(greylist, labellist):
+    X = imglist_to_X(greylist)
+    Y = imglist_to_Y(labellist)
+    return X,Y
+
+def normalize_X(X):
+    # normalize X per patch
+    mi = np.amin(X,axis = (1,2), keepdims = True)
+    ma = np.amax(X,axis = (1,2), keepdims = True)+1.e-10
+    X = (X-mi)/(ma-mi)
+    return X.astype(np.float32)
+
+def imglist_to_Y(labellist):
+    "turn list of images into ndarray of patches, labels and their coordinates"
+    patchshape = (y_width, x_width)
+    coords = [patchmaker.square_grid_coords(img, step) for img in labellist]
+    labelpatches = [patchmaker.sample_patches_from_img(crd, lab, patchshape) for crd,lab in zip(coords, labellist)]
+    Y = np.concatenate(tuple(labelpatches), axis=0)
+    return Y
+
 
 # def make_prediction_overlays():
 #     pairs = zip(unseen_seg(), unseen_labels(), unseen_greys(), unseen_seg_files())

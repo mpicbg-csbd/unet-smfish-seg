@@ -106,6 +106,7 @@ def td_summary(dirlist):
     print(tabulate([["Failed|Ongoing"]] + failedlist))
     return df
 
+@DeprecationWarning
 def explain_results(dir):
     "Get scores, runtime, etc for old-style training without a history.json or train_params.json"
     for d in glob(dir + '*/'):

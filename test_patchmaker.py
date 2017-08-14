@@ -44,8 +44,6 @@ def setborder(img, border, value):
 
 
 
-
-
 def test1():
 	img_shape = (1075, 1075)
 	patch_shape = (100,100)

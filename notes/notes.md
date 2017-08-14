@@ -1291,14 +1291,10 @@ By making the step length between patches an integer multiple of the largest max
 
 Remaining issues:
 
-- What cased the square artifacts in the individual patches? 
+- What caused the square artifacts in the individual patches? 
   + Hypothesis: failing to normalize X.
 + Where & Why are CPU & GPU different? Is GPU deterministic?
   * Hypothesis: GPU will introduce small random noise in output, uncorrelated with signal.
-
-NOTE:
-Both the step AND the patch width should be multiples of 2^d !!!!! But this means that they can't in general differ by 2*border_width = info travel dist....
-
 
 
 
@@ -1306,9 +1302,23 @@ Both the step AND the patch width should be multiples of 2^d !!!!! But this mean
 
 and now CUDNN_STATUS_INTERNAL_ERROR ggguguugggg
 
+# TEST: Make sure new big dataset runs... What kind of improvement do I expect to find?
 
+How do I know if my model is powerful enough?
+- Can it overfit? Use crossvalidation to know when you're overfitting and by how much.
+How do I know if I have enough data?
+- Does the validation loss saturate as a function of training set size?
+How do I know if my data is high quality?
+- dunno... If my datapoints overlap in my featurespace, then they are inconsistently labeled, according to those features, so either I need a better featurespace, or I need a better labeling. "label noise" is a term that exists. Usually, we take our labels to be exactly correct, and any overlap in featurespace means we either need a better, more descriptive featurespace, or we've reached the maximum predictive capability of the featurespace + model that we have. 
 
+# Saving tiffs in an ImageJ compatible way is Hell.
 
+Is there any way of saving a ZYXC image with C=2? with Uints? Floats?
+
+A float16(36,2,800,800) is interpreted by imagej as (72,800,800) z-stack...
+A float16(2,36,800,800) doesn't open, and gives the error "can't open 16-bit floats"...
+A uint16 works the same as above.
+If I use uint16(36,2,800,800) I can get a z and channel dimensions if I open with BIOformats (huzzah!), but I get the 1st image repeated 72 times if I just drag n' drop... wtf.
 
 
 
