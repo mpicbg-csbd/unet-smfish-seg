@@ -4,8 +4,8 @@ import pkg_resources
 pkg_resources.require("scikit-image>=0.13.0")
 
 import os
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID" # see issue #152
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID" # see issue #152
+# os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 import unet
 import util
@@ -19,7 +19,7 @@ import patchmaker
 import skimage.io as io
 
 rationale = """
-Test things on your home machine!
+Use less data and smaller Unet. Try to get to the end of training to test the full pipeline.
 """
 
 train_params = {
@@ -29,6 +29,7 @@ train_params = {
  'x_width' : 800,
  'y_width' : 800,
  'step'    : 600,
+ 'stakk'   : 'stakk_400_512_comp.tif',
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
@@ -46,7 +47,7 @@ train_params = {
  'rotate_angle_max' : 0, #10,
 
  'initial_model_params' : None, #"training/m158/unet_model_weights_checkpoint.h5",
- 'n_pool' : 4,
+ 'n_pool' : 2,
  'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.2,
  'itd' : "TBD",
@@ -61,40 +62,45 @@ def fix(Y):
 def train(train_params):
     start_time = time.time()
 
-    # Now finalize and save the train params
+    ## Now finalize and save the train params
+
     train_params['itd'] = analysis.info_travel_dist(train_params['n_pool'])
     train_params['rationale'] = rationale
 
-    # set global training-specific variables in Unet
-    unet.batch_size = train_params['batch_size']
+    ## build the model, maybe load pretrained weights.
 
     model = unet.get_unet_n_pool(train_params['n_pool'],
                                  train_params['n_convolutions_first_layer'],
                                  train_params['dropout_fraction'])
-
-    print(model.summary())
-
     if train_params['initial_model_params']:
         model.load_weights(train_params['initial_model_params'])
+    print(model.summary())
 
-    # Get X,Y
-    stakk = io.imread('stakk.tif')
+    ## stakk -> X,Y train & vali
+    stakk = io.imread(train_params['stakk'])
+
+    xs = stakk[:,0,...]
+    xs = xs.astype('float32')
+    xs /= xs.max(axis=(1,2), keepdims=True)
+    ys = fix(stakk[:,1,...])
+    
     a,b,c,d = stakk.shape
     end = a//7
-    X_train = stakk[:-end,0,...]
-    Y_train = fix(stakk[:-end,1,...])
-    X_vali  = stakk[-end:,0,...]
-    Y_vali  = fix(stakk[-end:,1,...])
+
+    X_train = xs[:-end, ...]
+    X_vali  = xs[-end:, ...]
+    Y_train = ys[:-end, ...]
+    Y_vali  = ys[-end:, ...]
 
     train_params['steps_per_epoch'], _ = divmod(X_train.shape[0], train_params['batch_size'])
     json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
 
-    # MAGIC HAPPENS HERE
+    ## MAGIC HAPPENS HERE
     begin_training_time = time.time()
     history = unet.train_unet(X_train, Y_train, X_vali, Y_vali, model, train_params)
     finished_time = time.time()
 
-    # MAGIC FINISHED, NOW SAVE TIMINGS
+    ## MAGIC FINISHED, NOW SAVE TIMINGS
     history.history['warm_up_time'] = begin_training_time - start_time
     train_time = finished_time - begin_training_time
     history.history['train_time'] = train_time
@@ -105,7 +111,7 @@ def train(train_params):
     history.history['avg_time_per_sample'] = train_time / (trained_epochs * history.history['X_train_shape'][0])
     json.dump(history.history, open(train_params['savedir'] + '/history.json', 'w'))
 
-    # MAKE PRETTY PREDICTIONS
+    ## MAKE PRETTY PREDICTIONS
     for name in grey_names:
         img = io.imread(name)
         print(name, img.shape)
