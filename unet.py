@@ -16,29 +16,25 @@ from keras.optimizers import Adam, SGD
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStopping, TensorBoard
 from keras import backend as K
 from keras.utils import np_utils
-# from keras.utils.visualize_util import plot
 from keras.preprocessing.image import ImageDataGenerator
 
-import skimage.util as skut
-import util
 import warping
 import patchmaker
 import datasets
-
-# example param values. Set them in train.py
-nb_classes = 2
 
 def labels_to_activations(Y):
     assert Y.min() == 0
     a,b,c = Y.shape
     Y = Y.reshape(a*b*c)
+    nb_classes = Y.max()+1
     Y = np_utils.to_categorical(Y, nb_classes)
-    # Y = Y.reshape(a, b*c, nb_classes)
     Y = Y.reshape(a, b, c, nb_classes)
     return Y.astype(np.float32)
 
 def add_singleton_dim(X):
-    # reshape into theano/tensorflow dimension ordering
+    """
+    backend [theano, tensorflow] dependent
+    """
     a,b,c = X.shape
     if K.image_dim_ordering() == 'th':
         X = X.reshape((a, 1, b, c))
@@ -46,22 +42,30 @@ def add_singleton_dim(X):
         X = X.reshape((a, b, c, 1))
     return X
 
-# setup and train the model
-
-def my_categorical_crossentropy(weights=(1., 1.), itd=0):
-    # replace K with numpy (and eps with 1e-7) to get a function we can actually evaluate (not just pass to compile)!
+def my_categorical_crossentropy(weights=(1., 1.), itd=1):
+    """
+    NOTE: The default weights assumes 2 classes, but the loss works for arbitrary classes if we simply change the length of the weights arg.
+    
+    Also, we can replace K with numpy (and eps with 1e-7) to get a function we can actually evaluate (not just pass to compile)!
+    """
+    weights = np.array(weights)
     mean = K.mean
-    log = K.log
-    eps = K.epsilon()
+    log  = K.log
+    sum  = K.sum
+    eps  = K.epsilon()
     def catcross(y_true, y_pred):
-        # only use the valid part of the result! as if we had only made valid convolutions and done reshaping
-        y_true_valid = y_true[:,itd:-itd,itd:-itd,:]
-        y_pred_valid = y_pred[:,itd:-itd,itd:-itd,:]
-        return -(weights[0] * mean(y_true_valid[:,:,:,0] * log(y_pred_valid[:,:,:,0] + eps)) +
-                 weights[1] * mean(y_true_valid[:,:,:,1] * log(y_pred_valid[:,:,:,1] + eps)))
+        ## only use the valid part of the result! as if we had only made valid convolutions
+        yt = y_true[:,itd:-itd,itd:-itd,:]
+        yp = y_pred[:,itd:-itd,itd:-itd,:]
+        ## NOTE: mean and sum commute here; we're still commuting the avg cross-entropy per pixel.
+        ce = yt * log(yp + eps)
+        ce = mean(ce, axis=(0,1,2))
+        result = weights * ce
+        result = -sum(result)
+        return result
     return catcross
 
-def get_unet_n_pool(n_pool, n_convolutions_first_layer=32, dropout_fraction=0.2):
+def get_unet_n_pool(n_pool, n_classes=2, n_convolutions_first_layer=32, dropout_fraction=0.2):
     """
     The info travel distance is given by analysis.info_travel_dist(n_pool, 3)
     """
@@ -70,7 +74,7 @@ def get_unet_n_pool(n_pool, n_convolutions_first_layer=32, dropout_fraction=0.2)
       inputs = Input((1, None, None))
       concatax = 1
       chan = 'channels_first'
-    if K.image_dim_ordering() == 'tf':
+    elif K.image_dim_ordering() == 'tf':
       inputs = Input((None, None, 1))
       concatax = 3
       chan = 'channels_last'
@@ -136,7 +140,7 @@ def get_unet_n_pool(n_pool, n_convolutions_first_layer=32, dropout_fraction=0.2)
         up = uccdc(s, up, conv)
 
     # final (1,1) convolutions and activation
-    acti_layer = Conv2D(2, (1, 1), padding='same', data_format=chan, activation='relu')(up)
+    acti_layer = Conv2D(n_classes, (1, 1), padding='same', data_format=chan, activation='relu')(up)
     if K.image_dim_ordering() == 'th':
         acti_layer = core.Permute((2,3,1))(acti_layer)
     acti_layer = core.Activation(softmax)(acti_layer)
@@ -149,16 +153,10 @@ def train_unet(X_train, Y_train, X_vali, Y_vali, model, train_params):
 
     tp = train_params
 
-    print("SETUP THE CLASSWEIGHTS")
-    # IMPORTANT! The weight for membrane is given by the fraction of non-membrane! (and vice versa)
-    classimg = Y_train.flatten()
-    non_zeros = len(classimg[classimg!=0])
-    non_ones = len(classimg[classimg!=1]) # * membrane_weight_multiplier
-    total = non_zeros + non_ones
-    w0 = non_zeros / total
-    w1 = non_ones / total
-    class_relative_frequncies = {0: w0, 1: w1}
-    print(class_relative_frequncies)
+    print("COMPUTE CLASSWEIGHTS")
+    _, counts = np.unique(Y_train, return_counts=True)
+    weights = (1-counts/counts.sum())/(len(counts)-1)
+    print("ClassWeights:", weights)
 
     print("SETUP OPTIMIZER")
     if tp['optimizer'] == 'sgd':
@@ -166,13 +164,11 @@ def train_unet(X_train, Y_train, X_vali, Y_vali, model, train_params):
     elif tp['optimizer'] == 'adam':
         optim = Adam(lr = tp['learning_rate'])
 
-    model.compile(optimizer=optim, loss=my_categorical_crossentropy(weights=(w0, w1), itd=tp['itd']), metrics=['accuracy'])
+    model.compile(optimizer=optim, loss=my_categorical_crossentropy(weights=weights, itd=tp['itd']), metrics=['accuracy'])
 
-    # Setup callbacks
     print("SETUP CALLBACKS")
     checkpointer = ModelCheckpoint(filepath=tp['savedir'] + "/unet_model_weights_checkpoint.h5", verbose=0, save_best_only=True, save_weights_only=True)
     earlystopper = EarlyStopping(patience=tp['patience'], verbose=0)
-    # tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0, batch_size=32, write_graph=True, write_grads=False, write_images=False, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None)
     callbacks = [checkpointer, earlystopper]
 
     history = model.fit_generator(
@@ -185,7 +181,6 @@ def train_unet(X_train, Y_train, X_vali, Y_vali, model, train_params):
 
     print("FINISHED TRAINING")
 
-    # history.history['steps_per_epoch'] = steps_per_epoch
     history.history['X_train_shape'] = X_train.shape
     history.history['X_vali_shape'] = X_vali.shape
 
@@ -211,7 +206,7 @@ def train_unet(X_train, Y_train, X_vali, Y_vali, model, train_params):
 
     return history
 
-def batch_generator_patches(X,Y, train_params, verbose=False):
+def batch_generator_patches(X, Y, train_params, verbose=False):
     epoch = 0
     tp = train_params
     while (True):
@@ -250,8 +245,8 @@ def batch_generator_patches(X,Y, train_params, verbose=False):
 def predict_single_image(model, img, itd, batch_size=32):
     "unet predict on a greyscale img"
     X = datasets.imglist_to_X([img])
-    X2 = add_singleton_dim(X)
-    Y_pred = model.predict(X2, batch_size=batch_size)
+    X = add_singleton_dim(X)
+    Y_pred = model.predict(X, batch_size=batch_size)
 
     if Y_pred.ndim == 3:
         print("NDIM 3, ")
@@ -264,7 +259,4 @@ def predict_single_image(model, img, itd, batch_size=32):
 
     coords = patchmaker.square_grid_coords(img, step)
     res = patchmaker.piece_together(Y_pred, coords, imgshape=img.shape, border=itd)
-    #xres = patchmaker.piece_together(X, coords, imgshape=img.shape, border=itd)
-    print("TEST*: ", img.shape, res.shape)
     return res[...,0].astype(np.float32)
-    #return xres[...,0].astype(np.float32)

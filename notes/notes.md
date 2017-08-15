@@ -839,7 +839,7 @@ SOLVED! We have to install pyopencl by hand, and remove the -arch i386 item from
 
 Fix the indentation and code folding issue on the cluster by changing shiftwidth to 4 `:set sw=4` and setting `:set fdm=indent`.
 
-# SOLVED! Problem: My tensor shape is not what I think it should be. I can't run Theano with channels_first setting.
+# SOLVED. Problem: My tensor shape is not what I think it should be. I can't run Theano with channels_first setting.
 
 I'm expecting the "channels" dimension to be after "samples" but before "x", "y" in the theano dimension-ordering configuration.... But it's not! Apparently...
 
@@ -992,7 +992,7 @@ Image calssifiation as a decoding problem?
 
 Also, we want the function "equality up to permutation". We can test for this by first building the matching matrix, then seeing if there is a permutation of this matrix that makes it diagonal. And we can do a super-short hack-check, just by testing to see if it is square! If not, then we know the two images are not equivalent up to permutation...
 
-# half solved. PROBLEM: How do we augment our labelings?
+# IGNORE. PROBLEM: How do we augment our labelings?
 
 We need to make sure that the warping doesn't accidentally destroy the nice property that our cell segmentations are given by thresholding the membrane segmentation (with 8-connected cells). *How can we test this?* If we warp the membrane, we expect the number of cells to remain the same!
 *They do not.* Thus, we have a problem. With even very small warps, we lose some cells due to the appearance of gaps in the membrane.
@@ -1075,7 +1075,7 @@ When evaluating a loss on a tracking problem we want an error score that doesn't
 
 - Before gives less diversity, but is computationally easier, but might require more code restructuring.
 
-# solved. ERROR: The cluster can't use imread or imresize?
+# SOLVED. ERROR: The cluster can't use imread or imresize?
 
 The solution for imread was to specify that plugin='tifffile'. This is not necessary if we upgrade to scikit-image 0.13.0, which we had to do in order to get the correct skimage.morphology.warp function! Also, we got the PIL version of imresize working after installing pillow library.
 
@@ -1111,9 +1111,13 @@ NotImplementedError: tostring() has been removed. Please call tobytes() instead
 
 We can fix this problem by making sure that we use the correct version of scikit_image. See tests/warp.py and the way it uses pkg_resources and sys.path. NOTE: that I couldn't find any way having python3 *prefer* my .local site-packages over the main one in /sw/apps without adding it explicitly to the head of the list at runtime. $PYTHONPATH adds it to the END of the list, which is not good enough.
 
-# PROBLEM: divide by zero when combining patchwise predictions.
+# IGNORE: PROBLEM: divide by zero when combining patchwise predictions.
 
 But I can see many places where I would divide by zero... is this actually a problem? You can divide one numpy array by another, where you divide 0/0 you get a nan. 1/0 gives inf. -1/0 gives -inf. It sometimes gives me a RuntimeWarning, but other times it stops my program!
+
+Dividing by zero leads to nans, which display fine in Fiji, etc. 
+
+The correct solution is to deal with the boundaries to the input s.t. you don't get any nans!
 
 # SOLVED: PROBLEM: prediction still has square artifacts, but only visible on weak/untrained models.
 
@@ -1131,7 +1135,7 @@ I don't know how to use a new version of a package I've installed myself without
 
 use the matplotlibrc file on the cluster with default backend : Agg
 
-# solved. PROBLEM: I can't save my model architecture because it uses a custom activation function.
+# SOLVED: PROBLEM: I can't save my model architecture because it uses a custom activation function.
 
 This activation function is just a softmax that has it's axis depend on the tensorflow|theano flag! (I could add a conditional permute? but this wouldn't appear in the model!)
 
@@ -1143,11 +1147,18 @@ Solved.
 2. by moving the conditional permute before the softmax I can use the standard softmax function.
 
 
-# PROBLEM: I can't group my tests to a separate tests folder.
+# Shitty Workaround: PROBLEM: I can't group my tests to a separate tests folder.
 
 Apparently you aren't supposed to call tests as you would call scripts...
+Actually, it looks like preferred behavior is, when making command-line calls within a python project, to use the `python -m module.submodule.subsubmodule` format, and not to just call the file by name e.g. `python tests/warping/test_warp.py`.
 
-# PROBLEM: Some of my simple tests require unet, but not keras or any model. Just the generators! The generators have no dependence on keras! Should I separate them?
+If I put scripts into a subdirectory, then I can't import stuff from the parent directory if I call with the filename calling convention, unless you add it to sys.path explicitly.
+
+I avoid this problem by keeping everything in a single directory :)
+
+# IGNORE: PROBLEM: Some of my simple tests require unet, but not keras or any model. Just the generators! The generators have no dependence on keras! Should I separate them?
+
+We've factored out a lot of the unet stuff into patchmaker.py and datasets.py, but we're keeping the generator in there for now. Where should it live? Generators require X,Y and train_params...
 
 # BIG ISSUE FIXED
 
@@ -1159,7 +1170,7 @@ Now I've got an awesome n-layer net. n_pool counts the number of pooling operati
 but we can try 4,5,6, etc!
 In the Ronneberger paper they use a network with '23 convolutional layers' which works out to n_pool = 5!
 
-# bad solution: PROBLEM: $pythonpath env var always has .egg files at the top, so I can't have a default preference for my own installed libraries!
+# hacky solution: PROBLEM: $pythonpath env var always has .egg files at the top, so I can't have a default preference for my own installed libraries!
 
 see: 
 https://stackoverflow.com/questions/5984523/eggs-in-path-before-pythonpath-environment-variable
@@ -1168,7 +1179,7 @@ It's easy-install's problem, apparently, and I probably can't change that.
 
 The only solution that works for me is to prepend the projects/project-broaddes/.local/ directory to the sys.path list at the start of each script!
 
-# BUG: my patchwork reconstruction produces visible square artifacts
+# 90% SOLVED: BUG: my patchwork reconstruction produces visible square artifacts
 
 By increasing the step, keeping dx at 480, and keeping itd at 92 I expect to see..... AT LEAST at 20 pix gap between patches.
 I can see a 20px gap at the very top of the image. This means my itd is set to 20px! clearly wrong. Does a 20px itd explain the 60px gap between patches? yes... remove 20px twice for itd and add 20px gap from step=500. This means I'm probably setting itd to 20, when I don't mean to...
@@ -1289,36 +1300,40 @@ SOLVED!
 
 By making the step length between patches an integer multiple of the largest max-pooling pixel size (= 2^d) we get perfectly smooth images!
 
+**But actually the best solution is probably to sample patches from different max-pooling grids and average the results.**
+
 Remaining issues:
 
-- What caused the square artifacts in the individual patches? 
+- What caused the square artifacts in the individual patches?
   + Hypothesis: failing to normalize X.
 + Where & Why are CPU & GPU different? Is GPU deterministic?
   * Hypothesis: GPU will introduce small random noise in output, uncorrelated with signal.
-
-
 
 # PROBLEM: memory easily exhausted when I run tensorflow from iPython (on my mac)
 
 and now CUDNN_STATUS_INTERNAL_ERROR ggguguugggg
 
-# TEST: Make sure new big dataset runs... What kind of improvement do I expect to find?
+# Problem: What kind of improvement do I expect to find with the new data?
+
+I don't know, even roughly, what kind of improvement to expect with the new data. Should the (validation) loss decrease? 
+
+Each of the following problems will cause poor predictions...
 
 How do I know if my model is powerful enough?
 - Can it overfit? Use crossvalidation to know when you're overfitting and by how much.
 How do I know if I have enough data?
 - Does the validation loss saturate as a function of training set size?
 How do I know if my data is high quality?
-- dunno... If my datapoints overlap in my featurespace, then they are inconsistently labeled, according to those features, so either I need a better featurespace, or I need a better labeling. "label noise" is a term that exists. Usually, we take our labels to be exactly correct, and any overlap in featurespace means we either need a better, more descriptive featurespace, or we've reached the maximum predictive capability of the featurespace + model that we have. 
+- dunno... If my datapoints overlap in my featurespace, then they are inconsistently labeled, according to those features, so either I need a better featurespace, or I need a better labeling. "label noise" is a term that exists. Usually, we take our labels to be exactly correct, and any overlap in featurespace means we either need a better, more descriptive featurespace, or we've reached the maximum predictive capability of the featurespace + model that we have. If our labels are noisy/meaningless, then even the most powerful/accurate model won't be able to predict well (on training? or vali?) **We can try artificially introducing label noise!** If we introduce different amounts of label noise into the training data then we can see how the prediction quality responds... This should tell us something... If we compare to a perfectly-labeled artifical dataset, then we should be able to figure out how poor our manual-labels are?
 
-# Saving tiffs in an ImageJ compatible way is Hell.
+# PROBLEM: Saving tiffs in an ImageJ compatible way is Hell.
 
 Is there any way of saving a ZYXC image with C=2? with Uints? Floats?
 
 A float16(36,2,800,800) is interpreted by imagej as (72,800,800) z-stack...
 A float16(2,36,800,800) doesn't open, and gives the error "can't open 16-bit floats"...
 A uint16 works the same as above.
-If I use uint16(36,2,800,800) I can get a z and channel dimensions if I open with BIOformats (huzzah!), but I get the 1st image repeated 72 times if I just drag n' drop... wtf.
+If I use uint16(36,2,800,800) I can get a z and channel dimensions if I open with BIOformats (huzzah!), but I get the 1st image repeated 72 times if I just drag n' drop... wtf. But not every time! Now BioFormats goes back to reshaping the array as a (large, x, y) patch
 
 
 
@@ -1328,15 +1343,23 @@ If I use uint16(36,2,800,800) I can get a z and channel dimensions if I open wit
 2. DONE. Remove bordermode = 'same' (change to 'valid')
 3. DONE. Augment with simple rotation and horizontal reflection
 4. DONE. Augment with warping
-5. Compare true cell segmentation scores
-6. Allow training on arbitrary size dataset
-7. Add distance penalty
+6. Allow training on arbitrary size dataset. Train on new Data.
+5. Compare true cell segmentation scores / old segmentation method / U-net paper w similar dataset?
+7. Weight pixels by distance to membrane boundary.
     * Does this still make sense? Given that Ronneberger used this distance penalty mostly to emphasize the background pixels *in between neighboring cells that had a small gap between them*. This is mostly appropriate to single cells-in-a-dish, and not to tissues.
 8. Predict only distance maps!
-9. Remove one-hot encoding
+9. Remove one-hot encoding. Predict different cell types. Differentiate background from cytoplasm. Introduce uncertainty via an "i don't know" label. This label must be incorporated into the loss as well!
 
-- Differentiable cell segmentation losses
-- DONE: Laurent's idea: warp the distance fields as opposed to the membranes!
+# Questions | Ideas | Possibly todo
+
+- How can we separate these problems?
+  + Model too weak: try overfitting to the max.
+  + Not enough data: use datasets of various sizes. see how validation score changes?
+  + Data quality poor: randomize different fractions of labels. How robust is validation loss? (Of course, the score will depend not just on the fraction of randomized scores, but on which pixels were randomized. Do we pick pixels w flat distribution across (samples, x, y) ? Or evenly weight by class?)
+- If we just training on a single patch, with various augmentations, how good can we do?
+- Differentiable cell segmentation losses?
 - how much can you warp before ground truth is destroyed?
 - complete set of matching, warping and cell seg error measures
+- DONE: Laurent's idea: warp the distance fields as opposed to the membranes!
+- 
 

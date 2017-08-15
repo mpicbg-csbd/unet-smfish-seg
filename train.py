@@ -24,12 +24,12 @@ Use less data and smaller Unet. Try to get to the end of training to test the fu
 
 train_params = {
  'savedir' : './',
- 'grey_tif_folder'  : "data3/labeled_data_cellseg/greyscales/",
- 'label_tif_folder' : "data3/labeled_data_cellseg/labels/",
- 'x_width' : 800,
- 'y_width' : 800,
- 'step'    : 600,
- 'stakk'   : 'stakk_400_512_comp.tif',
+ # 'grey_tif_folder'  : "data3/labeled_data_cellseg/greyscales/",
+ # 'label_tif_folder' : "data3/labeled_data_cellseg/labels/",
+ # 'x_width' : 800,
+ # 'y_width' : 800,
+ # 'step'    : 600,
+ 'stakk'   : 'stakk_smalltest.tif',
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
@@ -48,6 +48,7 @@ train_params = {
 
  'initial_model_params' : None, #"training/m158/unet_model_weights_checkpoint.h5",
  'n_pool' : 2,
+ 'n_classes' : 2,
  'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.2,
  'itd' : "TBD",
@@ -70,8 +71,9 @@ def train(train_params):
     ## build the model, maybe load pretrained weights.
 
     model = unet.get_unet_n_pool(train_params['n_pool'],
-                                 train_params['n_convolutions_first_layer'],
-                                 train_params['dropout_fraction'])
+                                 n_classes = train_params['n_classes'],
+                                 n_convolutions_first_layer = train_params['n_convolutions_first_layer'],
+                                 dropout_fraction = train_params['dropout_fraction'])
     if train_params['initial_model_params']:
         model.load_weights(train_params['initial_model_params'])
     print(model.summary())
