@@ -29,17 +29,13 @@ def predict(predict_params):
     predict_params['grey_tif_folder'] = train_params['grey_tif_folder']
 
     model = unet.get_unet_n_pool(train_params['n_pool'], 
-                                 train_params['n_convolutions_first_layer'],
-                                 train_params['dropout_fraction'])
+                                 #n_classes = train_params['n_classes'],
+                                 n_convolutions_first_layer = train_params['n_convolutions_first_layer'],
+                                 dropout_fraction = train_params['dropout_fraction'])
     print(model.summary())
     model.load_weights(predict_params['model_weights'])
 
     unet.savedir = train_params['savedir']
-    # unet.x_width = train_params['x_width']
-    # unet.y_width = train_params['y_width']
-    #unet.itd = train_params['itd']
-    #unet.step = train_params['step']
-    npool = 4
     unet.step = 16*35 # = 2**4 * 10 # *unet.x_width - 2*unet.itd #92 #100 #500 #310
     unet.itd  = 92 #190 #train_params['itd']
     unet.x_width = 16*(35+15)
@@ -50,7 +46,7 @@ def predict(predict_params):
     for name in predict_image_names[:5]:
         img = d.imread(name)
         print(name, img.shape)
-        res = unet.predict_single_image(model, img, batch_size=predict_params['batch_size'])
+        res = unet.predict_single_image(model, img, unet.itd+8, batch_size=predict_params['batch_size'])
         print("Res shape", res.shape)
         combo = np.stack((img, res), axis=0)
         path, base, ext =  util.path_base_ext(name)

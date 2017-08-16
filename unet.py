@@ -185,7 +185,7 @@ def train_unet(X_train, Y_train, X_vali, Y_vali, model, train_params):
     history.history['X_vali_shape'] = X_vali.shape
 
     Y_pred_train = model.predict(add_singleton_dim(X_train), tp['batch_size'])
-    Y_pred_vali = model.predict(add_singleton_dim(X_vali), tp['batch_size'])
+    Y_pred_vali  = model.predict(add_singleton_dim(X_vali), tp['batch_size'])
 
     print("ALL THE SHAPES")
     print(X_train.shape, Y_train.shape, Y_pred_train.shape)
@@ -196,12 +196,20 @@ def train_unet(X_train, Y_train, X_vali, Y_vali, model, train_params):
 
     if Y_pred_train.ndim == 3:
         print("NDIM 3, ")
-        Y_pred_train = Y_pred_train.reshape((-1, y_width, x_width, 2))
-        Y_pred_vali = Y_pred_vali.reshape((-1, y_width, x_width, 2))
+        Y_pred_train = Y_pred_train.reshape((-1, y_width, x_width, tp['n_classes']))
+        Y_pred_vali  = Y_pred_vali.reshape((-1, y_width, x_width, tp['n_classes']))
 
-    res = np.stack((X_train, Y_train, Y_pred_train[...,1]), axis=2)
+    def toUint16(X):
+        X -= X.min()
+        X *= (2**16-1)/X.max()
+        X = X.astype('uint16')
+        return X
+
+    X_train, X_vali = toUint16(X_train), toUint16(X_vali)
+    
+    res = np.stack((X_train, Y_train, np.argmax(Y_pred_train, axis=-1)), axis=1)
     savetiff(tp['savedir'] + '/training.tif', res)
-    res = np.stack((X_vali, Y_vali, Y_pred_vali[...,1]), axis=2)
+    res = np.stack((X_vali, Y_vali, np.argmax(Y_pred_vali, axis=-1)), axis=1)
     savetiff(tp['savedir'] + '/testing.tif', res)
 
     return history
@@ -242,7 +250,7 @@ def batch_generator_patches(X, Y, train_params, verbose=False):
 
 # use the model for prediction
 
-def predict_single_image(model, img, itd, batch_size=32):
+def predict_single_image(model, img, border, batch_size=32):
     "unet predict on a greyscale img"
     X = datasets.imglist_to_X([img])
     X = add_singleton_dim(X)
@@ -258,5 +266,5 @@ def predict_single_image(model, img, itd, batch_size=32):
     # WARNING TODO: This will break when we change the coords used in `imglist_to_X`
 
     coords = patchmaker.square_grid_coords(img, step)
-    res = patchmaker.piece_together(Y_pred, coords, imgshape=img.shape, border=itd)
+    res = patchmaker.piece_together(Y_pred, coords, imgshape=img.shape, border=border)
     return res[...,0].astype(np.float32)

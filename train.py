@@ -19,7 +19,8 @@ import patchmaker
 import skimage.io as io
 
 rationale = """
-Use less data and smaller Unet. Try to get to the end of training to test the full pipeline.
+After refactor I can't learn anything. This is a test after the generalized n_classes refactor.
+Also, it's a small test with the 'stakk_smalltest.tif' training data.
 """
 
 train_params = {
@@ -29,16 +30,17 @@ train_params = {
  # 'x_width' : 800,
  # 'y_width' : 800,
  # 'step'    : 600,
+ 'stakk'   : 'stakk_400_512_comp.tif',
  'stakk'   : 'stakk_smalltest.tif',
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 300,
+ 'epochs' : 30,
  'patience' : 30,
  'steps_per_epoch' : "TBD",
 
  'optimizer' : 'adam', # 'sgd' or 'adam' (adam ignores momentum)
- 'learning_rate' : 1.00e-4, #3.16e-5,
+ 'learning_rate' : 1.00e-3, #3.16e-5,
  'momentum' : 0.99,
 
  'noise':False, #True,
@@ -114,7 +116,7 @@ def train(train_params):
     json.dump(history.history, open(train_params['savedir'] + '/history.json', 'w'))
 
     ## MAKE PRETTY PREDICTIONS
-    for name in grey_names:
+    for name in datasets.seg_images():
         img = io.imread(name)
         print(name, img.shape)
         res = unet.predict_single_image(model, img, batch_size=train_params['batch_size'])
