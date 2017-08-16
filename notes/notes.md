@@ -1333,8 +1333,24 @@ Is there any way of saving a ZYXC image with C=2? with Uints? Floats?
 A float16(36,2,800,800) is interpreted by imagej as (72,800,800) z-stack...
 A float16(2,36,800,800) doesn't open, and gives the error "can't open 16-bit floats"...
 A uint16 works the same as above.
-If I use uint16(36,2,800,800) I can get a z and channel dimensions if I open with BIOformats (huzzah!), but I get the 1st image repeated 72 times if I just drag n' drop... wtf. But not every time! Now BioFormats goes back to reshaping the array as a (large, x, y) patch
+If I use uint16(36,2,800,800) I can get a z and channel dimensions if I open with BIOformats (huzzah!), but I get the 1st image repeated 72 times if I just drag n' drop... wtf. But not every time! Now BioFormats goes back to reshaping the array as a (large, x, y) patch...
 
+# PROBLEM: After refactoring, I can't learn anything!
+
+I compute reference stakk from available images in a separate step, prior to training. These datasets are computed once, and kept alive for a while, are easy to view & inspect and make sure there are no issues and that the patches are exactly what we want.
+
+Since my local GPU's memory is too small to train anything I resort to doing it remotely, which is fine, because the code is identical, as are the stakks. 
+
+PROBLEM: Predictions are all black or all white.
+Hypothesis: All the new data makes my X,Y too big... Or some difference between the old and new data make it difficult to learn them both together? Scale?
+Alternative: It's not a data or model problem, but a code problem.
+Test: Make a stack exactly the same as the ones we used to run. Use the same model. We should get the same results.
+
+OK, I can't even train on the small simple stack, so I think it must be a bug, and not a problem with the data.
+
+
+
+# NOTE: when downsampling from float32 to uint16 we first need to convert values to range [0,2**16-1], otherwise it rolls over.
 
 
 # TODO:

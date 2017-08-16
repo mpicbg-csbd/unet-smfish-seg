@@ -56,11 +56,36 @@ train_params = {
  'itd' : "TBD",
 }
 
-def fix(Y):
+def fix_labels(Y):
     Y[Y!=0]=2
     Y[Y==0]=1
     Y[Y==2]=0
     return Y
+
+def stakk_to_XY(train_params, split=7):
+    ## stakk -> X,Y train & vali
+    stakk = io.imread(train_params['stakk'])
+    a,b,c,d = stakk.shape
+    stakk = stakk[:a//5]
+
+    xs = stakk[:,0,...]
+    xs = xs.astype('float32')
+    xs /= xs.max(axis=(1,2), keepdims=True)
+    ys = fix_labels(stakk[:,1,...])
+    xmask = xs.sum(axis=(1,2))>5500 # bright
+    ymask = ys.sum(axis=(1,2))>0 # have membrane
+    xs = xs[ymask]
+    ys = ys[ymask]
+    
+    print(xmask.sum())
+    print(ymask.sum())
+    a,b,c,d = stakk.shape
+    end = a//split
+    X_train = xs[:-end, ...]
+    X_vali  = xs[-end:, ...]
+    Y_train = ys[:-end, ...]
+    Y_vali  = ys[-end:, ...]
+    return X_train, X_vali, Y_train, Y_vali
 
 def train(train_params):
     start_time = time.time()
@@ -80,21 +105,7 @@ def train(train_params):
         model.load_weights(train_params['initial_model_params'])
     print(model.summary())
 
-    ## stakk -> X,Y train & vali
-    stakk = io.imread(train_params['stakk'])
-
-    xs = stakk[:,0,...]
-    xs = xs.astype('float32')
-    xs /= xs.max(axis=(1,2), keepdims=True)
-    ys = fix(stakk[:,1,...])
-    
-    a,b,c,d = stakk.shape
-    end = a//7
-
-    X_train = xs[:-end, ...]
-    X_vali  = xs[-end:, ...]
-    Y_train = ys[:-end, ...]
-    Y_vali  = ys[-end:, ...]
+    X_train, X_vali, Y_train, Y_vali = stakk_to_XY(train_params, split=7)
 
     train_params['steps_per_epoch'], _ = divmod(X_train.shape[0], train_params['batch_size'])
     json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
