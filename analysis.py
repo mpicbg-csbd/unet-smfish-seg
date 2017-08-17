@@ -19,13 +19,16 @@ from tabulate import tabulate
 import segtools as st
 
 dirs_old = glob('training/m?/') + glob('training/m[123456789]?/') + glob('training/m10[01234567]/') # hadn't fixed the val_loss yet
-dirs = glob('training/m10[89]/') + glob('training/m1[1234567]?/') # after fixing the val_loss
+dirs = glob('training/m10[89]/') + glob('training/m1[123456789]?/') # after fixing the val_loss
 
 
 def explain_training_dir(dr):
     train_params = json.load(open(dr + '/train_params.json'))
     rationale = train_params['rationale']
-    history = json.load(open(dr + '/history.json'))
+    try:
+        history = json.load(open(dr + '/history.json'))
+    except:
+        history = "NO HISTORY."
     return rationale, train_params, history
 
 def make_megaplot(dirlist, show=False):
@@ -94,15 +97,16 @@ def td_summary(dirlist):
         d = dirlist[i]
         try:
             r,t,h = explain_training_dir(d)
-            d_list.append(d) 
-            t_list.append(t)
-            h_list.append(h)
+            if not h=="NO HISTORY.":
+                d_list.append(d) 
+                t_list.append(t)
+                h_list.append(h)
         except (FileNotFoundError, AttributeError):
             failedlist.append([dirlist[i]])
 
     df = pd.DataFrame(t_list, index=d_list)
     df2 = pd.DataFrame(h_list, index=d_list)
-    df = df.join(df2)
+    df = df.join(df2, lsuffix='_train', rsuffix='_hist')
     print(tabulate([["Failed|Ongoing"]] + failedlist))
     return df
 
@@ -156,10 +160,10 @@ if __name__ == '__main__':
     df['loss_f'] = [x[i] for x,i in zip(df['loss'], ind)]
     df['val_acc_f'] = [x[i] for x,i in zip(df['val_acc'], ind)]
     df['val_loss_f'] = [x[i] for x,i in zip(df['val_loss'], ind)]
-    df['grey_tif_folder'] = [os.path.normpath(x).split(os.path.sep)[1:] for x in df['grey_tif_folder']]
+    #df['grey_tif_folder'] = [os.path.normpath(x).split(os.path.sep)[1:] for x in df['grey_tif_folder']]
     df['traindir'] = [int(os.path.normpath(x).split(os.path.sep)[-1][1:]) for x in df.index]
     df.to_pickle('summary.pkl')
-    for d in dirs[-10:-5]:
-        print(d)
-        add_plots_to_traindir(d)
+    # for d in dirs[-10:]:
+    #     print(d)
+    #     add_plots_to_traindir(d)
 

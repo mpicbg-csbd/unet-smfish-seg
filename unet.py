@@ -22,13 +22,19 @@ import warping
 import patchmaker
 import datasets
 
-def labels_to_activations(Y):
+def normalize_X(X):
+    # normalize X per patch
+    mi = np.amin(X,axis = (1,2), keepdims = True)
+    ma = np.amax(X,axis = (1,2), keepdims = True)+1.e-10
+    X = (X-mi)/(ma-mi)
+    return X.astype(np.float32)
+
+def labels_to_activations(Y, n_classes=2):
     assert Y.min() == 0
     a,b,c = Y.shape
     Y = Y.reshape(a*b*c)
-    nb_classes = Y.max()+1
-    Y = np_utils.to_categorical(Y, nb_classes)
-    Y = Y.reshape(a, b, c, nb_classes)
+    Y = np_utils.to_categorical(Y, n_classes)
+    Y = Y.reshape(a, b, c, n_classes)
     return Y.astype(np.float32)
 
 def add_singleton_dim(X):
@@ -41,7 +47,7 @@ def add_singleton_dim(X):
     elif K.image_dim_ordering() == 'tf':
         X = X.reshape((a, b, c, 1))
     return X
-
+    
 def my_categorical_crossentropy(weights=(1., 1.), itd=1):
     """
     NOTE: The default weights assumes 2 classes, but the loss works for arbitrary classes if we simply change the length of the weights arg.
@@ -51,7 +57,7 @@ def my_categorical_crossentropy(weights=(1., 1.), itd=1):
     weights = np.array(weights)
     mean = K.mean
     log  = K.log
-    sum  = K.sum
+    summ = K.sum
     eps  = K.epsilon()
     def catcross(y_true, y_pred):
         ## only use the valid part of the result! as if we had only made valid convolutions
@@ -61,7 +67,7 @@ def my_categorical_crossentropy(weights=(1., 1.), itd=1):
         ce = yt * log(yp + eps)
         ce = mean(ce, axis=(0,1,2))
         result = weights * ce
-        result = -sum(result)
+        result = -summ(result)
         return result
     return catcross
 
@@ -86,6 +92,8 @@ def get_unet_n_pool(n_pool, n_classes=2, n_convolutions_first_layer=32, dropout_
     def Upsa():
         return UpSampling2D(size=(2,2), data_format=chan)
     
+    d = dropout_fraction
+    
     def cdcp(s, inpt):
         """
         conv, drop, conv, pool
@@ -108,13 +116,12 @@ def get_unet_n_pool(n_pool, n_classes=2, n_convolutions_first_layer=32, dropout_
         return conv
 
     # once we've defined the above terms, the entire unet just takes a few lines ;)
-    s = n_convolutions_first_layer
-    d = dropout_fraction
-    
+
     # holds the output of convolutions on the contracting path
     conv_layers = []
 
     # the first conv comes from the inputs
+    s = n_convolutions_first_layer
     conv, pool = cdcp(s, inputs)
     conv_layers.append(conv)
 
@@ -150,7 +157,6 @@ def get_unet_n_pool(n_pool, n_classes=2, n_convolutions_first_layer=32, dropout_
 # ---- PUBLIC INTERFACE ----
 
 def train_unet(X_train, Y_train, X_vali, Y_vali, model, train_params):
-
     tp = train_params
 
     print("COMPUTE CLASSWEIGHTS")
@@ -173,11 +179,11 @@ def train_unet(X_train, Y_train, X_vali, Y_vali, model, train_params):
 
     history = model.fit_generator(
                 batch_generator_patches(X_train, Y_train, train_params),
-                steps_per_epoch=tp['steps_per_epoch'],
+                steps_per_epoch=tp['batches_per_epoch'],
                 epochs=tp['epochs'],
                 verbose=1,
                 callbacks=callbacks,
-                validation_data=(add_singleton_dim(X_vali), labels_to_activations(Y_vali)))
+                validation_data=(add_singleton_dim(X_vali), labels_to_activations(Y_vali, tp['n_classes'])))
 
     print("FINISHED TRAINING")
 
@@ -208,9 +214,9 @@ def train_unet(X_train, Y_train, X_vali, Y_vali, model, train_params):
     X_train, X_vali = toUint16(X_train), toUint16(X_vali)
     
     res = np.stack((X_train, Y_train, np.argmax(Y_pred_train, axis=-1)), axis=1)
-    savetiff(tp['savedir'] + '/training.tif', res)
+    savetiff(tp['savedir'] + '/training.tif', res.astype('uint16'))
     res = np.stack((X_vali, Y_vali, np.argmax(Y_pred_vali, axis=-1)), axis=1)
-    savetiff(tp['savedir'] + '/testing.tif', res)
+    savetiff(tp['savedir'] + '/testing.tif', res.astype('uint16'))
 
     return history
 
@@ -225,7 +231,7 @@ def batch_generator_patches(X, Y, train_params, verbose=False):
         np.random.shuffle(inds)
         X = X[inds]
         Y = Y[inds]
-        while batchnum < tp['steps_per_epoch']:
+        while batchnum < tp['batches_per_epoch']:
             Xbatch, Ybatch = X[current_idx:current_idx + tp['batch_size']].copy(), Y[current_idx:current_idx + tp['batch_size']].copy()
             # io.imsave('X.tif', Xbatch, plugin='tifffile')
             # io.imsave('Y.tif', Ybatch, plugin='tifffile')
@@ -235,7 +241,7 @@ def batch_generator_patches(X, Y, train_params, verbose=False):
             for i in range(Xbatch.shape[0]):
                 x = Xbatch[i]
                 y = Ybatch[i]
-                x,y = warping.randomly_augment_patches(x, y, tp['noise'], tp['flipLR'], tp['warping_size'], tp['rotate_angle_max'])
+                #x,y = warping.randomly_augment_patches(x, y, tp['noise'], tp['flipLR'], tp['warping_size'], tp['rotate_angle_max'])
                 Xbatch[i] = x
                 Ybatch[i] = y
 
@@ -243,28 +249,11 @@ def batch_generator_patches(X, Y, train_params, verbose=False):
             # io.imsave('Yauged.tif', Ybatch.astype('float32'), plugin='tifffile')
 
             Xbatch = add_singleton_dim(Xbatch)
-            Ybatch = labels_to_activations(Ybatch)
+            Ybatch = labels_to_activations(Ybatch, tp['n_classes'])
+
+            # print('xshape', Xbatch.shape)
+            # print('yshape', Ybatch.shape)
 
             batchnum += 1
             yield Xbatch, Ybatch
 
-# use the model for prediction
-
-def predict_single_image(model, img, border, batch_size=32):
-    "unet predict on a greyscale img"
-    X = datasets.imglist_to_X([img])
-    X = add_singleton_dim(X)
-    Y_pred = model.predict(X, batch_size=batch_size)
-
-    if Y_pred.ndim == 3:
-        print("NDIM 3, ")
-        Y_pred = Y_pred.reshape((-1, y_width, x_width, 2))
-
-    Y_pred = Y_pred[...,1]
-    print("Y_pred shape: ", Y_pred.shape)
-    io.imsave('Ypred.tif', Y_pred)
-    # WARNING TODO: This will break when we change the coords used in `imglist_to_X`
-
-    coords = patchmaker.square_grid_coords(img, step)
-    res = patchmaker.piece_together(Y_pred, coords, imgshape=img.shape, border=border)
-    return res[...,0].astype(np.float32)

@@ -128,55 +128,20 @@ def get_all_big_tifs(basedir):
     print(count)
     return tiflist
 
+@DeprecationWarning
 def imsave(fname, img, axes='TYXC', **kwargs):
     io.imsave(fname, img, compress=6, plugin='tifffile', metadata={'axes':axes}, imagej=True, **kwargs)
 
+@DeprecationWarning
 def imread(fname, **kwargs):
     return io.imread(fname, plugin='tifffile', **kwargs)
 
 
-## Moved to datasets.py from unet.py.
-## Converts image lists to patches. Does normalization.
-
-x_width, y_width = 800,800
-step = 600
-
-def imglist_to_X(greylist):
-    """turn list of images into ndarray of patches, labels and their coordinates. Used for
-    both training and testing."""
-    patchshape = (y_width, x_width)
-    # normalize per image
-    def normimg(img):
-        mn,mx = img.min(), img.max()+1e-10
-        img -= mn
-        img = img/(mx-mn)
-        return img
-    greylist = [normimg(img) for img in greylist]
-    coords = [patchmaker.square_grid_coords(img, step) for img in greylist]
-    greypatches = [patchmaker.sample_patches_from_img(crd, img, patchshape) for crd,img in zip(coords, greylist)]
-    X = np.concatenate(greypatches, axis=0)
-    #X = normalize_X(X)
-    return X
-
-def imglists_to_XY(greylist, labellist):
-    X = imglist_to_X(greylist)
-    Y = imglist_to_Y(labellist)
-    return X,Y
-
-def normalize_X(X):
-    # normalize X per patch
-    mi = np.amin(X,axis = (1,2), keepdims = True)
-    ma = np.amax(X,axis = (1,2), keepdims = True)+1.e-10
-    X = (X-mi)/(ma-mi)
-    return X.astype(np.float32)
-
-def imglist_to_Y(labellist):
-    "turn list of images into ndarray of patches, labels and their coordinates"
-    patchshape = (y_width, x_width)
-    coords = [patchmaker.square_grid_coords(img, step) for img in labellist]
-    labelpatches = [patchmaker.sample_patches_from_img(crd, lab, patchshape) for crd,lab in zip(coords, labellist)]
-    Y = np.concatenate(labelpatches, axis=0)
-    return Y
+def norm_img(img):
+    mn,mx = img.min(), img.max()+1e-10
+    img -= mn
+    img = img/(mx-mn)
+    return img
 
 
 ## ---- HOW WE MADE THE DATA

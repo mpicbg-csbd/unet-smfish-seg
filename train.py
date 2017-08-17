@@ -13,47 +13,47 @@ import time
 import json
 import numpy as np
 import analysis
+import datasets
 
 from scipy.ndimage import zoom
 import patchmaker
 import skimage.io as io
 
 rationale = """
-After refactor I can't learn anything. This is a test after the generalized n_classes refactor.
-Also, it's a small test with the 'stakk_smalltest.tif' training data.
+Find the BUG!
 """
 
 train_params = {
  'savedir' : './',
- # 'grey_tif_folder'  : "data3/labeled_data_cellseg/greyscales/",
- # 'label_tif_folder' : "data3/labeled_data_cellseg/labels/",
- # 'x_width' : 800,
- # 'y_width' : 800,
- # 'step'    : 600,
- 'stakk'   : 'stakk_400_512_comp.tif',
+
+ #'stakk'   : 'stakk_400_512_comp.tif',
  'stakk'   : 'stakk_smalltest.tif',
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 30,
+ 'epochs' : 100,
  'patience' : 30,
- 'steps_per_epoch' : "TBD",
+ 'batches_per_epoch' : "TBD",
 
  'optimizer' : 'adam', # 'sgd' or 'adam' (adam ignores momentum)
- 'learning_rate' : 1.00e-3, #3.16e-5,
+ 'learning_rate' : 1.00e-4, #3.16e-5,
  'momentum' : 0.99,
 
- 'noise':False, #True,
- 'warping_size' : 0, #5,
- 'flipLR' : False, #True,
- 'rotate_angle_max' : 0, #10,
+ ## noise True | False
+ 'noise':False,
+ ## warping_size > 0, float
+ 'warping_size' : 0,
+ ## flipLR True | False
+ 'flipLR' : True,
+ ## rotate_angle_max > 0, float
+ 'rotate_angle_max' : 0,
 
  'initial_model_params' : None, #"training/m158/unet_model_weights_checkpoint.h5",
  'n_pool' : 2,
  'n_classes' : 2,
  'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.2,
- 'itd' : "TBD",
+ 'itd' : 10, # border ~= info_travel_dist(n_pool)
 }
 
 def fix_labels(Y):
@@ -63,10 +63,14 @@ def fix_labels(Y):
     return Y
 
 def stakk_to_XY(train_params, split=7):
-    ## stakk -> X,Y train & vali
+    """
+    stakk -> X,Y train & vali
+    """
     stakk = io.imread(train_params['stakk'])
     a,b,c,d = stakk.shape
-    stakk = stakk[:a//5]
+
+    ## TODO: REMOVE THIS!!!! 
+    # stakk = stakk[:a//2]
 
     xs = stakk[:,0,...]
     xs = xs.astype('float32')
@@ -74,12 +78,13 @@ def stakk_to_XY(train_params, split=7):
     ys = fix_labels(stakk[:,1,...])
     xmask = xs.sum(axis=(1,2))>5500 # bright
     ymask = ys.sum(axis=(1,2))>0 # have membrane
-    xs = xs[ymask]
-    ys = ys[ymask]
-    
-    print(xmask.sum())
-    print(ymask.sum())
-    a,b,c,d = stakk.shape
+    # xs = xs[ymask]
+    # ys = ys[ymask]
+
+    print('xmask.sum', xmask.sum())
+    print('ymask.sum', ymask.sum())
+
+    a,b,c = xs.shape
     end = a//split
     X_train = xs[:-end, ...]
     X_vali  = xs[-end:, ...]
@@ -92,8 +97,29 @@ def train(train_params):
 
     ## Now finalize and save the train params
 
-    train_params['itd'] = analysis.info_travel_dist(train_params['n_pool'])
+    #train_params['itd'] = analysis.info_travel_dist(train_params['n_pool'])
     train_params['rationale'] = rationale
+
+    # train162 = io.imread('training/m162/training.tif')
+    # test162  = io.imread('training/m162/testing.tif')
+    # X_train, Y_train = train162[:100,...,0], train162[:100,...,1].astype('uint16')
+    # X_vali, Y_vali = test162[:100,...,0], test162[:100,...,1].astype('uint16')
+
+    X_train, X_vali, Y_train, Y_vali = stakk_to_XY(train_params, split=3)
+
+    train_params['batches_per_epoch'], _ = divmod(X_train.shape[0], train_params['batch_size'])
+    json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
+
+    print("SHAPES AND TYPES AND MINMAX.")
+    print(X_train.shape, Y_train.shape)
+    print(X_train.dtype, Y_train.dtype)
+    print(X_train.min(), X_train.max())
+    print(Y_train.min(), Y_train.max())
+    print(X_vali.shape, Y_vali.shape)
+    print(X_vali.dtype, Y_vali.dtype)
+    print(X_vali.min(), X_vali.max())
+    print(Y_vali.min(), Y_vali.max())
+    print("Nans?:", np.isnan(X_train.flatten()).sum())
 
     ## build the model, maybe load pretrained weights.
 
@@ -104,11 +130,6 @@ def train(train_params):
     if train_params['initial_model_params']:
         model.load_weights(train_params['initial_model_params'])
     print(model.summary())
-
-    X_train, X_vali, Y_train, Y_vali = stakk_to_XY(train_params, split=7)
-
-    train_params['steps_per_epoch'], _ = divmod(X_train.shape[0], train_params['batch_size'])
-    json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
 
     ## MAGIC HAPPENS HERE
     begin_training_time = time.time()
@@ -122,18 +143,16 @@ def train(train_params):
     trained_epochs = len(history.history['acc'])
     history.history['trained_epochs'] = trained_epochs
     history.history['avg_time_per_epoch'] = train_time / trained_epochs
-    history.history['avg_time_per_batch'] = train_time / (trained_epochs * history.history['steps_per_epoch'])
+    history.history['avg_time_per_batch'] = train_time / (trained_epochs * train_params['batches_per_epoch'])
     history.history['avg_time_per_sample'] = train_time / (trained_epochs * history.history['X_train_shape'][0])
     json.dump(history.history, open(train_params['savedir'] + '/history.json', 'w'))
 
     ## MAKE PRETTY PREDICTIONS
-    for name in datasets.seg_images():
-        img = io.imread(name)
-        print(name, img.shape)
-        res = unet.predict_single_image(model, img, batch_size=train_params['batch_size'])
-        combo = np.stack((img, res), axis=0)
-        path, base, ext = util.path_base_ext(name)
-        io.imsave(train_params['savedir'] + "/" + base + '_predict' + ext, combo.astype('float32'))
+    import predict
+    pp = predict.predict_params
+    pp = predict.get_params_from_dir(pp, train_params['savedir'])
+    pp['savedir'] = train_params['savedir']
+    predict.predict(pp, model=model)
 
     return history
 
