@@ -83,12 +83,12 @@ def split_in_half_for_train_test(grey_imgs, label_imgs):
     return X_train,Y_train,X_vali,Y_vali
 
 def build_stakk():
-    greys = get_all_big_tifs("data3/labeled_data_cellseg/greyscales/")
+    greys  = get_all_big_tifs("data3/labeled_data_cellseg/greyscales/")
     labels = get_all_big_tifs("data3/labeled_data_cellseg/labels/")
     count = 0
-    end = 2
-    step = 256
-    width = 128 # must be factor of 2^d, d=n_maxpooling (across all models!)
+    end = None
+    step = 296
+    width = 480 # must be factor of 2^d, d=n_maxpooling (across all models!)
     stakk = []
     sizes = []
     for a,b in zip(greys[:end], labels[:end]):
@@ -130,6 +130,7 @@ def get_all_big_tifs(basedir):
 
 @DeprecationWarning
 def imsave(fname, img, axes='TYXC', **kwargs):
+    print("works!")
     io.imsave(fname, img, compress=6, plugin='tifffile', metadata={'axes':axes}, imagej=True, **kwargs)
 
 @DeprecationWarning

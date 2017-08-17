@@ -1346,7 +1346,56 @@ Hypothesis: All the new data makes my X,Y too big... Or some difference between 
 Alternative: It's not a data or model problem, but a code problem.
 Test: Make a stack exactly the same as the ones we used to run. Use the same model. We should get the same results.
 
-OK, I can't even train on the small simple stack, so I think it must be a bug, and not a problem with the data.
+OK, I can't even train on the small simple stack, so I think it must be a bug, and not a problem with the data... All the 
+
+## SOLVED: Subproblem: I get an error when training with old data!
+
+It must be due to the shape or dtype. so print those out....
+The dtypes, mins & max are the same, and there's nothing obviously wrong with the shape (it was a shape i'd used before!!!). Still, I'll try cutting down the number of samples to see if that fixes the problem...
+
+Aside: I fixed a bug in getting the size of my training stack...
+
+But still my program crashes with the old training data... So strange!
+
+Check steps_per_epoch... it's correct.
+
+Code "works" with all stakks so far... stakks of width 128 and 512. And from 32 to 3000 samples... The dtypes are the same and the values in the dtypes are the same....
+
+Remaining Hypotheses:
+- It has to do with the content of the images themselves? Does x have nans?
+- It has to do with the patchwidth: 480... It was never a problem before... but now it is for some reason.
+
+And how is this related to the problem of not being able to learn? No idea...
+After several large-ish batches, can we say there's definitely a bug and it's not just failure to train?? I think we can....
+
+Remaining failure to train hypotheses...
+- still can't rule out that the new data is keeping us from learning... if anything the 2nd problem adds to that hypothesis...
+- could be do the the generalized n_channels
+
+ANOTHER BUG! I hadn't defined the variable `d` (dropout fraction) in my build_unet function before it was used in a function def that captured it... This went silently unnoticed through the keras compile! I have no idea what value `d` had before it was used! And this is an oldddd function that has been used several times to train great networks! Why wasn't this bug caught before!? Either the code changed or the random value that it happened to capture was acceptible... OR this is a red herring and the variable was't capured by value, but by reference and so it didn't need to be defined...
+UPDATE :::: NOT A BUG!
+The function was not used *before* the variable d was defined, and since closures apparently capture variables by reference (not by value?) (even if undefined at the time) there was no problem when we actually needed to evalue them... So this doesn't explain our inability to learn! Maybe it's only explained by the small datasets and rapid training time?
+
+ORIGINAL PROBLEM GONE. My nets can learn! But now I see the 2nd problem occur with my tiny dataset... it's got something to do with "strided_slice" blah blah... what does this mean????
+
+BUG FOUND! You were, like an idiot, computing the number of classes in to_categorical based on the max value in your Ylabel data, which varies depending on the data!!!! Don't do that.
+
+Remaining hypotheses:
+- Inherent randomness of training. Small datasets and short training times.
+- there is a problem with my loss function...
+
+TEST: Try training using both loss functions... Or just try evaluating both loss functions on arbitrary data.
+
+Numpy numerical tests return the same floating point values... But when running with the Tensorflow mean,sum,log, etc I get two different results.... The results returned are just the *names* of the functions according to tensorflow, which are generated dynamically. Running the test multiple times returns new names (with increasing numerical string) each time.
+
+# AVOID... PROBLEM: OSError: cannot identify image file 'training/m174/training.tif'
+
+On the falcon server I have this bug when trying to open in ipython with skimage.io, but on my local machine the file opens as int32... Even after changing the save-type to 'uint16' i still have this error....
+
+# PROBLEM: I keep running into key errors when working with dataframes.
+
+This is not a hard problem. It just means fixing the bugs and making the code more robust against changes/ missing data in train_params.json and history.json.
+
 
 
 

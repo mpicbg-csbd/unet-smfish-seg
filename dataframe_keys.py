@@ -91,6 +91,7 @@ def add_npool(df):
 def display_best(n_best=6):
     plt.ion()
     df = pd.read_pickle('summary.pkl')
+    df = add_npool(df)
     pd.set_option('expand_frame_repr', False)
     best = df[df.traindir > 107].sort_values(sort_by_these).iloc[:n_best]
     print(best[show_these])
@@ -114,9 +115,9 @@ def summary_text():
     df = pd.read_pickle('summary.pkl')
     add_npool(df)
     pd.set_option('expand_frame_repr', False)
-    best = df.sort_values(sort_by_these)[show_these][df.traindir > 107]
+    best = df.sort_values(sort_by_these)[show_these][df.traindir > 157]
     print(best)
-    top = df.sort_values(sort_by_these)[df.traindir > 107].iloc[0]
+    top = df.sort_values(sort_by_these)[df.traindir > 157].iloc[0]
     return top
 
 
