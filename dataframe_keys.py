@@ -121,7 +121,8 @@ def summary_text():
     return top
 
 
-
+if __name__ == '__main__':
+    summary_text()
 
 
 

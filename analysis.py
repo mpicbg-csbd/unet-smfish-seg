@@ -19,7 +19,7 @@ from tabulate import tabulate
 import segtools as st
 
 dirs_old = glob('training/m?/') + glob('training/m[123456789]?/') + glob('training/m10[01234567]/') # hadn't fixed the val_loss yet
-dirs = glob('training/m10[89]/') + glob('training/m1[123456789]?/') # after fixing the val_loss
+dirs = glob('training/m10[89]/') + glob('training/m1[123456789]?/') + glob('training/m2??') # after fixing the val_loss
 
 
 def explain_training_dir(dr):

@@ -23,11 +23,16 @@ import patchmaker
 import datasets
 
 def normalize_X(X):
-    # normalize X per patch
-    mi = np.amin(X,axis = (1,2), keepdims = True)
-    ma = np.amax(X,axis = (1,2), keepdims = True)+1.e-10
-    X = (X-mi)/(ma-mi)
-    return X.astype(np.float32)
+    # normalize min and max over X per patch to [0,1]
+    X = X.astype('float32')
+    #mi = np.amin(X,axis = (1,2), keepdims = True)
+    mi = np.percentile(X, 1, axis = (1,2), keepdims = True)
+    X -= mi
+    #ma = np.amax(X,axis = (1,2), keepdims = True) + 1.e-10
+    ma = np.percentile(X, 99, axis = (1,2), keepdims = True) + 1.e-10
+    X /= ma
+    X = np.clip(X, 0, 1)
+    return X
 
 def labels_to_activations(Y, n_classes=2):
     assert Y.min() == 0
@@ -48,16 +53,16 @@ def add_singleton_dim(X):
         X = X.reshape((a, b, c, 1))
     return X
     
-def my_categorical_crossentropy(weights=(1., 1.), itd=1):
+def my_categorical_crossentropy(weights=(1., 1.), itd=1, BEnd=K):
     """
     NOTE: The default weights assumes 2 classes, but the loss works for arbitrary classes if we simply change the length of the weights arg.
     
-    Also, we can replace K with numpy (and eps with 1e-7) to get a function we can actually evaluate (not just pass to compile)!
+    Also, we can replace K with numpy to get a function we can actually evaluate (not just pass to compile)!
     """
     weights = np.array(weights)
-    mean = K.mean
-    log  = K.log
-    summ = K.sum
+    mean = BEnd.mean
+    log  = BEnd.log
+    summ = BEnd.sum
     eps  = K.epsilon()
     def catcross(y_true, y_pred):
         ## only use the valid part of the result! as if we had only made valid convolutions
@@ -190,33 +195,34 @@ def train_unet(X_train, Y_train, X_vali, Y_vali, model, train_params):
     history.history['X_train_shape'] = X_train.shape
     history.history['X_vali_shape'] = X_vali.shape
 
-    Y_pred_train = model.predict(add_singleton_dim(X_train), tp['batch_size'])
-    Y_pred_vali  = model.predict(add_singleton_dim(X_vali), tp['batch_size'])
+    if False:
+        Y_pred_train = model.predict(add_singleton_dim(X_train), tp['batch_size'])
+        Y_pred_vali  = model.predict(add_singleton_dim(X_vali), tp['batch_size'])
 
-    print("ALL THE SHAPES")
-    print(X_train.shape, Y_train.shape, Y_pred_train.shape)
-    print(X_vali.shape, Y_vali.shape, Y_pred_vali.shape)
+        print("ALL THE SHAPES")
+        print(X_train.shape, Y_train.shape, Y_pred_train.shape)
+        print(X_vali.shape, Y_vali.shape, Y_pred_vali.shape)
 
-    def savetiff(fname, img):
-        io.imsave(fname, img, plugin='tifffile', compress=6)
+        def savetiff(fname, img):
+            io.imsave(fname, img, plugin='tifffile', compress=6)
 
-    if Y_pred_train.ndim == 3:
-        print("NDIM 3, ")
-        Y_pred_train = Y_pred_train.reshape((-1, y_width, x_width, tp['n_classes']))
-        Y_pred_vali  = Y_pred_vali.reshape((-1, y_width, x_width, tp['n_classes']))
+        if Y_pred_train.ndim == 3:
+            print("NDIM 3, ")
+            Y_pred_train = Y_pred_train.reshape((-1, y_width, x_width, tp['n_classes']))
+            Y_pred_vali  = Y_pred_vali.reshape((-1, y_width, x_width, tp['n_classes']))
 
-    def toUint16(X):
-        X -= X.min()
-        X *= (2**16-1)/X.max()
-        X = X.astype('uint16')
-        return X
+        def toUint16(X):
+            X -= X.min()
+            X *= (2**16-1)/X.max()
+            X = X.astype('uint16')
+            return X
 
-    X_train, X_vali = toUint16(X_train), toUint16(X_vali)
-    
-    res = np.stack((X_train, Y_train, np.argmax(Y_pred_train, axis=-1)), axis=1)
-    savetiff(tp['savedir'] + '/training.tif', res.astype('uint16'))
-    res = np.stack((X_vali, Y_vali, np.argmax(Y_pred_vali, axis=-1)), axis=1)
-    savetiff(tp['savedir'] + '/testing.tif', res.astype('uint16'))
+        X_train, X_vali = toUint16(X_train), toUint16(X_vali)
+        
+        res = np.stack((X_train, Y_train, np.argmax(Y_pred_train, axis=-1)), axis=1)
+        savetiff(tp['savedir'] + '/training.tif', res.astype('uint16'))
+        res = np.stack((X_vali, Y_vali, np.argmax(Y_pred_vali, axis=-1)), axis=1)
+        savetiff(tp['savedir'] + '/testing.tif', res.astype('uint16'))
 
     return history
 
@@ -241,8 +247,9 @@ def batch_generator_patches(X, Y, train_params, verbose=False):
             for i in range(Xbatch.shape[0]):
                 x = Xbatch[i]
                 y = Ybatch[i]
-                #x,y = warping.randomly_augment_patches(x, y, tp['noise'], tp['flipLR'], tp['warping_size'], tp['rotate_angle_max'])
+                x,y = warping.randomly_augment_patches(x, y, tp['noise'], tp['flipLR'], tp['warping_size'], tp['rotate_angle_max'])
                 Xbatch[i] = x
+                Xbatch = normalize_X(Xbatch)
                 Ybatch[i] = y
 
             # io.imsave('Xauged.tif', Xbatch.astype('float32'), plugin='tifffile')

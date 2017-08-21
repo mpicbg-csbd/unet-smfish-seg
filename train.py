@@ -20,40 +20,43 @@ import patchmaker
 import skimage.io as io
 
 rationale = """
-Find the BUG!
+Try building scores of each patch at end of training. At end of run you can add patches that have low scores.
+Maybe the best way to encorporate this is via a sample weight in the generator?
 """
 
 train_params = {
  'savedir' : './',
 
- #'stakk'   : 'stakk_400_512_comp.tif',
- 'stakk'   : 'stakk_smalltest.tif',
+ #'stakk' : 'stakk_400_512_comp.tif',
+ #'stakk' : 'stakk_smalltest.tif',
+ #'stakk' : 'stakk_all_256_128.tif',
+ 'stakk'  : 'stakk_800_1024_comp.tif',
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 100,
+ 'epochs' : 200,
  'patience' : 30,
  'batches_per_epoch' : "TBD",
 
  'optimizer' : 'adam', # 'sgd' or 'adam' (adam ignores momentum)
- 'learning_rate' : 1.00e-4, #3.16e-5,
+ 'learning_rate' : 1.00e-3, #3.16e-5,
  'momentum' : 0.99,
 
  ## noise True | False
- 'noise':False,
+ 'noise' : False,
  ## warping_size > 0, float
  'warping_size' : 0,
  ## flipLR True | False
- 'flipLR' : True,
- ## rotate_angle_max > 0, float
+ 'flipLR' : False,
+ ## rotate_angle_max > 0, float, rotations in [-angle, angle]
  'rotate_angle_max' : 0,
 
- 'initial_model_params' : None, #"training/m158/unet_model_weights_checkpoint.h5",
+ 'initial_model_params' : None, #"training/m198/unet_model_weights_checkpoint.h5",
  'n_pool' : 2,
  'n_classes' : 2,
  'n_convolutions_first_layer' : 32,
- 'dropout_fraction' : 0.2,
- 'itd' : 10, # border ~= info_travel_dist(n_pool)
+ 'dropout_fraction' : 0.01,
+ 'itd' : 24, # border ~= info_travel_dist(n_pool)
 }
 
 def fix_labels(Y):
@@ -69,13 +72,18 @@ def stakk_to_XY(train_params, split=7):
     stakk = io.imread(train_params['stakk'])
     a,b,c,d = stakk.shape
 
-    ## TODO: REMOVE THIS!!!! 
+    ## Only train on a fraction of data
     # stakk = stakk[:a//2]
 
-    xs = stakk[:,0,...]
+    # Load and prepare
+    xs = stakk[:,0]
+    ys = stakk[:,1]
+
     xs = xs.astype('float32')
-    xs /= xs.max(axis=(1,2), keepdims=True)
-    ys = fix_labels(stakk[:,1,...])
+    xs = unet.normalize_X(xs)
+    ys = fix_labels(ys)
+
+    # select data by characteristics
     xmask = xs.sum(axis=(1,2))>5500 # bright
     ymask = ys.sum(axis=(1,2))>0 # have membrane
     # xs = xs[ymask]
@@ -84,7 +92,12 @@ def stakk_to_XY(train_params, split=7):
     print('xmask.sum', xmask.sum())
     print('ymask.sum', ymask.sum())
 
+    # train & validation split and shuffle
     a,b,c = xs.shape
+    inds = np.arange(a)
+    np.random.shuffle(inds)
+    xs = xs[inds]
+    ys = ys[inds]
     end = a//split
     X_train = xs[:-end, ...]
     X_vali  = xs[-end:, ...]
@@ -105,7 +118,16 @@ def train(train_params):
     # X_train, Y_train = train162[:100,...,0], train162[:100,...,1].astype('uint16')
     # X_vali, Y_vali = test162[:100,...,0], test162[:100,...,1].astype('uint16')
 
-    X_train, X_vali, Y_train, Y_vali = stakk_to_XY(train_params, split=3)
+    stakk = io.imread(train_params['stakk'])
+    res = np.stack([stakk[i] for i in [0,8,9]])
+    X_train = res[:,0].astype('float32')
+    Y_train = res[:,1]
+    X_train = unet.normalize_X(X_train)
+    Y_train = fix_labels(Y_train)
+    X_vali = X_train.copy()
+    Y_vali = Y_train.copy()
+
+    # X_train, X_vali, Y_train, Y_vali = stakk_to_XY(train_params, split=4)
 
     train_params['batches_per_epoch'], _ = divmod(X_train.shape[0], train_params['batch_size'])
     json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
@@ -154,6 +176,12 @@ def train(train_params):
     pp['savedir'] = train_params['savedir']
     predict.predict(pp, model=model)
 
+    scores = predict.normalize_and_predict_stakk_for_scores(model, stakk)
+    
+    
+    print(scores)
+    print(np.hist(scores, bins=100))
+    
     return history
 
 if __name__ == '__main__':
