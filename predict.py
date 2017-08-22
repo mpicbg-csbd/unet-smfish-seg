@@ -101,7 +101,7 @@ def normalize_and_predict_stakk_for_scores(model, stakk, batchsize=1):
     # compute accuracy
     ypred_2 = np.argmax(ypred, axis=-1)
     masks = ys != ypred_2
-    scores = np.sum(masks, axis=(1,2))/np.prod(masks[0].shape)
+    acc = np.sum(masks, axis=(1,2))/np.prod(masks[0].shape)
 
     # compute categorical crossentropy (unweighted)
     
@@ -109,9 +109,12 @@ def normalize_and_predict_stakk_for_scores(model, stakk, batchsize=1):
     yt = unet.np_utils.to_categorical(ys)
     yt = yt.reshape(a,b,c,2)
     ce = yt * np.log(ypred + 1.0e-7)
+    ce = np.sum(ce, axis=3)
     ce = -np.mean(ce, axis=(1,2))
 
-    return scores, ce
+    scores = (acc, ce)
+
+    return scores, ypred
 
 if __name__ == '__main__':
     predict_params = get_model_params_from_dir(predict_params, sys.argv[1])

@@ -27,9 +27,9 @@ train_params = {
  'savedir' : './',
 
  #'stakk' : 'stakk_400_512_comp.tif',
- #'stakk' : 'stakk_smalltest.tif',
+ 'stakk' : 'stakk_smalltest.tif',
  #'stakk' : 'stakk_all_256_128.tif',
- 'stakk'  : 'stakk_800_1024_comp.tif',
+ # 'stakk'  : 'stakk_800_1024_comp.tif',
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
@@ -64,7 +64,7 @@ def fix_labels(Y):
     Y[Y==2]=0
     return Y
 
-def stakk_to_XY(train_params, split=7):
+def build_XY(train_params, split=7):
     """
     stakk -> X,Y train & vali
     """
@@ -104,6 +104,19 @@ def stakk_to_XY(train_params, split=7):
     Y_vali  = ys[-end:, ...]
     return X_train, X_vali, Y_train, Y_vali
 
+
+def build_XY_2(train_params):
+    stakk = io.imread(train_params['stakk'])
+    patchids = np.random.randint(0, stakk.shape[0], size=20)
+    res = np.stack([stakk[i] for i in patchids])
+    X_train = res[:,0].astype('float32')
+    Y_train = res[:,1]
+    X_train = unet.normalize_X(X_train)
+    Y_train = fix_labels(Y_train)
+    X_vali = X_train.copy()
+    Y_vali = Y_train.copy()
+    return X_train, X_vali, Y_train, Y_vali
+
 def train(train_params):
     start_time = time.time()
 
@@ -117,16 +130,8 @@ def train(train_params):
     # X_train, Y_train = train162[:100,...,0], train162[:100,...,1].astype('uint16')
     # X_vali, Y_vali = test162[:100,...,0], test162[:100,...,1].astype('uint16')
 
-    stakk = io.imread(train_params['stakk'])
-    res = np.stack([stakk[i] for i in [0,8,9,20,25,72,120]])
-    X_train = res[:,0].astype('float32')
-    Y_train = res[:,1]
-    X_train = unet.normalize_X(X_train)
-    Y_train = fix_labels(Y_train)
-    X_vali = X_train.copy()
-    Y_vali = Y_train.copy()
-
-    # X_train, X_vali, Y_train, Y_vali = stakk_to_XY(train_params, split=4)
+    X_train, X_vali, Y_train, Y_vali = build_XY_2(train_params)
+    # X_train, X_vali, Y_train, Y_vali = build_XY(train_params, split=4)
 
     train_params['batches_per_epoch'], _ = divmod(X_train.shape[0], train_params['batch_size'])
     json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
@@ -166,25 +171,42 @@ def train(train_params):
     history.history['avg_time_per_epoch'] = train_time / trained_epochs
     history.history['avg_time_per_batch'] = train_time / (trained_epochs * train_params['batches_per_epoch'])
     history.history['avg_time_per_sample'] = train_time / (trained_epochs * history.history['X_train_shape'][0])
+    print(history.history)
     json.dump(history.history, open(train_params['savedir'] + '/history.json', 'w'))
 
     ## MAKE PRETTY PREDICTIONS
     import predict
-    # pp = predict.predict_params
-    # pp = predict.get_model_params_from_dir(pp, train_params['savedir'])
-    # pp['savedir'] = train_params['savedir']
-    # predict.predict(pp, model=model)
+    pp = predict.predict_params
+    pp['width'] = 128
+    pp = predict.get_model_params_from_dir(pp, train_params['savedir'])
+    pp['savedir'] = train_params['savedir']
+    predict.predict(pp, model=model)
 
-    stakk = stakk[::10]
-    scores = predict.normalize_and_predict_stakk_for_scores(model, stakk)
+    stakk   = io.imread(train_params['stakk'])
+    stakk   = stakk[::3]
+    scores, ypred  = predict.normalize_and_predict_stakk_for_scores(model, stakk)
     acc, ce = scores
 
     print(acc)
     print()
     print(ce)
-    #print(np.histogram(scores, bins=100))
-    
-    return history
+
+    yp = ((2**16-1)*ypred[...,1]).astype('uint16')
+    stakk = np.stack([stakk[:,0], stakk[:,1], yp], axis=1)
+    io.imsave('ypred.tif', stakk)
+
+    import matplotlib.pyplot as plt
+    plt.ion()
+    plt.plot(acc, '.', label='1 - acc')
+    plt.plot(ce, '.', label='ce')
+    plt.legend()
+    plt.figure()
+    plt.plot(sorted(acc), '.', label='acc')
+    plt.plot(sorted(ce), '.', label='ce')
+    plt.legend()
+    plt.show(block=True)
+
+    return model, history, scores, ypred
 
 if __name__ == '__main__':
     train_params['savedir'] = sys.argv[1]

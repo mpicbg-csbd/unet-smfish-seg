@@ -1,6 +1,10 @@
 import pandas as pd
+import matplotlib.pyplot as plt
+plt.ion()
+pd.set_option('expand_frame_repr', False)
+import os
 
-biglist = [
+all_columns = [
     'batch_size',
     'dropout_fraction',
     'epochs',
@@ -37,7 +41,7 @@ biglist = [
     'warm_up_time',
     ]
 
-show_these = [
+show_columns = [
     'batch_size',
     # 'dropout_fraction',
     # 'flipLR',
@@ -68,7 +72,14 @@ show_these = [
     # 'traindir',
     ]
 
-sort_by_these = [
+plot_columns = [
+    # 'acc',
+    # 'val_acc',
+    'loss',
+    'val_loss',
+    ]
+
+sort_columns = [
     'val_loss_f',
     'loss_f',
     'traindir',
@@ -77,31 +88,35 @@ sort_by_these = [
     ]
 
 
-import matplotlib.pyplot as plt
-plt.ion()
-
-df = pd.read_pickle('summary.pkl')
+def load_df():
+    df = pd.read_pickle('summary.pkl')
+    df = add_npool(df)
+    df['traindir'] = [int(os.path.normpath(x).split(os.path.sep)[-1][1:]) for x in df.index]
+    df['grey_tif_folder'] = [os.path.normpath(x).split(os.path.sep)[1:] for x in df['grey_tif_folder']]
+    return df
 
 def add_npool(df):
     d = {'unet_5layer':2, 'unet_7layer' : 3}
     m = df['model']
     n = df['n_pool']
     df['np'] = [d.get(mi, ni) for mi,ni in zip(m,n)]
+    return df
 
-def display_best(n_best=6):
-    plt.ion()
-    df = pd.read_pickle('summary.pkl')
-    df = add_npool(df)
-    pd.set_option('expand_frame_repr', False)
-    best = df[df.traindir > 107].sort_values(sort_by_these).iloc[:n_best]
-    print(best[show_these])
-    for i in range(len(best)):
-        row = best.iloc[i]
-        plt.plot(row['loss'], label=row.name)
-        plt.plot(row['val_loss'], '--', label=row.name)
-    plt.legend()
+def get_n_best(df, n_best=6):
+    best = df[df.traindir > 107].sort_values(sort_columns).iloc[:n_best]
+    print(best[show_columns])
+    return best
 
-def scatterplots():
+def plot_best_trajectories(df):
+    best = get_n_best(df)
+    best[plot_columns].unstack().apply(pd.Series).T.plot()
+    # for i in range(len(best)):
+    #     row = best.iloc[i]
+    #     plt.plot(row['loss'], label=row.name)
+    #     plt.plot(row['val_loss'], '--', label=row.name)
+    # plt.legend()
+
+def scatterplots(df):
     df.plot.scatter('traindir', 'loss_f')
     df.plot.scatter('traindir', 'val_loss_f')
     df.plot.scatter('train_time', 'val_loss_f')
@@ -112,16 +127,15 @@ def scatterplots():
 def summary_text():
     # os.path.normpath(a).split(os.path.sep)
     # Remember that directories starting with m108 have the correct val_loss
-    df = pd.read_pickle('summary.pkl')
-    add_npool(df)
-    pd.set_option('expand_frame_repr', False)
-    best = df.sort_values(sort_by_these)[show_these][df.traindir > 157]
-    print(best)
-    top = df.sort_values(sort_by_these)[df.traindir > 157].iloc[0]
+    df = load_df()
+    best = get_n_best(df)
+    top  = best.iloc[0]
     return top
 
 
 if __name__ == '__main__':
+    import analysis
+    analysis.main()
     summary_text()
 
 

@@ -98,9 +98,12 @@ def build_stakk():
         sizes.append(img.shape)
         coords = patchmaker.square_grid_coords(img, step)
         img_pat = patchmaker.sample_patches_from_img(coords, img, (width, width))
+        
+        ## normalize each X patch
         img_pat -= img_pat.min(axis=(1,2), keepdims=True)
         img_pat = img_pat.astype('uint16')
         img_pat *= (2**16-1)//img_pat.max(axis=(1,2), keepdims=True)
+        
         lab_pat = patchmaker.sample_patches_from_img(coords, lab, (width, width))
         patches = np.stack([img_pat, lab_pat], axis=1)
         stakk.append(patches)

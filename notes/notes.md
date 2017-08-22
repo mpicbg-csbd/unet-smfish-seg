@@ -1396,10 +1396,38 @@ On the falcon server I have this bug when trying to open in ipython with skimage
 
 This is not a hard problem. It just means fixing the bugs and making the code more robust against changes/ missing data in train_params.json and history.json.
 
-
-
-
 # NOTE: when downsampling from float32 to uint16 we first need to convert values to range [0,2**16-1], otherwise it rolls over.
+
+# Problem: Learning takes too long. I can't iterate.
+
+Now I can learn consistently by turning off the Dropout (setting it to 0.01) and learning on a very small number of images. This actually goes extremely quickly! And the surprising thing is that with just a few (1,2,3) patches we can already do a very good job on a large part of the data! It's almost like it's better to just memorize the few patches than it is to try to generalize across the entire set.
+
+I thought it would make sense to try augmentation of a small number of patches, but this appears to make prediction much less certain and more blurry.
+
+How can adding data make the predictions worse?
+
+*why is it so easy to learn with just a few samples?*
+*Do we really need to turn off the dropout to learn them well?*
+*how can we imporove this method?*
+*how do we choose the next sample to add in our active learning method?*
+- score all the 
+
+# NOTE: here's how the patchwidth/stepwidth/info_travel_dist/maxpool_grid/borderwidth constraints work
+
+If we want our predictions to line up perfectly we have to have both step and width be integer multiples of 2**n_pool, and we have to normalize image-wise, not patch wise. (maybe do it patch wise anyways?). And since we're ignoring a small border region around each patch we have to make step smaller than width while keeping it an integer multiple of 2**n_pool, and this difference must be at least twice the info-travel-distance, which is at least as big as 2**n_pool.
+
+With this system we'll have overlaps of the predicted regions on adjacent patches as well as the black border regions.
+
+# IGNORE: PROBLEM: I can't use tensorflow package, because I have tensorflow-gpu package installed, but the tensorflow-gpu package doesn't work, because I'm on a node without a gpu, so there is no libcuda.so. This holds *even if I specify that I want to use a CPU by setting cuda_visible_devices=''*.
+
+The end. Just ignore this for now. 
+
+
+
+
+
+
+
 
 
 # TODO:

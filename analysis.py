@@ -156,9 +156,9 @@ def main():
     df = td_summary(dirs_old + dirs)
     ind = [np.argmin(np.array(val_loss)) for val_loss in df['val_loss']]
     df['ind'] = ind
-    df['acc_f'] = [x[i] for x,i in zip(df['acc'], ind)]
+    df['acc_f']  = [x[i] for x,i in zip(df['acc'], ind)]
     df['loss_f'] = [x[i] for x,i in zip(df['loss'], ind)]
-    df['val_acc_f'] = [x[i] for x,i in zip(df['val_acc'], ind)]
+    df['val_acc_f']  = [x[i] for x,i in zip(df['val_acc'], ind)]
     df['val_loss_f'] = [x[i] for x,i in zip(df['val_loss'], ind)]
     #df['grey_tif_folder'] = [os.path.normpath(x).split(os.path.sep)[1:] for x in df['grey_tif_folder']]
     df['traindir'] = [int(os.path.normpath(x).split(os.path.sep)[-1][1:]) for x in df.index]

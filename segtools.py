@@ -95,7 +95,7 @@ def permutation_from_matching(matching):
 # def matching_from_permutation(perm):
 #     matching = np.zeros(perm[0])
 
-# LOSSES, ERRORS, SCORES, MATCHINGS, GRAPHS
+# Segmentation LOSSES, ERRORS, SCORES, MATCHINGS, GRAPHS
 
 @jit
 def pixel_sharing_graph(img1, img2):
