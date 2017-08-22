@@ -65,6 +65,8 @@ def square_grid_coords(img, step):
     a,b = img.shape
     a2,ar = divmod(a, step)
     b2,br = divmod(b, step)
+    a2 += 1
+    b2 += 1
     ind = np.indices((a2, b2))
     ind *= step
     ind = np.reshape(ind, (2, a2*b2))

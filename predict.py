@@ -21,17 +21,20 @@ predict_params = {
  'savedir' : './',
  'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/",
  'batch_size' : 1,
- 'step' : 1900,
- 'itd' : 24, # border width
- 'width' : 1900,
+ # 'step' : 1024-2*32,
+ # 'itd'  : 24, # border width
+ 'width': 1024,
 }
 
-def get_params_from_dir(predict_params, direc):
+def get_model_params_from_dir(predict_params, direc):
     pp = predict_params
     pp['model_weights'] = direc + '/unet_model_weights_checkpoint.h5'
     train_params = json.load(open(direc + '/train_params.json'))
-    for key in ['n_convolutions_first_layer', 'n_pool', 'n_classes', 'dropout_fraction']:
+    for key in ['n_convolutions_first_layer', 'n_pool', 'n_classes', 'dropout_fraction', 'itd']:
         pp[key] = train_params[key]
+    mpgrid = 2**pp['n_pool']
+    border = 2*mpgrid # at least as big as itd
+    pp['step'] = pp['width']-2*border
     return pp
 
 def predict(predict_params, model=None):
@@ -83,24 +86,35 @@ def predict_single_image(model, img, pp):
 
     res = patchmaker.piece_together(Y_pred, coords, imgshape=img.shape, border=pp['itd'])
     return res[...,0].astype(np.float32)
-    #return Y_new
 
-def normalize_and_predict_stakk_for_scores(model, stakk):
+def normalize_and_predict_stakk_for_scores(model, stakk, batchsize=1):
+    import train
     xs = stakk[:,0]
     ys = stakk[:,1]
     xs = xs.astype('float32')
     xs = unet.normalize_X(xs)
-    ys = fix_labels(ys)
+    ys = train.fix_labels(ys)
     xs = unet.normalize_X(xs)
     xs = unet.add_singleton_dim(xs)
-    ypred = model.predict(xs)
-    ypred = np.argmax(ypred, axis=-1)
-    masks = ys == ypred
-    scores = np.sum(masks, axis=(1,2))
-    return scores
+    ypred = model.predict(xs, batch_size=batchsize)
+
+    # compute accuracy
+    ypred_2 = np.argmax(ypred, axis=-1)
+    masks = ys != ypred_2
+    scores = np.sum(masks, axis=(1,2))/np.prod(masks[0].shape)
+
+    # compute categorical crossentropy (unweighted)
+    
+    a,b,c = ys.shape
+    yt = unet.np_utils.to_categorical(ys)
+    yt = yt.reshape(a,b,c,2)
+    ce = yt * np.log(ypred + 1.0e-7)
+    ce = -np.mean(ce, axis=(1,2))
+
+    return scores, ce
 
 if __name__ == '__main__':
-    predict_params = get_params_from_dir(predict_params, sys.argv[1])
+    predict_params = get_model_params_from_dir(predict_params, sys.argv[1])
     predict_params['savedir'] = sys.argv[2]
     predict(predict_params)
 

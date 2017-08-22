@@ -152,7 +152,7 @@ def info_travel_dist(n_maxpool, conv=3):
         width -= conv2
     return int(-width/2)
 
-if __name__ == '__main__':
+def main():
     df = td_summary(dirs_old + dirs)
     ind = [np.argmin(np.array(val_loss)) for val_loss in df['val_loss']]
     df['ind'] = ind
@@ -163,7 +163,11 @@ if __name__ == '__main__':
     #df['grey_tif_folder'] = [os.path.normpath(x).split(os.path.sep)[1:] for x in df['grey_tif_folder']]
     df['traindir'] = [int(os.path.normpath(x).split(os.path.sep)[-1][1:]) for x in df.index]
     df.to_pickle('summary.pkl')
-    # for d in dirs[-10:]:
-    #     print(d)
-    #     add_plots_to_traindir(d)
 
+def add_all_plots():
+    for d in dirs[-20:]:
+        print(d)
+        add_plots_to_traindir(d)
+
+if __name__ == '__main__':
+    main()

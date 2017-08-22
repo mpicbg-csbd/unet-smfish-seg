@@ -20,8 +20,7 @@ import patchmaker
 import skimage.io as io
 
 rationale = """
-Try building scores of each patch at end of training. At end of run you can add patches that have low scores.
-Maybe the best way to encorporate this is via a sample weight in the generator?
+just test scores.
 """
 
 train_params = {
@@ -34,7 +33,7 @@ train_params = {
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 200,
+ 'epochs' : 3,
  'patience' : 30,
  'batches_per_epoch' : "TBD",
 
@@ -51,7 +50,7 @@ train_params = {
  ## rotate_angle_max > 0, float, rotations in [-angle, angle]
  'rotate_angle_max' : 0,
 
- 'initial_model_params' : None, #"training/m198/unet_model_weights_checkpoint.h5",
+ 'initial_model_params' : "training/m198/unet_model_weights_checkpoint.h5",
  'n_pool' : 2,
  'n_classes' : 2,
  'n_convolutions_first_layer' : 32,
@@ -119,7 +118,7 @@ def train(train_params):
     # X_vali, Y_vali = test162[:100,...,0], test162[:100,...,1].astype('uint16')
 
     stakk = io.imread(train_params['stakk'])
-    res = np.stack([stakk[i] for i in [0,8,9]])
+    res = np.stack([stakk[i] for i in [0,8,9,20,25,72,120]])
     X_train = res[:,0].astype('float32')
     Y_train = res[:,1]
     X_train = unet.normalize_X(X_train)
@@ -171,16 +170,19 @@ def train(train_params):
 
     ## MAKE PRETTY PREDICTIONS
     import predict
-    pp = predict.predict_params
-    pp = predict.get_params_from_dir(pp, train_params['savedir'])
-    pp['savedir'] = train_params['savedir']
-    predict.predict(pp, model=model)
+    # pp = predict.predict_params
+    # pp = predict.get_model_params_from_dir(pp, train_params['savedir'])
+    # pp['savedir'] = train_params['savedir']
+    # predict.predict(pp, model=model)
 
+    stakk = stakk[::10]
     scores = predict.normalize_and_predict_stakk_for_scores(model, stakk)
-    
-    
-    print(scores)
-    print(np.hist(scores, bins=100))
+    acc, ce = scores
+
+    print(acc)
+    print()
+    print(ce)
+    #print(np.histogram(scores, bins=100))
     
     return history
 
