@@ -59,7 +59,7 @@ show_columns = [
     'stakk',
     'initial_model_params',
     'learning_rate',
-    'model',
+    # 'model',
     # 'np',
     'n_pool',
     'avg_time_per_epoch',
@@ -75,11 +75,11 @@ show_columns = [
     # 'val_acc',
     # 'loss',
     # 'val_loss',
-    'acc_f',
-    'loss_f',
-    'val_acc_f',
-    'val_loss_f',
-    # 'traindir',
+    'acc_min',
+    'loss_min',
+    'val_acc_min',
+    'val_loss_min',
+    #'traindir',
     ]
 
 plot_columns = [
@@ -90,17 +90,17 @@ plot_columns = [
     ]
 
 sort_columns = [
-    'val_loss_f',
-    'loss_f',
+    'val_loss_min',
+    'loss_min',
+    'acc_min',
+    'val_acc_min',
     'traindir',
-    'acc_f',
-    'val_acc_f',
     ]
 
 dirs_old = glob('training/m?/') + glob('training/m[123456789]?/') + glob('training/m10[01234567]/') # hadn't fixed the val_loss yet
 dirs = glob('training/m10[89]/') + glob('training/m1[123456789]?/') + glob('training/m2??') # after fixing the val_loss
 
-def td_summary(dirlist):
+def create_df(dirlist):
     """
     training directory summary
     input: list of training directory names
@@ -116,8 +116,10 @@ def td_summary(dirlist):
         d = dirlist[i]
         try:
             train_params = json.load(open(d + '/train_params.json'))
-            rationale = train_params['rationale']
             history = json.load(open(d + '/history.json'))
+            d_list.append(d)
+            t_list.append(train_params)
+            h_list.append(history)
         except (FileNotFoundError, AttributeError):
             failedlist.append([d])
 
@@ -127,30 +129,37 @@ def td_summary(dirlist):
     print(tabulate([["Failed|Ongoing"]] + failedlist))
     return df
 
-def load_df():
-    df = pd.read_pickle('summary.pkl')
-    df = add_npool(df)
-    
+def update_df(df):
+    # merge model into n_pool 
+    if 'model' in df.columns:
+        d = {'unet_5layer':2, 'unet_7layer' : 3}
+        ms = df['model']
+        ns = df['n_pool']
+        df['n_pool'] = [d.get(x,y) for x,y in zip(ms,ns)]
+
+    # merge greytiffolder into stakk 
     def f(greytiffolder, stakk):
         if str(stakk):
             return stakk
         else:
             return os.path.normpath(greytiffolder).split(os.path.sep)[1:]
-    df['stakk'] = [f(x,y) for x,y in zip(df['grey_tif_folder'], df['stakk'])]
+    if 'grey_tif_folder' in df.columns:
+        df['stakk'] = [f(x,y) for x,y in zip(df['grey_tif_folder'], df['stakk'])]
+
     df['traindir'] = [int(os.path.normpath(x).split(os.path.sep)[-1][1:]) for x in df.index]
+
     ind = [np.argmin(np.array(val_loss)) for val_loss in df['val_loss']]
     df['ind'] = ind
     df['acc_min']  = [x[i] for x,i in zip(df['acc'], ind)]
     df['loss_min'] = [x[i] for x,i in zip(df['loss'], ind)]
     df['val_acc_min']  = [x[i] for x,i in zip(df['val_acc'], ind)]
     df['val_loss_min'] = [x[i] for x,i in zip(df['val_loss'], ind)]
-    return df
 
-def add_npool(df):
-    d = {'unet_5layer':2, 'unet_7layer' : 3}
-    ms = df['model']
-    ns = df['n_pool']
-    df['np'] = [d.get(x,y) for x,y in zip(ms,ns)]
+    def f(imp):
+        if imp:
+            return imp[:-32]
+        return imp
+    df['initial_model_params'] = [f(x) for x in df['initial_model_params']]
     return df
 
 def get_n_best(df, n_best=6):
@@ -167,33 +176,21 @@ def plot_best_trajectories(df):
     #     plt.plot(row['val_loss'], '--', label=row.name)
     # plt.legend()
 
-
-def show_n_most_recent(n=10):
-    df = load_df()
-    print(df[show_columns].tail(n))
-
+def show_n_most_recent(df, n=30):
+    print(df.sort_values(['traindir'])[show_columns].tail(n))
 
 def scatterplots(df):
-    df.plot.scatter('traindir', 'loss_f')
-    df.plot.scatter('traindir', 'val_loss_f')
-    df.plot.scatter('train_time', 'val_loss_f')
-    df.plot.scatter('loss_f', 'val_loss_f')
+    df.plot.scatter('traindir', 'loss_min')
+    df.plot.scatter('traindir', 'val_loss_min')
+    df.plot.scatter('train_time', 'val_loss_min')
+    df.plot.scatter('loss_min', 'val_loss_min')
     df.plot.scatter('learning_rate', 'avg_time_per_epoch')
     df.plot.scatter('warping_size', 'avg_time_per_epoch')
 
-def summary_text():
-    # os.path.normpath(a).split(os.path.sep)
-    # Remember that directories starting with m108 have the correct val_loss
-    df = load_df()
-    best = get_n_best(df)
-    top  = best.iloc[0]
-    return top
-
-
 if __name__ == '__main__':
-    df = td_summary(dirs_old + dirs)
-    # summary_text()
-    show_n_most_recent()
+    df = create_df(dirs)
+    df = update_df(df)
+    show_n_most_recent(df)
 
 
 
