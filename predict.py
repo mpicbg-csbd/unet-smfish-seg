@@ -33,7 +33,8 @@ def get_model_params_from_dir(predict_params, direc):
     for key in ['n_convolutions_first_layer', 'n_pool', 'n_classes', 'dropout_fraction', 'itd']:
         pp[key] = train_params[key]
     mpgrid = 2**pp['n_pool']
-    border = 2*mpgrid # at least as big as itd
+    m,rm = divmod(pp['itd'], mpgrid)
+    border = (m+1)*mpgrid   # at least as big as itd.
     pp['step'] = pp['width']-2*border
     return pp
 

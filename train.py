@@ -20,20 +20,22 @@ import patchmaker
 import skimage.io as io
 
 rationale = """
-just test scores.
+sort ypred.tif by score.
+select data by amount of membrane.
+fix the black borders finally?
 """
 
 train_params = {
  'savedir' : './',
 
  #'stakk' : 'stakk_400_512_comp.tif',
- 'stakk' : 'stakk_smalltest.tif',
+ #'stakk' : 'stakk_smalltest.tif',
  #'stakk' : 'stakk_all_256_128.tif',
- # 'stakk'  : 'stakk_800_1024_comp.tif',
+ 'stakk'  : 'stakk_800_1024_comp.tif',
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 3,
+ 'epochs' : 30,
  'patience' : 30,
  'batches_per_epoch' : "TBD",
 
@@ -50,12 +52,12 @@ train_params = {
  ## rotate_angle_max > 0, float, rotations in [-angle, angle]
  'rotate_angle_max' : 0,
 
- 'initial_model_params' : "training/m198/unet_model_weights_checkpoint.h5",
+ 'initial_model_params' : "training/m211/unet_model_weights_checkpoint.h5",
  'n_pool' : 2,
  'n_classes' : 2,
  'n_convolutions_first_layer' : 32,
  'dropout_fraction' : 0.01,
- 'itd' : 24, # border ~= info_travel_dist(n_pool)
+ 'itd' : 24,
 }
 
 def fix_labels(Y):
@@ -64,7 +66,7 @@ def fix_labels(Y):
     Y[Y==2]=0
     return Y
 
-def build_XY(train_params, split=7):
+def build_XY(train_params, n_patches=9, split=7):
     """
     stakk -> X,Y train & vali
     """
@@ -83,13 +85,17 @@ def build_XY(train_params, split=7):
     ys = fix_labels(ys)
 
     # select data by characteristics
-    xmask = xs.sum(axis=(1,2))>5500 # bright
-    ymask = ys.sum(axis=(1,2))>0 # have membrane
-    # xs = xs[ymask]
-    # ys = ys[ymask]
+    xmask = xs.mean(axis=(1,2))>0.6 # bright
+    y_mem = ys.sum(axis=(1,2)) # have membrane
+    y_mem_sort = np.argsort(y_mem)
+    xs = xs[y_mem_sort][-100:]
+    ys = ys[y_mem_sort][-100:]
+    patchids = np.random.permutation(np.arange(xs.shape[0]))[:n_patches]
+    xs = xs[patchids]
+    ys = ys[patchids]
 
-    print('xmask.sum', xmask.sum())
-    print('ymask.sum', ymask.sum())
+    # print('xmask.sum', xmask.sum())
+    # print('ymask.sum', ymask.sum())
 
     # train & validation split and shuffle
     a,b,c = xs.shape
@@ -102,19 +108,6 @@ def build_XY(train_params, split=7):
     X_vali  = xs[-end:, ...]
     Y_train = ys[:-end, ...]
     Y_vali  = ys[-end:, ...]
-    return X_train, X_vali, Y_train, Y_vali
-
-
-def build_XY_2(train_params):
-    stakk = io.imread(train_params['stakk'])
-    patchids = np.random.randint(0, stakk.shape[0], size=20)
-    res = np.stack([stakk[i] for i in patchids])
-    X_train = res[:,0].astype('float32')
-    Y_train = res[:,1]
-    X_train = unet.normalize_X(X_train)
-    Y_train = fix_labels(Y_train)
-    X_vali = X_train.copy()
-    Y_vali = Y_train.copy()
     return X_train, X_vali, Y_train, Y_vali
 
 def train(train_params):
@@ -130,8 +123,7 @@ def train(train_params):
     # X_train, Y_train = train162[:100,...,0], train162[:100,...,1].astype('uint16')
     # X_vali, Y_vali = test162[:100,...,0], test162[:100,...,1].astype('uint16')
 
-    X_train, X_vali, Y_train, Y_vali = build_XY_2(train_params)
-    # X_train, X_vali, Y_train, Y_vali = build_XY(train_params, split=4)
+    X_train, X_vali, Y_train, Y_vali = build_XY(train_params, n_patches=30, split=4)
 
     train_params['batches_per_epoch'], _ = divmod(X_train.shape[0], train_params['batch_size'])
     json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
@@ -177,13 +169,13 @@ def train(train_params):
     ## MAKE PRETTY PREDICTIONS
     import predict
     pp = predict.predict_params
-    pp['width'] = 128
+    #pp['width'] = 128
     pp = predict.get_model_params_from_dir(pp, train_params['savedir'])
     pp['savedir'] = train_params['savedir']
     predict.predict(pp, model=model)
 
     stakk   = io.imread(train_params['stakk'])
-    stakk   = stakk[::3]
+    #stakk   = stakk[::3]
     scores, ypred  = predict.normalize_and_predict_stakk_for_scores(model, stakk)
     acc, ce = scores
 
@@ -191,20 +183,20 @@ def train(train_params):
     print()
     print(ce)
 
+    import matplotlib.pyplot as plt
+    #plt.ion()
+    acc_ids = np.argsort(acc)
+    ce_ids = np.argsort(ce)
+    plt.plot(acc[acc_ids], '.', label='acc')
+    plt.plot(ce[ce_ids], '.', label='ce')
+    plt.legend()
+    plt.savefig(train_params['savedir'] + '/acc_ce_dist.pdf')
+    #plt.show(block=True)
+
     yp = ((2**16-1)*ypred[...,1]).astype('uint16')
     stakk = np.stack([stakk[:,0], stakk[:,1], yp], axis=1)
-    io.imsave('ypred.tif', stakk)
-
-    import matplotlib.pyplot as plt
-    plt.ion()
-    plt.plot(acc, '.', label='1 - acc')
-    plt.plot(ce, '.', label='ce')
-    plt.legend()
-    plt.figure()
-    plt.plot(sorted(acc), '.', label='acc')
-    plt.plot(sorted(ce), '.', label='ce')
-    plt.legend()
-    plt.show(block=True)
+    stakk = stakk[ce_ids]
+    io.imsave(train_params['savedir'] + '/ypred.tif', stakk)
 
     return model, history, scores, ypred
 
