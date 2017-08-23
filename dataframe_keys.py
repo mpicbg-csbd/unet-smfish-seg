@@ -1,5 +1,5 @@
 from glob import glob
-# import os
+import os
 # import shutil
 import sys
 import re
@@ -7,6 +7,7 @@ import re
 import json
 from tabulate import tabulate
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 plt.ion()
@@ -99,7 +100,6 @@ sort_columns = [
 dirs_old = glob('training/m?/') + glob('training/m[123456789]?/') + glob('training/m10[01234567]/') # hadn't fixed the val_loss yet
 dirs = glob('training/m10[89]/') + glob('training/m1[123456789]?/') + glob('training/m2??') # after fixing the val_loss
 
-
 def td_summary(dirlist):
     """
     training directory summary
@@ -117,7 +117,7 @@ def td_summary(dirlist):
         try:
             train_params = json.load(open(d + '/train_params.json'))
             rationale = train_params['rationale']
-            history = json.load(open(dr + '/history.json'))
+            history = json.load(open(d + '/history.json'))
         except (FileNotFoundError, AttributeError):
             failedlist.append([d])
 
@@ -191,7 +191,7 @@ def summary_text():
 
 
 if __name__ == '__main__':
-    df = td_summary(dirlist)
+    df = td_summary(dirs_old + dirs)
     # summary_text()
     show_n_most_recent()
 
