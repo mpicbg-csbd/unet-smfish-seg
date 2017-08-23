@@ -1,8 +1,16 @@
+from glob import glob
+# import os
+# import shutil
+import sys
+import re
+
+import json
+from tabulate import tabulate
+
 import pandas as pd
 import matplotlib.pyplot as plt
 plt.ion()
 pd.set_option('expand_frame_repr', False)
-import os
 
 all_columns = [
     'batch_size',
@@ -45,12 +53,13 @@ show_columns = [
     'batch_size',
     # 'dropout_fraction',
     # 'flipLR',
-    'step',
-    'grey_tif_folder',
+    # 'step',
+    # 'grey_tif_folder',
+    'stakk',
     'initial_model_params',
     'learning_rate',
     'model',
-    'np',
+    # 'np',
     'n_pool',
     'avg_time_per_epoch',
     # 'membrane_weight_multiplier',
@@ -87,19 +96,61 @@ sort_columns = [
     'val_acc_f',
     ]
 
+dirs_old = glob('training/m?/') + glob('training/m[123456789]?/') + glob('training/m10[01234567]/') # hadn't fixed the val_loss yet
+dirs = glob('training/m10[89]/') + glob('training/m1[123456789]?/') + glob('training/m2??') # after fixing the val_loss
+
+
+def td_summary(dirlist):
+    """
+    training directory summary
+    input: list of training directory names
+    output: printed summary table, sorted by loss
+    """
+    name_acc_loss = []
+    failedlist = []
+    t_list = []
+    h_list = []
+    d_list = []
+
+    for i in range(len(dirlist)):
+        d = dirlist[i]
+        try:
+            train_params = json.load(open(d + '/train_params.json'))
+            rationale = train_params['rationale']
+            history = json.load(open(dr + '/history.json'))
+        except (FileNotFoundError, AttributeError):
+            failedlist.append([d])
+
+    df = pd.DataFrame(t_list, index=d_list)
+    df2 = pd.DataFrame(h_list, index=d_list)
+    df = df.join(df2, lsuffix='_train', rsuffix='_hist')
+    print(tabulate([["Failed|Ongoing"]] + failedlist))
+    return df
 
 def load_df():
     df = pd.read_pickle('summary.pkl')
     df = add_npool(df)
+    
+    def f(greytiffolder, stakk):
+        if str(stakk):
+            return stakk
+        else:
+            return os.path.normpath(greytiffolder).split(os.path.sep)[1:]
+    df['stakk'] = [f(x,y) for x,y in zip(df['grey_tif_folder'], df['stakk'])]
     df['traindir'] = [int(os.path.normpath(x).split(os.path.sep)[-1][1:]) for x in df.index]
-    df['grey_tif_folder'] = [os.path.normpath(x).split(os.path.sep)[1:] for x in df['grey_tif_folder']]
+    ind = [np.argmin(np.array(val_loss)) for val_loss in df['val_loss']]
+    df['ind'] = ind
+    df['acc_min']  = [x[i] for x,i in zip(df['acc'], ind)]
+    df['loss_min'] = [x[i] for x,i in zip(df['loss'], ind)]
+    df['val_acc_min']  = [x[i] for x,i in zip(df['val_acc'], ind)]
+    df['val_loss_min'] = [x[i] for x,i in zip(df['val_loss'], ind)]
     return df
 
 def add_npool(df):
     d = {'unet_5layer':2, 'unet_7layer' : 3}
-    m = df['model']
-    n = df['n_pool']
-    df['np'] = [d.get(mi, ni) for mi,ni in zip(m,n)]
+    ms = df['model']
+    ns = df['n_pool']
+    df['np'] = [d.get(x,y) for x,y in zip(ms,ns)]
     return df
 
 def get_n_best(df, n_best=6):
@@ -115,6 +166,12 @@ def plot_best_trajectories(df):
     #     plt.plot(row['loss'], label=row.name)
     #     plt.plot(row['val_loss'], '--', label=row.name)
     # plt.legend()
+
+
+def show_n_most_recent(n=10):
+    df = load_df()
+    print(df[show_columns].tail(n))
+
 
 def scatterplots(df):
     df.plot.scatter('traindir', 'loss_f')
@@ -134,9 +191,9 @@ def summary_text():
 
 
 if __name__ == '__main__':
-    import analysis
-    analysis.main()
-    summary_text()
+    df = td_summary(dirlist)
+    # summary_text()
+    show_n_most_recent()
 
 
 

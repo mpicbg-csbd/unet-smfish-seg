@@ -115,7 +115,7 @@ def train(train_params):
 
     ## Now finalize and save the train params
 
-    #train_params['itd'] = analysis.info_travel_dist(train_params['n_pool'])
+    #train_params['itd'] = unet.info_travel_dist(train_params['n_pool'])
     train_params['rationale'] = rationale
 
     # train162 = io.imread('training/m162/training.tif')

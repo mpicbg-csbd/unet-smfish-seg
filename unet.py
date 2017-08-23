@@ -80,7 +80,7 @@ def my_categorical_crossentropy(weights=(1., 1.), itd=1, BEnd=K):
 
 def get_unet_n_pool(n_pool, n_classes=2, n_convolutions_first_layer=32, dropout_fraction=0.2):
     """
-    The info travel distance is given by analysis.info_travel_dist(n_pool, 3)
+    The info travel distance is given by info_travel_dist(n_pool, 3)
     """
 
     if K.image_dim_ordering() == 'th':
@@ -160,6 +160,23 @@ def get_unet_n_pool(n_pool, n_classes=2, n_convolutions_first_layer=32, dropout_
     acti_layer = core.Activation(softmax)(acti_layer)
     model = Model(inputs=inputs, outputs=acti_layer)
     return model
+
+def info_travel_dist(n_maxpool, conv=3):
+    """
+    n_maxpool: number of 2x downsampling steps
+    conv: the width of the convolution kernel (e.g. "3" for standard 3x3 kernel.)
+    returns: the info travel distance == the amount of width that is lost in a patch / 2
+    """
+    conv2 = 2*(conv-1)
+    width = 0
+    for i in range(n_maxpool):
+        width -= conv2
+        width /= 2
+    width -= conv2
+    for i in range(n_maxpool):
+        width *= 2
+        width -= conv2
+    return int(-width/2)
 
 # ---- PUBLIC INTERFACE ----
 

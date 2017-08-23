@@ -1410,7 +1410,16 @@ How can adding data make the predictions worse?
 *Do we really need to turn off the dropout to learn them well?*
 *how can we imporove this method?*
 *how do we choose the next sample to add in our active learning method?*
-- score all the 
+- score all the patches and select pathces to add to training set based on score. We can use the same categorical_crossentropy loss as before.
+
+Stuff to compare:
+Do a grid search to compare all these things:
+- Does changing dropout help?
+- Does training dataset size help?
+- Does model size help?
+- Does learning rate matter?
+- Does 
+
 
 # NOTE: here's how the patchwidth/stepwidth/info_travel_dist/maxpool_grid/borderwidth constraints work
 

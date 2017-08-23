@@ -58,7 +58,7 @@ def test_unet():
 
     Y = predict(m, X)
 
-    itd = analysis.info_travel_dist(n_pool)
+    itd = unet.info_travel_dist(n_pool)
     print("ITD: ", itd)
     io.imsave('img_test.tif', X)
     io.imsave('res_test.tif', Y)
