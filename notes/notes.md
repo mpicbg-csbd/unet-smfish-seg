@@ -1302,12 +1302,12 @@ By making the step length between patches an integer multiple of the largest max
 
 **But actually the best solution is probably to sample patches from different max-pooling grids and average the results.**
 
-Remaining issues:
-
 - What caused the square artifacts in the individual patches?
+  + Poorly trained models?
   + Hypothesis: failing to normalize X.
 + Where & Why are CPU & GPU different? Is GPU deterministic?
   * Hypothesis: GPU will introduce small random noise in output, uncorrelated with signal.
+* What is the real info_travel_dist? Why are we close, but not exactly right?
 
 # PROBLEM: memory easily exhausted when I run tensorflow from iPython (on my mac)
 
@@ -1326,7 +1326,7 @@ How do I know if I have enough data?
 How do I know if my data is high quality?
 - dunno... If my datapoints overlap in my featurespace, then they are inconsistently labeled, according to those features, so either I need a better featurespace, or I need a better labeling. "label noise" is a term that exists. Usually, we take our labels to be exactly correct, and any overlap in featurespace means we either need a better, more descriptive featurespace, or we've reached the maximum predictive capability of the featurespace + model that we have. If our labels are noisy/meaningless, then even the most powerful/accurate model won't be able to predict well (on training? or vali?) **We can try artificially introducing label noise!** If we introduce different amounts of label noise into the training data then we can see how the prediction quality responds... This should tell us something... If we compare to a perfectly-labeled artifical dataset, then we should be able to figure out how poor our manual-labels are?
 
-# PROBLEM: Saving tiffs in an ImageJ compatible way is Hell.
+# SOLVED/Ignored. PROBLEM: Saving tiffs in an ImageJ compatible way is Hell.
 
 Is there any way of saving a ZYXC image with C=2? with Uints? Floats?
 
@@ -1334,6 +1334,10 @@ A float16(36,2,800,800) is interpreted by imagej as (72,800,800) z-stack...
 A float16(2,36,800,800) doesn't open, and gives the error "can't open 16-bit floats"...
 A uint16 works the same as above.
 If I use uint16(36,2,800,800) I can get a z and channel dimensions if I open with BIOformats (huzzah!), but I get the 1st image repeated 72 times if I just drag n' drop... wtf. But not every time! Now BioFormats goes back to reshaping the array as a (large, x, y) patch...
+Nope. Now if I try BioFormats to open a uint16 stakk 356x2x800x800 It reshapes the first two dimensions together... Can I automatically reshape in BioFormats?
+
+If I use BioFormats to open my (large, 3, x, y)uint16 images and don't worry about all the things that it should be able to open, but can't. *Be sure to set the first two dims to Time and Z, not Channels, or they will blend the images together!*
+
 
 # PROBLEM: After refactoring, I can't learn anything!
 
@@ -1380,25 +1384,33 @@ ORIGINAL PROBLEM GONE. My nets can learn! But now I see the 2nd problem occur wi
 
 BUG FOUND! You were, like an idiot, computing the number of classes in to_categorical based on the max value in your Ylabel data, which varies depending on the data!!!! Don't do that.
 
+## Original problem
+
 Remaining hypotheses:
 - Inherent randomness of training. Small datasets and short training times.
-- there is a problem with my loss function...
+- there is a problem with my loss function.
 
 TEST: Try training using both loss functions... Or just try evaluating both loss functions on arbitrary data.
 
 Numpy numerical tests return the same floating point values... But when running with the Tensorflow mean,sum,log, etc I get two different results.... The results returned are just the *names* of the functions according to tensorflow, which are generated dynamically. Running the test multiple times returns new names (with increasing numerical string) each time.
 
+So we can eliminate the wrong-loss-function hypothesis. The poor learning must be do to something else.
+
+Sometimes learning is easy, and sometimes it is hard. It is not a pure function of the training_params, because the initial conditions of the network also matter. *How much of the variation does this explain?*.
+Why is training so difficult? Martin and Uwe don't have training problems... Is this because image restoration is inherently an easier function to learn than pixelwise classification? Maybe...
+
 # AVOID... PROBLEM: OSError: cannot identify image file 'training/m174/training.tif'
 
 On the falcon server I have this bug when trying to open in ipython with skimage.io, but on my local machine the file opens as int32... Even after changing the save-type to 'uint16' i still have this error....
 
-# PROBLEM: I keep running into key errors when working with dataframes.
+# SOLVED. PROBLEM: I keep running into key errors when working with dataframes.
 
 This is not a hard problem. It just means fixing the bugs and making the code more robust against changes/ missing data in train_params.json and history.json.
+Refactored dataframe_keys, and now it's Solved.
 
 # NOTE: when downsampling from float32 to uint16 we first need to convert values to range [0,2**16-1], otherwise it rolls over.
 
-# Problem: Learning takes too long. I can't iterate.
+# Problem: Learning is inconsistent, and results are poor.
 
 Now I can learn consistently by turning off the Dropout (setting it to 0.01) and learning on a very small number of images. This actually goes extremely quickly! And the surprising thing is that with just a few (1,2,3) patches we can already do a very good job on a large part of the data! It's almost like it's better to just memorize the few patches than it is to try to generalize across the entire set.
 
@@ -1418,7 +1430,18 @@ Do a grid search to compare all these things:
 - Does training dataset size help?
 - Does model size help?
 - Does learning rate matter?
-- Does 
+
+We need to remember that our objective function is defined as the expected value of the loss over the entire (possibly augmented) dataset, which we approximate by computing the average over an epoch. Usually we try to stuff the entire dataset into an epoch s.t. each epoch's loss is equivalent.
+
+## Experiment 1: What is the loss of the best old model on the new data?
+
+Train a 4-down network starting with the parameters from 158. The only difference is... lower dropout, and different training data. The training data from 158 was 1700x480x480 patches from the 1st large dataset... Full size. The 2nd dataset was 100x1024x1024 which is a quarter the size. Also it was the 100 patches with the *most membrane*. The loss was *never* as good as the original ≈ 0.002. m222's loss was 0.0155... Terrible. How could the loss change so drastically? Since dropout doesn't affect prediction accuracy, the only explanation is that the dataset distribution was wildly different, and that this high loss was the same across those same patches in 158, but the easy-to-learn dark patches compensated to bring the loss down low. As a sanity check, let's try training on the original dataset of 480x480 patches to see if we can at least keep the loss where it was at the end of trial 158...
+
+We can. This is a good thing to know. But even still the result isn't very good. Is the difference between the datasets due to patch size or patch content... Let's try training from the end of 158 on the 480x480 patches with the most membrane!
+
+After consulting with Laurent I think the reason why the Unet can't memorize the data perfectly is (well....) that it's just a Unet, and convolutional features with very small kernels just aren't powerful enough to memorize anything very complicated. With only 32 features they can't memorize all the different locations in the image! The generalization that we get from a single patch is not surprising, becuase convolutional nets with small kernels must learn very general features, and the signal in our images is not really that complicated. Just thin lines and curves. No color or complex shapes or complex objects!
+
+How can we get the most benefit from our ability to highlight membrane (poorly) from just a pair of training images.
 
 
 # NOTE: here's how the patchwidth/stepwidth/info_travel_dist/maxpool_grid/borderwidth constraints work
@@ -1430,10 +1453,6 @@ With this system we'll have overlaps of the predicted regions on adjacent patche
 # IGNORE: PROBLEM: I can't use tensorflow package, because I have tensorflow-gpu package installed, but the tensorflow-gpu package doesn't work, because I'm on a node without a gpu, so there is no libcuda.so. This holds *even if I specify that I want to use a CPU by setting cuda_visible_devices=''*.
 
 The end. Just ignore this for now. 
-
-
-
-
 
 
 
@@ -1451,6 +1470,14 @@ The end. Just ignore this for now.
     * Does this still make sense? Given that Ronneberger used this distance penalty mostly to emphasize the background pixels *in between neighboring cells that had a small gap between them*. This is mostly appropriate to single cells-in-a-dish, and not to tissues.
 8. Predict only distance maps!
 9. Remove one-hot encoding. Predict different cell types. Differentiate background from cytoplasm. Introduce uncertainty via an "i don't know" label. This label must be incorporated into the loss as well!
+10. I want to compare predictions across...
+    1. Training patches
+    2. Validation patches
+    3. All patches
+    sorted by loss!
+    And get loss disributions across those patches!
+    4. And visualize results across real images... again with scores!
+
 
 # Questions | Ideas | Possibly todo
 
@@ -1463,5 +1490,9 @@ The end. Just ignore this for now.
 - how much can you warp before ground truth is destroyed?
 - complete set of matching, warping and cell seg error measures
 - DONE: Laurent's idea: warp the distance fields as opposed to the membranes!
-- 
+
+- First separate the non-tissue from the tissue. Learn the tissue border. Fix the border pixels as "membrane" and only predict on tissue-labeled patches. To fix the tissue border pixels either change the input patches X to include be the *label* value for the border, but the *greyscale value* for regions inside the border, or just make sure that the predicted tissue border is counted as labeled membrane in the loss function during training... Q: But during prediction you want to predict the interior pixels while *knowing* that some of the pixels are membrane... How do we do this?
+- Try training with an L2 loss function instead of binary crossentropy. This is 1. easier to train and 2. doesn't make such hard decisions. Everything will be blurrier. But maybe it doesn't get lost?
+- Manually curate all the data s.t. only reasonable data with minimal label noise remains. 
+- Learning the membrane without learning to separate tissue from background is silly. First, separate tissue from background, then worry about getting the membrane. It seems like an easier learning problem, the answer to which would make the second learning problem much easier!
 

@@ -169,13 +169,16 @@ def update_df(df):
     return df
 
 def get_n_best(df, n_best=6):
-    best = df[df.traindir > 107].sort_values(sort_columns).iloc[:n_best]
+    best = df[df.traindir > 107].sort_values(sort_columns).tail(n_best)
     print(best[show_columns])
     return best
 
-def plot_best_trajectories(df):
-    best = get_n_best(df)
-    best[plot_columns].unstack().apply(pd.Series).T.plot()
+def plot_best_trajectories(df, opt='best'):
+    if opt=='best':
+        df2 = get_n_best(df)
+    if opt=='last':
+        df2 = df[df.traindir > 212].sort_values('traindir')
+    df2[plot_columns].unstack().apply(pd.Series).T.plot()
     # for i in range(len(best)):
     #     row = best.iloc[i]
     #     plt.plot(row['loss'], label=row.name)

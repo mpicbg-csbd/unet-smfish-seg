@@ -83,18 +83,18 @@ def split_in_half_for_train_test(grey_imgs, label_imgs):
     return X_train,Y_train,X_vali,Y_vali
 
 def build_stakk():
-    greys  = get_all_big_tifs("data3/labeled_data_cellseg/greyscales/")
-    labels = get_all_big_tifs("data3/labeled_data_cellseg/labels/")
+    greys  = sglob("data3/labeled_data_membranes/images_big/smaller2x/*.tif")
+    labels = sglob("data3/labeled_data_membranes/labels_big/smaller2x/*.tif")
     count = 0
     end = None
-    step = 296
-    width = 480 # must be factor of 2^d, d=n_maxpooling (across all models!)
+    step = 256
+    width = 256 # must be factor of 2^d, d=n_maxpooling (across all models!)
     stakk = []
     sizes = []
     for a,b in zip(greys[:end], labels[:end]):
-        img = imread(a)
-        lab = imread(b)
-        lab = lab[1]
+        img = io.imread(a)
+        lab = io.imread(b)
+        # lab = lab[1]
         sizes.append(img.shape)
         coords = patchmaker.square_grid_coords(img, step)
         img_pat = patchmaker.sample_patches_from_img(coords, img, (width, width))
