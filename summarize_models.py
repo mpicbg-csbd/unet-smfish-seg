@@ -66,11 +66,12 @@ show_columns = [
     # 'membrane_weight_multiplier',
     # 'momentum',
     # 'n_convolutions_first_layer',
+    'n_conv',
     # 'rotate_angle_max',
-    'warping_size',
+    # 'warping_size',
     'X_train_shape',
     'trained_epochs',
-    'train_time',
+    # 'train_time',
     # 'acc',
     # 'val_acc',
     # 'loss',
@@ -120,7 +121,7 @@ def create_df(dirlist):
             d_list.append(d)
             t_list.append(train_params)
             h_list.append(history)
-        except (FileNotFoundError, AttributeError):
+        except : #(FileNotFoundError, AttributeError):
             failedlist.append([d])
 
     df = pd.DataFrame(t_list, index=d_list)
@@ -130,6 +131,9 @@ def create_df(dirlist):
     return df
 
 def update_df(df):
+    if 'n_convolutions_first_layer' in df.columns:
+        df['n_conv'] = df['n_convolutions_first_layer']
+
     # merge model into n_pool 
     if 'model' in df.columns:
         d = {'unet_5layer':2, 'unet_7layer' : 3}
@@ -154,6 +158,8 @@ def update_df(df):
     df['loss_min'] = [x[i] for x,i in zip(df['loss'], ind)]
     df['val_acc_min']  = [x[i] for x,i in zip(df['val_acc'], ind)]
     df['val_loss_min'] = [x[i] for x,i in zip(df['val_loss'], ind)]
+
+    #df[df.traindir >= 192][df.traindir <= 212]['val_loss_min'] = "NA"
 
     def f(imp):
         if imp:

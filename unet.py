@@ -37,7 +37,7 @@ def normalize_X(X):
     return X
 
 def labels_to_activations(Y, n_classes=2):
-    assert Y.min() == 0
+    #assert Y.min() == 0
     a,b,c = Y.shape
     Y = Y.reshape(a*b*c)
     Y = np_utils.to_categorical(Y, n_classes)

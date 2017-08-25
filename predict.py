@@ -5,6 +5,8 @@ import os
 # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID" # see issue #152
 # os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
+import matplotlib.pyplot as plt
+
 import util
 import json
 import numpy as np
@@ -12,6 +14,7 @@ import skimage.io as io
 import unet
 import datasets
 import patchmaker
+import train
 
 rationale = """
 Test out predict.py refactor.
@@ -19,46 +22,79 @@ Test out predict.py refactor.
 
 predict_params = {
  'savedir' : './',
- 'grey_tif_folder' : "data3/labeled_data_cellseg/greyscales/",
+ 'grey_tif_folder' : "data3/labeled_data_membranes/images_big/smaller2x/",
  'batch_size' : 1,
- # 'step' : 1024-2*32,
- # 'itd'  : 24, # border width
  'width': 1024,
 }
 
 def get_model_params_from_dir(predict_params, direc):
     pp = predict_params
-    pp['model_weights'] = direc + '/unet_model_weights_checkpoint.h5'
     train_params = json.load(open(direc + '/train_params.json'))
-    for key in ['n_convolutions_first_layer', 'n_pool', 'n_classes', 'dropout_fraction', 'itd']:
-        pp[key] = train_params[key]
+    for key in ['n_convolutions_first_layer', 'n_pool', 'n_classes', 'dropout_fraction', 'itd', 'stakk', 'n_patches', 'split']:
+        pp[key] = train_params.get(key, 'MISSING')
     mpgrid = 2**pp['n_pool']
     m,rm = divmod(pp['itd'], mpgrid)
     border = (m+1)*mpgrid   # at least as big as itd.
     pp['step'] = pp['width']-2*border
+    pp['initial_model_params'] = direc + '/unet_model_weights_checkpoint.h5'
     return pp
 
-def predict(predict_params, model=None):
+def predict_all(predict_parms, data=None, history=None, full_imgs=None):
+    """
+    history is modified in place!
+    full images is either None or the name of a folder containing greyscale images.
+    """
     pp = predict_params
-    if not model:
-        model = unet.get_unet_n_pool(pp['n_pool'], 
-                                 #n_classes = pp['n_classes'],
-                                 n_convolutions_first_layer = pp['n_convolutions_first_layer'],
-                                 dropout_fraction = pp['dropout_fraction'])
-        model.load_weights(pp['model_weights'])
-
+    model = train.get_model(predict_parms)
     print(model.summary())
 
-    predict_image_names = util.sglob(pp['grey_tif_folder'] + '*.tif')
+    if data:
+        X_train, X_vali, Y_train, Y_vali = data
 
-    for name in predict_image_names[:5]:
-        img = io.imread(name)
-        print(name, img.shape)
-        res = predict_single_image(model, img, pp)
-        print("Res shape", res.shape)
-        combo = np.stack((img, res), axis=0)
-        path, base, ext =  util.path_base_ext(name)
-        io.imsave(pp['savedir'] + "/" + base + '_predict_' + ext, combo.astype('float32'))
+    ## MAKE PRETTY PREDICTIONS
+    if full_imgs:
+        pp['grey_tif_folder'] = full_imgs
+        predict_image_names = util.sglob(pp['grey_tif_folder'] + '*.tif')
+        for name in predict_image_names[:5]:
+            img = io.imread(name)
+            print(name, img.shape)
+            res = predict_single_image(model, img, pp)
+            print("Res shape", res.shape)
+            combo = np.stack((img, res), axis=0)
+            path, base, ext =  util.path_base_ext(name)
+            io.imsave(pp['savedir'] + "/" + base + '_predict_' + ext, combo.astype('float32'))
+
+    def get_predictions_and_scores(X, Y):
+        ypred = model.predict(unet.add_singleton_dim(X), pp['batch_size'])
+        acc = accuracy(Y, ypred)
+        ce  = crossentropy(Y, ypred)
+        return ypred, (acc, ce)
+
+    def plot_and_save(X,Y,fig, name):
+        ypred, (acc, ce) = get_predictions_and_scores(X, Y)
+        acc_ids = np.argsort(acc)
+        ce_ids  = np.argsort(ce)
+        fig.gca().plot(acc[acc_ids], '.', label='acc_'+name)
+        fig.gca().plot(ce[ce_ids], '.', label='ce_'+name)
+
+        ypred = ((2**16-1)*ypred[...,1]).astype('uint16')
+        stakk = np.stack([X, Y, ypred], axis=1)
+        stakk = stakk[ce_ids]
+        io.imsave(pp['savedir'] + '/ypred_{}.tif'.format(name), stakk)
+
+        if history:
+            # in place
+            history.history['ce_'+name]  = ce[ce_ids].tolist()
+            history.history['acc_'+name] = acc[acc_ids].tolist()
+
+    fig = plt.figure()
+    if data:
+        plot_and_save(X_train, Y_train, fig, 'train')
+        plot_and_save(X_vali, Y_vali, fig, 'vali')
+    X,_,Y,_ = train.build_XY(pp, n_patches=-1, split='noval')
+    plot_and_save(X, Y, fig, 'all')
+    plt.legend()
+    plt.savefig(pp['savedir'] + '/acc_ce_dist.pdf')
 
 def predict_single_image(model, img, pp):
     "unet predict on a greyscale img"
@@ -88,37 +124,27 @@ def predict_single_image(model, img, pp):
     res = patchmaker.piece_together(Y_pred, coords, imgshape=img.shape, border=pp['itd'])
     return res[...,0].astype(np.float32)
 
-def normalize_and_predict_stakk_for_scores(model, stakk, batchsize=1):
-    import train
-    xs = stakk[:,0]
-    ys = stakk[:,1]
-    xs = xs.astype('float32')
-    xs = unet.normalize_X(xs)
-    ys = train.fix_labels(ys)
-    xs = unet.normalize_X(xs)
-    xs = unet.add_singleton_dim(xs)
-    ypred = model.predict(xs, batch_size=batchsize)
-
-    # compute accuracy
+def accuracy(ytrue, ypred):
+    """compute accuracy, assume ytrue is labels, and ypred is dist-over-labels with an extra dim."""
     ypred_2 = np.argmax(ypred, axis=-1)
-    masks = ys != ypred_2
+    masks = ytrue != ypred_2
     acc = np.sum(masks, axis=(1,2))/np.prod(masks[0].shape)
+    return acc
 
+def crossentropy(ytrue, ypred):
     # compute categorical crossentropy (unweighted)
-    
-    a,b,c = ys.shape
-    yt = unet.np_utils.to_categorical(ys)
-    yt = yt.reshape(a,b,c,2)
-    ce = yt * np.log(ypred + 1.0e-7)
+    a,b,c = ytrue.shape
+    ytrue = unet.np_utils.to_categorical(ytrue)
+    ytrue = ytrue.reshape(a,b,c,2)
+    ce = ytrue * np.log(ypred + 1.0e-7)
     ce = np.sum(ce, axis=3)
     ce = -np.mean(ce, axis=(1,2))
-
-    scores = (acc, ce)
-
-    return scores, ypred
+    return ce
 
 if __name__ == '__main__':
     predict_params = get_model_params_from_dir(predict_params, sys.argv[1])
+    predict_params['n_patches'] = 120
+    predict_params['split'] = 6
     predict_params['savedir'] = sys.argv[2]
-    predict(predict_params)
+    predict_all(predict_params)
 
