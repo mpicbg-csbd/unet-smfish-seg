@@ -1,7 +1,7 @@
 import skimage.io as io
 import numpy as np
 from scipy.ndimage import label
-import label_imgs
+import segtools
 import util
 
 import matplotlib.pyplot as plt
@@ -11,7 +11,7 @@ def upscale_and_compare(labeling, annotated):
     a,b = labeling.shape
     _,c,d = annotated.shape
     upscaled = zoom(labeling, (c/a, d/b), order=0)
-    score = label_imgs.match_score_1(annotated[0], upscaled)
+    score = segtools.match_score_1(annotated[0], upscaled)
     io.imsave('upscaled.tif', upscaled)
     io.imsave('cells.tif', annotated[0])
     return score
@@ -23,8 +23,18 @@ def compare_segment_predictions_with_groundtruth(segs, labels):
         simg = io.imread(s)
         limg = io.imread(l)
         print('\n', s)
-        return label_imgs.match_score_1(simg, limg)
+        return segtools.match_score_1(simg, limg)
     return map(print_and_score, zip(segs, labels))
+
+
+def compare_labs_ypreds(labs, ypreds):
+    for lab, ypr in zip(labs, ypreds):
+        lab = io.imread(lab)
+        lab[lab==2] = 1 # membrane images
+        ypr = io.imread(ypr)
+        ypr_labeled = get_label(ypr, 0.5)
+        mat = segtools.pixel_sharing_graph(lab, ypr_labeled)
+
 
 def get_label(img, threshold):
     "normalizes img min&max to [0,1), then binarize at threshold, then labels connected components."
@@ -54,7 +64,7 @@ def segment_classified_images(membranes, threshold):
     for fname, img in zip(membranes, res):
         path, base, ext = util.path_base_ext(fname)
         io.imsave(base + '_seg' + ext, img) 
-        io.imsave(base + '_seg_preview' + ext, label_imgs.labelImg_to_rgb(img))
+        io.imsave(base + '_seg_preview' + ext, segtools.labelImg_to_rgb(img))
     return res
 
 def combine_into_readme_img(greys, mems, segs):

@@ -31,7 +31,7 @@ def normalize_X(X):
     X -= mi
     #ma = np.amax(X,axis = (1,2), keepdims = True) + 1.e-10
     #ma = np.percentile(X, 99, axis = (1,2), keepdims = True) + 1.e-10
-    ma = np.percentile(X, 99) + 1.e-10
+    ma = np.percentile(X, 100) + 1.e-10
     X /= ma
     X = np.clip(X, 0, 1)
     return X

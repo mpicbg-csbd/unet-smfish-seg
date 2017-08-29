@@ -22,9 +22,10 @@ Test out predict.py refactor.
 
 predict_params = {
  'savedir' : './',
- 'grey_tif_folder' : "data3/labeled_data_membranes/images_big/smaller2x/",
+ 'grey_tif_folder' : None,
  'batch_size' : 1,
  'width': 1024,
+ # 'full_imgs': "data3/labeled_data_membranes/images_big/smaller2x/",
 }
 
 def get_model_params_from_dir(predict_params, direc):
@@ -39,7 +40,7 @@ def get_model_params_from_dir(predict_params, direc):
     pp['initial_model_params'] = direc + '/unet_model_weights_checkpoint.h5'
     return pp
 
-def predict_all(predict_parms, data=None, history=None, full_imgs=None):
+def predict_all(predict_parms, data=None, history=None):
     """
     history is modified in place!
     full images is either None or the name of a folder containing greyscale images.
@@ -52,10 +53,9 @@ def predict_all(predict_parms, data=None, history=None, full_imgs=None):
         X_train, X_vali, Y_train, Y_vali = data
 
     ## MAKE PRETTY PREDICTIONS
-    if full_imgs:
-        pp['grey_tif_folder'] = full_imgs
-        predict_image_names = util.sglob(pp['grey_tif_folder'] + '*.tif')
-        for name in predict_image_names[:5]:
+    if pp['grey_tif_folder']:
+        full_image_names = util.sglob(pp['grey_tif_folder'] + '*.tif')
+        for name in full_image_names[:5]:
             img = io.imread(name)
             print(name, img.shape)
             res = predict_single_image(model, img, pp)

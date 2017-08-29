@@ -166,31 +166,30 @@ def update_df(df):
             return imp[:-32]
         return imp
     df['initial_model_params'] = [f(x) for x in df['initial_model_params']]
+
+    df = df.sort_values('traindir')
     return df
 
 def get_n_best(df, n_best=6):
-    best = df[df.traindir > 107].sort_values(sort_columns).tail(n_best)
+    best = df[df.traindir > 107].sort_values(sort_columns).head(n_best)
     print(best[show_columns])
     return best
 
-def plot_best_trajectories(df, opt='best'):
-    if opt=='best':
-        df2 = get_n_best(df)
-    if opt=='last':
-        df2 = df[df.traindir > 212].sort_values('traindir')
-    df2[plot_columns].unstack().apply(pd.Series).T.plot()
+def plot_loss(df):
+    df[plot_columns].unstack().apply(pd.Series).T.plot()
     # for i in range(len(best)):
     #     row = best.iloc[i]
     #     plt.plot(row['loss'], label=row.name)
     #     plt.plot(row['val_loss'], '--', label=row.name)
     # plt.legend()
 
-def show_n_most_recent(df, n=30):
-    print(df.sort_values(['traindir'])[show_columns].tail(n))
+def tail(df, n=30):
+    print(df[show_columns].tail(n))
 
 def scatterplots(df):
     df.plot.scatter('traindir', 'loss_min')
     df.plot.scatter('traindir', 'val_loss_min')
+    df.plot.scatter('traindir', 'train_time')
     df.plot.scatter('train_time', 'val_loss_min')
     df.plot.scatter('loss_min', 'val_loss_min')
     df.plot.scatter('learning_rate', 'avg_time_per_epoch')
@@ -199,7 +198,5 @@ def scatterplots(df):
 if __name__ == '__main__':
     df = create_df(dirs)
     df = update_df(df)
+    df.to_pickle('summary.pkl')
     show_n_most_recent(df)
-
-
-

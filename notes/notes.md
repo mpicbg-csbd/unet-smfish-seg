@@ -1313,7 +1313,7 @@ By making the step length between patches an integer multiple of the largest max
 
 and now CUDNN_STATUS_INTERNAL_ERROR ggguguugggg
 
-# Problem: What kind of improvement do I expect to find with the new data?
+# Question/Problem: What kind of improvement do I expect to find with the new data?
 
 I don't know, even roughly, what kind of improvement to expect with the new data. Should the (validation) loss decrease? 
 
@@ -1388,7 +1388,7 @@ BUG FOUND! You were, like an idiot, computing the number of classes in to_catego
 
 Remaining hypotheses:
 - Inherent randomness of training. Small datasets and short training times.
-- there is a problem with my loss function.
+- There is a problem with my loss function.
 
 TEST: Try training using both loss functions... Or just try evaluating both loss functions on arbitrary data.
 
@@ -1398,6 +1398,23 @@ So we can eliminate the wrong-loss-function hypothesis. The poor learning must b
 
 Sometimes learning is easy, and sometimes it is hard. It is not a pure function of the training_params, because the initial conditions of the network also matter. *How much of the variation does this explain?*.
 Why is training so difficult? Martin and Uwe don't have training problems... Is this because image restoration is inherently an easier function to learn than pixelwise classification? Maybe...
+
+Converging is more difficult when I increase the size of my dataset...
+
+Hypotheses
+- The function is just too hard to learn. Large training sets make it even harder to fit/overfit.
+- Label noise / inconsistent labeling prevents learning. When the data is large, more of the labels will be in conflict.
+
+When switching to the old hand-labeled data -- which appears to be of better quality -- I can easily train on 800x512x512 patches and converge every time. Both on 2down and 4down models. This seems to imply that it's the label noise is the issue preventing me from learning? Uwe agrees. But you should test this.
+
+Test:
+Try making a small dataset that has perfect labels, normal labels, and totally random labels. See if learning get progressively harder. Keep the total amount of training data the same.
+
+*Why would increasing the power of the model make it **harder** to learn?*
+
+More powerful models should make it easier to learn, or? But more powerful models have larger parameter spaces. It may be that there are larger regions of this parameter space for which the gradient is essentially flat. So even though the minima are deeper, there are large regions of shallow gradients that prevent finding the minima. This theory is confirmed by a small literature search, where people talk about the vanishing gradient problem being more of an issue with very deep models. There are techniques for getting around this issue, see [http://www.sciencedirect.com/science/article/pii/S1361841516302043#bib0004] [http://ieeexplore.ieee.org/abstract/document/6247772/]
+
+
 
 # AVOID... PROBLEM: OSError: cannot identify image file 'training/m174/training.tif'
 
@@ -1410,7 +1427,7 @@ Refactored dataframe_keys, and now it's Solved.
 
 # NOTE: when downsampling from float32 to uint16 we first need to convert values to range [0,2**16-1], otherwise it rolls over.
 
-# Problem: Learning is inconsistent, and results are poor.
+# Problem: Learning doesn't converge on very large datasets.
 
 Now I can learn consistently by turning off the Dropout (setting it to 0.01) and learning on a very small number of images. This actually goes extremely quickly! And the surprising thing is that with just a few (1,2,3) patches we can already do a very good job on a large part of the data! It's almost like it's better to just memorize the few patches than it is to try to generalize across the entire set.
 
@@ -1439,10 +1456,64 @@ Train a 4-down network starting with the parameters from 158. The only differenc
 
 We can. This is a good thing to know. But even still the result isn't very good. Is the difference between the datasets due to patch size or patch content... Let's try training from the end of 158 on the 480x480 patches with the most membrane!
 
+## MAIN
+
 After consulting with Laurent I think the reason why the Unet can't memorize the data perfectly is (well....) that it's just a Unet, and convolutional features with very small kernels just aren't powerful enough to memorize anything very complicated. With only 32 features they can't memorize all the different locations in the image! The generalization that we get from a single patch is not surprising, becuase convolutional nets with small kernels must learn very general features, and the signal in our images is not really that complicated. Just thin lines and curves. No color or complex shapes or complex objects!
 
-How can we get the most benefit from our ability to highlight membrane (poorly) from just a pair of training images.
+*How can we get the most benefit from our ability to highlight membrane (poorly) from just a pair of training images?*
 
+## Experiment 2: Is the label noise hurting us?
+
+We can test this by going back to the hand-annotated images which appear to be much better in general. Now all of a sudden things start to make more sense... Overfitting the training data is possible, and happens very quickly, even though the overfitting score we get is still not very good!
+By selecting only the data with the *most* membrane, our loss is much higher on average than it was before. This is expected, as our first experiment with sorting the patches by loss showed us that the membrane patches were the hardest to get right. Now the main issue is keeping the model from overfitting the training data. We can do this both by adding more data to both sides, or by turning on augmentation. Both make it harder to overfit, but the augmentation also brings down the accuracy of prediction (and increases the loss) on the training data, so it's actually *lower* than on the validation set.
+
+Increasing the model depth also increases the info-travel-distance, and makes it easier for our model to learn.
+
+Doubling the amount of training data from 200 to 400 images prevents the 4down 16wide model from ever finding a gradient! Let's see if we can jump-start it by giving it the trained params from the 200-size dataset....
+
+# PROBLEM: The loss I'm optimizing isn't what I really care about...
+
+Categorical crossentropy isn't exactly the loss that I'm most concerned with. I really want to do well at cell segmentation, and that is very different...
+Should I stop trying to optimize the membrane prediction and just work on cell-segmentation heuristics? 
+
+1. As a test... Perform the segmentation and evalue it relative to GT seg. Include this info for each model! How can I compare new segmentations to old ones? I can use Fiji and KNIME and actually put these images through that process?
+
+NOTE: I'm not sure if there is a right answer for many of these cells. But it would be fun to identify them, compare with the true segs, and be able to extract only the most-likely-to-be-true info from the image.
+
+After running some successful training examples on very large training sets: 800 images. These scores are very good. 0.002 in the best case. But the results don't look as good! This is because some easy-to-classify background patches made their way into our training set, taking up about half of our train and test data. The good performance on these piece naturally brought the scores down, but the performance was not any better, (probably worse), on the patches that I actually care about.
+
+If there were a way to automatically separate the tissue from the background and to only pay attention to the tissue then our definition of the objective and the data we give would be more in line with what we actually think the important part is. The reason we don't care about the background tissue is that it's easy to remove *after* we've done the classification. Just search for connected components of membrane class and only keep the biggest one! This gets rid of all the non-tissue crap easily. We could even go back and do this same thing to the original images! Then crop them automatically!
+
+Unfortunately, because we're selecting training data by amount of membrane it uses, if we change this parameter we get very different quality/difficulty of training data, which means the loss score we get on 200 patches is not comparable to the one we get on 400 patches. 400 patches will be *easier*, because the 200 additional patches all have less membrane, and are therefore easier.
+
+# PROBLEM: Is the bright region membrane? or the border between bright and dark?
+
+We see this problem arise in many places. A very bright, concentrated region will be dark in the predictions, and only the boundary will be counted as membrane. Not sure this is correct... Again I don't have the knowledge required to correct it!
+
+# PROBLEM: I want to edit ground truth and immediately see what happens to my predictions, just like ilastik
+
+We can do this!
+
+Imagine editing the ground truth file and automatically training a model on it, based on previous best parameters, potentially with patch or pixel weights that encourage weighing the new data more heavily! We could forget these weights over time during the editing process.
+
+We could do the training and prediction over on the server, and only update the image on the local machine via rsync (which now works without password)!
+
+This would be better than ilastik in that it uses deep nets, the training is done remotely, and the training is just a slight adjustment of an existing model, no need to retrain from scratch.
+
+ilastik always has three labels! There are a minimum of two labels that you paint with, and then there is the default, background, IDK label. This is fine because the underlying random forests only predict on one pixel at a time, but for patch-based predictors we might need dense annotations?
+
+LOOK THIS UP: sparse annotations for patch-based CNNs / Unets.
+
+
+
+
+# PROBLEM: I don't know how I'm going to justify this work...
+
+I don't know if Carine is going to work on this data any more... I don't know if Nadine is interested in working with it anymore... But I think Christoff Z is interested in smFISH [it doesn't have to be exactly these images]? I could just work on these images without having a biological goal or partnership? What is the challenging aspect of this work that separates it from other membrane segmentation problems? The tissue distortions. So either you need to make a model which is custom engineered for distorted tissue, or you need a custom heuristic for the cell segmentation at the end which is engineered for distorted tissue. But there are other labs and people which have shown an interest in exactly this cell segmenter! That's probably because they didn't know that other options exist. Every year a bunch of new papers are published on histology image object segmentation and identification....
+
+# PROBLEM: The cell segmentations are bad, despite the membrane segmentation being good.
+
+My cell segmentation is not smart, and the membrane can be misleading. I can either try to improve the membrane segmentation despite the label noise and inherent ambiguity, or I can constrain the cell segmentation in some way based on prior knowledge about cells. Right now cell can be any shape or size. It's completely determined by the membrane segmentation. We could do a progressive merging of the cells afterwards, based on existing data? Or we could do instance segmentation entirely within the deep learning framework?
 
 # NOTE: here's how the patchwidth/stepwidth/info_travel_dist/maxpool_grid/borderwidth constraints work
 
@@ -1450,7 +1521,9 @@ If we want our predictions to line up perfectly we have to have both step and wi
 
 With this system we'll have overlaps of the predicted regions on adjacent patches as well as the black border regions.
 
-# IGNORE: PROBLEM: I can't use tensorflow package, because I have tensorflow-gpu package installed, but the tensorflow-gpu package doesn't work, because I'm on a node without a gpu, so there is no libcuda.so. This holds *even if I specify that I want to use a CPU by setting cuda_visible_devices=''*.
+# IGNORE: PROBLEM: I can't use tensorflow package, because I have tensorflow-gpu package installed
+
+But the tensorflow-gpu package doesn't work, because I'm on a node without a gpu, so there is no libcuda.so. This holds *even if I specify that I want to use a CPU by setting cuda_visible_devices=''*.
 
 The end. Just ignore this for now. 
 
@@ -1464,19 +1537,21 @@ The end. Just ignore this for now.
 2. DONE. Remove bordermode = 'same' (change to 'valid')
 3. DONE. Augment with simple rotation and horizontal reflection
 4. DONE. Augment with warping
-6. Allow training on arbitrary size dataset. Train on new Data.
+7. Train on allllll new Data.
+6. Allow training on arbitrary size dataset.
 5. Compare true cell segmentation scores / old segmentation method / U-net paper w similar dataset?
 7. Weight pixels by distance to membrane boundary.
     * Does this still make sense? Given that Ronneberger used this distance penalty mostly to emphasize the background pixels *in between neighboring cells that had a small gap between them*. This is mostly appropriate to single cells-in-a-dish, and not to tissues.
 8. Predict only distance maps!
-9. Remove one-hot encoding. Predict different cell types. Differentiate background from cytoplasm. Introduce uncertainty via an "i don't know" label. This label must be incorporated into the loss as well!
-10. I want to compare predictions across...
+9. Predict different cell types. Differentiate background from cytoplasm. Introduce uncertainty via an "i don't know" label. This label must be incorporated into the loss as well! Is having an IDK label equivalent to having a prob dist over classes? Isn't the IDK label implied by having an equal dist across classes?
+10. I want to compare predictions across.
     1. Training patches
     2. Validation patches
     3. All patches
     sorted by loss!
     And get loss disributions across those patches!
     4. And visualize results across real images... again with scores!
+11. If we just training on a single patch, with various augmentations, how good can we do? Surprisingly well! Can we explain this?
 
 
 # Questions | Ideas | Possibly todo
@@ -1485,7 +1560,6 @@ The end. Just ignore this for now.
   + Model too weak: try overfitting to the max.
   + Not enough data: use datasets of various sizes. see how validation score changes?
   + Data quality poor: randomize different fractions of labels. How robust is validation loss? (Of course, the score will depend not just on the fraction of randomized scores, but on which pixels were randomized. Do we pick pixels w flat distribution across (samples, x, y) ? Or evenly weight by class?)
-- If we just training on a single patch, with various augmentations, how good can we do?
 - Differentiable cell segmentation losses?
 - how much can you warp before ground truth is destroyed?
 - complete set of matching, warping and cell seg error measures
@@ -1495,4 +1569,15 @@ The end. Just ignore this for now.
 - Try training with an L2 loss function instead of binary crossentropy. This is 1. easier to train and 2. doesn't make such hard decisions. Everything will be blurrier. But maybe it doesn't get lost?
 - Manually curate all the data s.t. only reasonable data with minimal label noise remains. 
 - Learning the membrane without learning to separate tissue from background is silly. First, separate tissue from background, then worry about getting the membrane. It seems like an easier learning problem, the answer to which would make the second learning problem much easier!
+
+# References
+
+Hillarious old approach fitting round shapes to blurred images.
+http://www.sciencedirect.com/science/article/pii/S0031320399000916#FIG3
+
+Related to DCAN
+https://scholar.google.de/scholar?q=related:E_K-riETS4wJ:scholar.google.com/&hl=en&as_sdt=0,5
+
+
+
 

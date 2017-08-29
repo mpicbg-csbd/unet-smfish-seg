@@ -38,7 +38,6 @@ def pastel_colors_RGB_gap(n_colors=10, brightness=0.5, value=0.5):
 def label_colors(bg_ID=1, membrane_ID=0, n_colors = 10, maxlabel=1000):
     RGB_tuples = pastel_colors_RGB(n_colors=10)
     # intens *= 2**16/intens.max()
-
     assert membrane_ID != bg_ID
     RGB_tuples *= maxlabel
     RGB_tuples[membrane_ID] = (0, 0, 0)
@@ -66,17 +65,21 @@ def labelImg_to_rgb(img, bg_ID=1, membrane_ID=0):
 # MISC
 
 @jit
-def permute_img(img, perm):
+def permute_img(img, perm=None):
     """
     Permute the labels on a labeled image according to `perm`, if `perm` not given
     then permute them randomly.
     Returns a copy of `img`.
     """
+    print("ok")
+    if not perm:
+        perm = np.arange(img.max()+1)
+        np.random.shuffle(perm)
     res = img.copy()
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
-            img[i,j] = perm[img[i,j]]
-    return img
+            res[i,j] = perm[img[i,j]]
+    return res
 
 def permutation_from_matching(matching):
     ar = np.arange(matching.shape[0])
@@ -113,7 +116,7 @@ def pixel_sharing_graph(img1, img2):
 
 def matching_overlap(mat, fraction=0.5):
     """
-    create a matching given two label images based on mutually overlapping regions of sufficient size.
+    create a matching given pixel_sharing_graph of two label images based on mutually overlapping regions of sufficient size.
     NOTE: a true matching is only gauranteed for fraction > 0.5. Otherwise some cells might have deg=2 or more.
     NOTE: doesn't break when the fraction of pixels matching is a ratio only slightly great than 0.5? (but rounds to 0.5 with float64?)
     """
