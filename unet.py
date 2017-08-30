@@ -27,13 +27,15 @@ def normalize_X(X):
     X = X.astype('float32')
     #mi = np.amin(X,axis = (1,2), keepdims = True)
     #mi = np.percentile(X, 1, axis = (1,2), keepdims = True)
-    mi = np.percentile(X, 1)
+    #mi = np.percentile(X, 1)
+    mi = X.min()
     X -= mi
     #ma = np.amax(X,axis = (1,2), keepdims = True) + 1.e-10
     #ma = np.percentile(X, 99, axis = (1,2), keepdims = True) + 1.e-10
-    ma = np.percentile(X, 100) + 1.e-10
+    #ma = np.percentile(X, 99) + 1.e-10
+    ma = X.max()
     X /= ma
-    X = np.clip(X, 0, 1)
+    #X = np.clip(X, 0, 1)
     return X
 
 def labels_to_activations(Y, n_classes=2):

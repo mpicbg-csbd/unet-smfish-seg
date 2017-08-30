@@ -22,10 +22,9 @@ Test out predict.py refactor.
 
 predict_params = {
  'savedir' : './',
- 'grey_tif_folder' : None,
+ 'grey_tif_folder' : "data3/labeled_data_membranes/images_big/smaller2x/", # None,
  'batch_size' : 1,
  'width': 1024,
- # 'full_imgs': "data3/labeled_data_membranes/images_big/smaller2x/",
 }
 
 def get_model_params_from_dir(predict_params, direc):
@@ -87,14 +86,18 @@ def predict_all(predict_parms, data=None, history=None):
             history.history['ce_'+name]  = ce[ce_ids].tolist()
             history.history['acc_'+name] = acc[acc_ids].tolist()
 
-    fig = plt.figure()
-    if data:
-        plot_and_save(X_train, Y_train, fig, 'train')
-        plot_and_save(X_vali, Y_vali, fig, 'vali')
-    X,_,Y,_ = train.build_XY(pp, n_patches=-1, split='noval')
-    plot_and_save(X, Y, fig, 'all')
-    plt.legend()
-    plt.savefig(pp['savedir'] + '/acc_ce_dist.pdf')
+    if data or ('stakk' in pp):
+        fig = plt.figure()
+        if data:
+            plot_and_save(X_train, Y_train, fig, 'train')
+            plot_and_save(X_vali, Y_vali, fig, 'vali')
+        if 'stakk' in pp: 
+            pp['n_patches'] = -1  # all the data
+            pp['split'] = 'noval' # no validation data
+            X,_,Y,_ = train.build_XY(pp)
+            plot_and_save(X, Y, fig, 'all')
+        plt.legend()
+        plt.savefig(pp['savedir'] + '/acc_ce_dist.pdf')
 
 def predict_single_image(model, img, pp):
     "unet predict on a greyscale img"
@@ -134,6 +137,7 @@ def accuracy(ytrue, ypred):
 def crossentropy(ytrue, ypred):
     # compute categorical crossentropy (unweighted)
     a,b,c = ytrue.shape
+    print(ytrue.shape)
     ytrue = unet.np_utils.to_categorical(ytrue)
     ytrue = ytrue.reshape(a,b,c,2)
     ce = ytrue * np.log(ypred + 1.0e-7)

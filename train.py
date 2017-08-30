@@ -21,7 +21,8 @@ import patchmaker
 import skimage.io as io
 
 rationale = """
-Test refactor of predictions.
+Repeat again. Fixing ys type to uint16.
+Repeat 29[345] with imgnorm stakk.
 """
 
 train_params = {
@@ -32,34 +33,37 @@ train_params = {
  #'stakk' : 'stakk_all_256_128.tif',
  #'stakk' : 'stakk_800_1024_comp.tif',
  #'stakk' : 'stakk_all_296_480.tif',
- 'stakk'  : 'stakk_mem_2xdown_256.tif',
- 'n_patches' : 60,
+ #'stakk'  : 'stakk_mem_2xdown_256.tif',
+ 'stakk'  : 'stakk_mem_256_imgnorm.tif',
+ #'stakk'  : 'stakk_mem_256_adapthist.tif',
+
+ 'n_patches' : 960,
  'split'  : 6,
 
  'batch_size' : 1,
  'membrane_weight_multiplier' : 1,
- 'epochs' : 9,
+ 'epochs' : 900,
  'patience' : 30,
- 'batches_per_epoch' : "TBD",
+ 'batches_per_epoch' : 'TBD',
 
  'optimizer' : 'adam', # 'sgd' or 'adam' (adam ignores momentum)
- 'learning_rate' : 1.00e-4, #3.16e-5,
- 'momentum' : 0.99,
+ 'learning_rate' : 1.00e-4,
+ 'momentum' : 'NA', #0.99,
 
  ## noise True | False
- 'noise' : True,
+ 'noise' : False, #True,
  ## warping_size > 0, float
  'warping_size' : 0,
  ## flipLR True | False
- 'flipLR' : True,
+ 'flipLR' : False, #True,
  ## rotate_angle_max > 0, float, rotations in [-angle, angle]
- 'rotate_angle_max' : np.pi,
+ 'rotate_angle_max' : 0, #np.pi,
 
- 'initial_model_params' : "training/m253/unet_model_weights_checkpoint.h5",
- 'n_pool' : 2,
+ 'initial_model_params' : None, # "training/m268/unet_model_weights_checkpoint.h5",
+ 'n_pool' : 4,
  'n_classes' : 2,
- 'n_convolutions_first_layer' : 64,
- 'dropout_fraction' : 0.20,
+ 'n_convolutions_first_layer' : 32,
+ 'dropout_fraction' : 0.10,
  'itd' : 24,
 }
 
@@ -74,12 +78,13 @@ def learn_background(Y):
     Y[Y==4]=0
     return Y
 
-def build_XY(train_params, n_patches=-1, split=7):
+def build_XY(train_params):
     """
-    stakk -> X,Y train & vali
+    returns X,Y train & vali
     """
-    #tp = train_params
     stakk = io.imread(train_params['stakk'])
+    n_patches = train_params.get('n_patches', -1)
+    split = train_params.get('split', 7)
 
     ## Only train on a fraction of data
     if n_patches==-1:
@@ -91,7 +96,8 @@ def build_XY(train_params, n_patches=-1, split=7):
     ys = stakk[:,1]
 
     xs = xs.astype('float32')
-    xs = unet.normalize_X(xs)
+    # xs = unet.normalize_X(xs)
+    ys = ys.astype('uint16')
     ys = fix_labels(ys)
     #ys = learn_background(ys)
 
@@ -151,7 +157,7 @@ def train(train_params):
 
     train_params['rationale'] = rationale
 
-    X_train, X_vali, Y_train, Y_vali = build_XY(train_params, n_patches=train_params['n_patches'], split=train_params['split'])
+    X_train, X_vali, Y_train, Y_vali = build_XY(train_params)
 
     train_params['batches_per_epoch'], _ = divmod(X_train.shape[0], train_params['batch_size'])
     json.dump(train_params, open(train_params['savedir'] + '/train_params.json', 'w'))
@@ -167,8 +173,7 @@ def train(train_params):
     print_description(X_train, Y_train)
     print_description(X_vali, Y_vali)
 
-    ## build the model, maybe load pretrained weights.
-
+    ## BUILD THE MODEL, MAYBE LOAD PRETRAINED WEIGHTS.
     model = get_model(train_params)
     print(model.summary())
 
@@ -186,17 +191,17 @@ def train(train_params):
     history.history['avg_time_per_epoch'] = train_time / trained_epochs
     history.history['avg_time_per_batch'] = train_time / (trained_epochs * train_params['batches_per_epoch'])
     history.history['avg_time_per_sample'] = train_time / (trained_epochs * history.history['X_train_shape'][0])
-
     print(history.history)
     json.dump(history.history, open(train_params['savedir'] + '/history.json', 'w'))
 
+    ## GET THE BEST MODEL AND MAKE PREDICTIONS.
     data = X_train, X_vali, Y_train, Y_vali
-    #train_params['initial_model_params'] = train_params['savedir'] + "/unet_model_weights_checkpoint.h5"
     pp = predict.predict_params
     pp['savedir'] = train_params['savedir']
+    pp['grey_tif_folder'] = "data3/labeled_data_membranes/images_big/smaller2x/"
     pp = predict.get_model_params_from_dir(pp, train_params['savedir'])
     print(pp)
-    predict.predict_all(pp, data, history, full_imgs='data3/labeled_data_membranes/images_big/smaller2x/')
+    predict.predict_all(pp, data, history)
     json.dump(history.history, open(train_params['savedir'] + '/history.json', 'w'))
     return model, history
 

@@ -99,7 +99,7 @@ sort_columns = [
     ]
 
 dirs_old = glob('training/m?/') + glob('training/m[123456789]?/') + glob('training/m10[01234567]/') # hadn't fixed the val_loss yet
-dirs = glob('training/m10[89]/') + glob('training/m1[123456789]?/') + glob('training/m2??') # after fixing the val_loss
+dirs = glob('training/m10[89]/') + glob('training/m1[123456789]?/') + glob('training/m[23456]??') # after fixing the val_loss
 
 def create_df(dirlist):
     """
@@ -199,4 +199,4 @@ if __name__ == '__main__':
     df = create_df(dirs)
     df = update_df(df)
     df.to_pickle('summary.pkl')
-    show_n_most_recent(df)
+    print(df.tail(30)[show_columns])
