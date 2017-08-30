@@ -26,7 +26,6 @@ def compare_segment_predictions_with_groundtruth(segs, labels):
         return segtools.match_score_1(simg, limg)
     return map(print_and_score, zip(segs, labels))
 
-
 def compare_labs_ypreds(labs, ypreds):
     for lab, ypr in zip(labs, ypreds):
         lab = io.imread(lab)
@@ -34,7 +33,6 @@ def compare_labs_ypreds(labs, ypreds):
         ypr = io.imread(ypr)
         ypr_labeled = get_label(ypr, 0.5)
         mat = segtools.pixel_sharing_graph(lab, ypr_labeled)
-
 
 def get_label(img, threshold):
     "normalizes img min&max to [0,1), then binarize at threshold, then labels connected components."

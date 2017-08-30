@@ -4,6 +4,7 @@ import skimage.io as io
 import numpy as np
 import util
 import patchmaker
+import skimage.exposure as expo
 
 def sglob(string):
     return sorted(glob(string))
@@ -83,8 +84,8 @@ def split_in_half_for_train_test(grey_imgs, label_imgs):
     return X_train,Y_train,X_vali,Y_vali
 
 def build_stakk():
-    greys  = sglob("data3/labeled_data_membranes/images_big/smaller2x/*.tif")
-    labels = sglob("data3/labeled_data_membranes/labels_big/smaller2x/*.tif")
+    greys  = sglob("/Volumes/Coleman_Pocket/Carine_project/data3/labeled_data_membranes/images_big/smaller2x/*.tif")
+    labels = sglob("/Volumes/Coleman_Pocket/Carine_project/data3/labeled_data_membranes/labels_big/smaller2x/*.tif")
     count = 0
     end = None
     step = 256
@@ -95,14 +96,21 @@ def build_stakk():
         img = io.imread(a)
         lab = io.imread(b)
         # lab = lab[1]
+
+        ## normalize each image to [0,1]. Don't get rid of bright outliers!
+        img = expo.equalize_adapthist(img, [10,10])
+        # img = img.astype('float32')
+        # img -= img.min()
+        # img /= img.max()
+
         sizes.append(img.shape)
         coords = patchmaker.square_grid_coords(img, step)
         img_pat = patchmaker.sample_patches_from_img(coords, img, (width, width))
         
         ## normalize each X patch
-        img_pat -= img_pat.min(axis=(1,2), keepdims=True)
-        img_pat = img_pat.astype('uint16')
-        img_pat *= (2**16-1)//img_pat.max(axis=(1,2), keepdims=True)
+        # img_pat -= img_pat.min(axis=(1,2), keepdims=True)
+        # img_pat = img_pat.astype('uint16')
+        # img_pat *= (2**16-1)//img_pat.max(axis=(1,2), keepdims=True)
         
         lab_pat = patchmaker.sample_patches_from_img(coords, lab, (width, width))
         patches = np.stack([img_pat, lab_pat], axis=1)

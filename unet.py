@@ -93,7 +93,7 @@ def get_unet_n_pool(n_pool, n_classes=2, n_convolutions_first_layer=32, dropout_
       chan = 'channels_last'
 
     def Conv(w):
-        return Conv2D(w, (3,3), padding='same', data_format=chan, activation='relu')
+        return Conv2D(w, (3,3), padding='same', data_format=chan, activation='relu', kernel_initializer='he_normal')
     def Pool():
         return MaxPooling2D(pool_size=(2,2), data_format=chan)
     def Upsa():
@@ -103,7 +103,7 @@ def get_unet_n_pool(n_pool, n_classes=2, n_convolutions_first_layer=32, dropout_
     
     def cdcp(s, inpt):
         """
-        conv, drop, conv, pool
+        Conv, Drop, Conv, Pool
         """
         conv = Conv(s)(inpt)
         drop = Dropout(d)(conv)
@@ -111,9 +111,9 @@ def get_unet_n_pool(n_pool, n_classes=2, n_convolutions_first_layer=32, dropout_
         pool = Pool()(conv)
         return conv, pool
 
-    def uccdc(s, inpt, skip):
+    def uacdc(s, inpt, skip):
         """
-        up, cat, conv, drop, conv
+        Up, cAt, Conv, Drop, Conv
         """
         up   = Upsa()(inpt)
         cat  = Concatenate(axis=concatax)([up, skip])
@@ -146,15 +146,15 @@ def get_unet_n_pool(n_pool, n_classes=2, n_convolutions_first_layer=32, dropout_
     
     # now each time we cut s in half and build the next UCCDC
     s = s//2
-    up = uccdc(s, conv_bottom, conv_layers[-1])
+    up = uacdc(s, conv_bottom, conv_layers[-1])
 
     # recursively describeable expanding path
     for conv in reversed(conv_layers[:-1]):
         s = s//2
-        up = uccdc(s, up, conv)
+        up = uacdc(s, up, conv)
 
     # final (1,1) convolutions and activation
-    acti_layer = Conv2D(n_classes, (1, 1), padding='same', data_format=chan, activation='relu')(up)
+    acti_layer = Conv2D(n_classes, (1, 1), padding='same', data_format=chan, activation=None)(up)
     if K.image_dim_ordering() == 'th':
         acti_layer = core.Permute((2,3,1))(acti_layer)
     acti_layer = core.Activation(softmax)(acti_layer)
