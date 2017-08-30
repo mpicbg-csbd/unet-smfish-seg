@@ -13,46 +13,25 @@ import matplotlib.pyplot as plt
 plt.ion()
 pd.set_option('expand_frame_repr', False)
 
-all_columns = [
-    'batch_size',
-    'dropout_fraction',
-    'epochs',
-    'flipLR',
-    'grey_tif_folder',
-    'initial_model_params',
-    'itd',
-    'label_tif_folder',
-    'learning_rate',
-    'membrane_weight_multiplier',
-    'model',
-    'momentum',
-    'n_convolutions_first_layer',
-    'patience',
-    'rationale',
-    'rotate_angle_max',
-    'savedir',
-    'step',
-    'warping_size',
-    'x_width',
-    'y_width',
-    'X_train_shape',
-    'X_vali_shape',
-    'acc',
-    'avg_time_per_batch',
-    'avg_time_per_epoch',
-    'avg_time_per_sample',
-    'loss',
-    'steps_per_epoch',
-    'train_time',
-    'trained_epochs',
-    'val_acc',
-    'val_loss',
-    'warm_up_time',
-    ]
+all_columns = ['batch_size', 'batches_per_epoch', 'dropout_fraction', 'epochs',
+       'flipLR', 'grey_tif_folder', 'initial_model_params', 'itd',
+       'label_tif_folder', 'learning_rate', 'membrane_weight_multiplier',
+       'model', 'momentum', 'n_classes', 'n_convolutions_first_layer',
+       'n_patches', 'n_pool', 'noise', 'optimizer', 'patience', 'rationale',
+       'rotate_angle_max', 'savedir', 'split', 'stakk', 'step',
+       'steps_per_epoch_train', 'warping_size', 'x_width', 'y_width',
+       'X_train_shape', 'X_vali_shape', 'acc', 'acc_all', 'acc_train',
+       'acc_vali', 'avg_time_per_batch', 'avg_time_per_epoch',
+       'avg_time_per_sample', 'ce_all', 'ce_train', 'ce_vali', 'loss',
+       'steps_per_epoch_hist', 'train_time', 'trained_epochs', 'val_acc',
+       'val_loss', 'warm_up_time', 'n_conv', 'traindir', 'ind', 'acc_min',
+       'loss_min', 'val_acc_min', 'val_loss_min', 'nsamp', 'aug']
 
 show_columns = [
     'batch_size',
+    'aug',
     # 'dropout_fraction',
+    'drop',
     # 'flipLR',
     # 'step',
     # 'grey_tif_folder',
@@ -133,6 +112,12 @@ def create_df(dirlist):
 def update_df(df):
     if 'n_convolutions_first_layer' in df.columns:
         df['n_conv'] = df['n_convolutions_first_layer']
+
+    df = df.rename(columns={'dropout_fraction':'drop'})
+
+    # for i in range(df.shape[0]):
+    #     df.iloc[i]['au']
+    df['aug'] = [x for x in zip(df['flipLR'], df['noise'], df['rotate_angle_max'], df['warping_size'])]
 
     # merge model into n_pool 
     if 'model' in df.columns:
