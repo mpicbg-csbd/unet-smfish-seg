@@ -1304,10 +1304,10 @@ By making the step length between patches an integer multiple of the largest max
 
 - What caused the square artifacts in the individual patches?
   + Poorly trained models?
-  + Hypothesis: failing to normalize X.
-+ Where & Why are CPU & GPU different? Is GPU deterministic?
-  * Hypothesis: GPU will introduce small random noise in output, uncorrelated with signal.
-* What is the real info_travel_dist? Why are we close, but not exactly right?
+  + failing to normalize X?
+- Where & Why are CPU & GPU different? Is GPU deterministic?
+  * Hypothesis: GPU will introduce small random noise in output, not visible, and uncorrelated with signal.
+- What is the real info_travel_dist? Why are we close, but not exactly right?
 
 # PROBLEM: memory easily exhausted when I run tensorflow from iPython (on my mac)
 
@@ -1326,7 +1326,7 @@ How do I know if I have enough data?
 How do I know if my data is high quality?
 - dunno... If my datapoints overlap in my featurespace, then they are inconsistently labeled, according to those features, so either I need a better featurespace, or I need a better labeling. "label noise" is a term that exists. Usually, we take our labels to be exactly correct, and any overlap in featurespace means we either need a better, more descriptive featurespace, or we've reached the maximum predictive capability of the featurespace + model that we have. If our labels are noisy/meaningless, then even the most powerful/accurate model won't be able to predict well (on training? or vali?) **We can try artificially introducing label noise!** If we introduce different amounts of label noise into the training data then we can see how the prediction quality responds... This should tell us something... If we compare to a perfectly-labeled artifical dataset, then we should be able to figure out how poor our manual-labels are?
 
-# SOLVED/Ignored. PROBLEM: Saving tiffs in an ImageJ compatible way is Hell.
+# SOLVED/IGNORED. PROBLEM: Saving tiffs in an ImageJ compatible way is Hell.
 
 Is there any way of saving a ZYXC image with C=2? with Uints? Floats?
 
@@ -1339,7 +1339,7 @@ Nope. Now if I try BioFormats to open a uint16 stakk 356x2x800x800 It reshapes t
 If I use BioFormats to open my (large, 3, x, y)uint16 images and don't worry about all the things that it should be able to open, but can't. *Be sure to set the first two dims to Time and Z, not Channels, or they will blend the images together!*
 
 
-# PROBLEM: After refactoring, I can't learn anything!
+# SOLVED: PROBLEM: After refactoring, I can't learn anything!
 
 I compute reference stakk from available images in a separate step, prior to training. These datasets are computed once, and kept alive for a while, are easy to view & inspect and make sure there are no issues and that the patches are exactly what we want.
 
@@ -1351,6 +1351,8 @@ Alternative: It's not a data or model problem, but a code problem.
 Test: Make a stack exactly the same as the ones we used to run. Use the same model. We should get the same results.
 
 OK, I can't even train on the small simple stack, so I think it must be a bug, and not a problem with the data... All the 
+
+The problem was most likely normalization!
 
 ## SOLVED: Subproblem: I get an error when training with old data!
 
@@ -1427,7 +1429,9 @@ Refactored dataframe_keys, and now it's Solved.
 
 # NOTE: when downsampling from float32 to uint16 we first need to convert values to range [0,2**16-1], otherwise it rolls over.
 
-# Problem: Learning doesn't converge on very large datasets.
+obviously
+
+# PROBLEM: Learning doesn't converge on very large datasets.
 
 Now I can learn consistently by turning off the Dropout (setting it to 0.01) and learning on a very small number of images. This actually goes extremely quickly! And the surprising thing is that with just a few (1,2,3) patches we can already do a very good job on a large part of the data! It's almost like it's better to just memorize the few patches than it is to try to generalize across the entire set.
 
@@ -1465,11 +1469,18 @@ After consulting with Laurent I think the reason why the Unet can't memorize the
 ## Experiment 2: Is the label noise hurting us?
 
 We can test this by going back to the hand-annotated images which appear to be much better in general. Now all of a sudden things start to make more sense... Overfitting the training data is possible, and happens very quickly, even though the overfitting score we get is still not very good!
+
+## dataset refinement determines absolute loss
+
 By selecting only the data with the *most* membrane, our loss is much higher on average than it was before. This is expected, as our first experiment with sorting the patches by loss showed us that the membrane patches were the hardest to get right. Now the main issue is keeping the model from overfitting the training data. We can do this both by adding more data to both sides, or by turning on augmentation. Both make it harder to overfit, but the augmentation also brings down the accuracy of prediction (and increases the loss) on the training data, so it's actually *lower* than on the validation set.
 
 Increasing the model depth also increases the info-travel-distance, and makes it easier for our model to learn.
 
 Doubling the amount of training data from 200 to 400 images prevents the 4down 16wide model from ever finding a gradient! Let's see if we can jump-start it by giving it the trained params from the 200-size dataset....
+
+## Normalization determines convergence!
+
+After returning to patchwise [0,1] normalization instead of imagewise or stackwise convergence is suddenly very easy! Even on very large datasets and with very large models, it's still easy to converge to something reasonable.
 
 # PROBLEM: The loss I'm optimizing isn't what I really care about...
 
@@ -1486,9 +1497,11 @@ If there were a way to automatically separate the tissue from the background and
 
 Unfortunately, because we're selecting training data by amount of membrane it uses, if we change this parameter we get very different quality/difficulty of training data, which means the loss score we get on 200 patches is not comparable to the one we get on 400 patches. 400 patches will be *easier*, because the 200 additional patches all have less membrane, and are therefore easier.
 
-# PROBLEM: Is the bright region membrane? or the border between bright and dark?
+# SOLVED IN PRACTICE: PROBLEM: Is the bright region membrane? or the border between bright and dark?
 
 We see this problem arise in many places. A very bright, concentrated region will be dark in the predictions, and only the boundary will be counted as membrane. Not sure this is correct... Again I don't have the knowledge required to correct it!
+
+UPDATE: The model's predictions failures on this region were due to normalization, not necessarily label noise. 
 
 # PROBLEM: I want to edit ground truth and immediately see what happens to my predictions, just like ilastik
 
@@ -1503,9 +1516,6 @@ This would be better than ilastik in that it uses deep nets, the training is don
 ilastik always has three labels! There are a minimum of two labels that you paint with, and then there is the default, background, IDK label. This is fine because the underlying random forests only predict on one pixel at a time, but for patch-based predictors we might need dense annotations?
 
 LOOK THIS UP: sparse annotations for patch-based CNNs / Unets.
-
-
-
 
 # PROBLEM: I don't know how I'm going to justify this work...
 
@@ -1525,9 +1535,23 @@ With this system we'll have overlaps of the predicted regions on adjacent patche
 
 But the tensorflow-gpu package doesn't work, because I'm on a node without a gpu, so there is no libcuda.so. This holds *even if I specify that I want to use a CPU by setting cuda_visible_devices=''*.
 
-The end. Just ignore this for now. 
+The end. Just ignore this for now.
 
+# PROBLEM: Membrane too thick. Bright foci predicted wrong.
 
+The bright foci are still being predicted as forground and sticking to the membrane. Also, our predicted membranes are too thick.
+For both problems we can either solve them at the post-processing level or at the level of the network itself.
+First let's try just viewing different 
+
+But maybe this is just a secondary problem, less important than defining the cell segmentation objective properly.
+
+# PROBLEM: The data is inherently ambiguous...
+
+We could assign confidence scores to cells and extract only the ones that are above a certain threshold.
+
+- confidence scores to boundaries?
+- boundaries are not well defined. we can get boundaries by performing a watershed segmentation on the probability maps.
+- 
 
 
 
