@@ -32,9 +32,7 @@ import warping
 import gputools
 
 
-
 structure = [[1,1,1], [1,1,1], [1,1,1]] # this is the structure that was used by Benoit & Carine!
-
 
 def play_with_matchings():
     lab1 = io.imread('data3/labeled_data_cellseg/labels/20150430_eif4g_dome01_R3D_MASKS.tif')[0]

@@ -1555,6 +1555,43 @@ We could assign confidence scores to cells and extract only the ones that are ab
 
 
 
+
+# New Project: Instance Segmentation
+
+Rationale
+Despite very good membrane segmentations we don't have really excellent *cell* segmentations. This is because even tiny gaps in the membrane translate into false merges between cells. And decreasing the threshold probability leads to unreasonably large membrane segmentation, disappearing cells and oversegmentation.
+
+There is a type of segmentation called "instance", which allows us to separate objects of the same type (and thus the same label), but which are different instances of that type, even if they have neighboring pixels!
+
+# New Project: Learning from simulations/timeseries
+
+
+
+
+
+
+
+## References
+
+from ALEX
+Semantic Instance Segmentation via Deep Metric Learning
+Semantic Instance Segmentation with a Discriminative Loss Function
+Fully Convolutional Networks for Semantic Segmentation
+Recurrent Instance Segmentation
+Gland Instance Segmentation by Deep Multichannel Side Supervision
+3D deeply supervised network for automated segmentation of volumetric medical images
+Fully Convolutional Instance-aware Semantic Segmentation
+
+STUFF I FOUND by PEOPLE
+DCAN: Deep Contour-Aware Networks for Accurate Gland Segmentation
+DCAN: Deep contour-aware networks for object instance segmentation from histology images.
+
+PEOPLE
+Holger Roth
+Hao Chen, Qi Dou, PA Heng
+
+
+
 # TODO:
 
 1. DONE. Fix train/test splitting!
@@ -1565,16 +1602,16 @@ We could assign confidence scores to cells and extract only the ones that are ab
 6. Allow training on arbitrary size dataset.
 5. Compare true cell segmentation scores / old segmentation method / U-net paper w similar dataset?
 7. Weight pixels by distance to membrane boundary.
-    * Does this still make sense? Given that Ronneberger used this distance penalty mostly to emphasize the background pixels *in between neighboring cells that had a small gap between them*. This is mostly appropriate to single cells-in-a-dish, and not to tissues.
+    - Does this still make sense? Given that Ronneberger used this distance penalty mostly to emphasize the background pixels *in between neighboring cells that had a small gap between them*. This is mostly appropriate to single cells-in-a-dish, and not to tissues.
 8. Predict only distance maps!
 9. Predict different cell types. Differentiate background from cytoplasm. Introduce uncertainty via an "i don't know" label. This label must be incorporated into the loss as well! Is having an IDK label equivalent to having a prob dist over classes? Isn't the IDK label implied by having an equal dist across classes?
 10. I want to compare predictions across.
-    1. Training patches
-    2. Validation patches
-    3. All patches
+    - Training patches
+    - Validation patches
+    - All patches
     sorted by loss!
     And get loss disributions across those patches!
-    4. And visualize results across real images... again with scores!
+    - And visualize results across real images... again with scores!
 11. If we just training on a single patch, with various augmentations, how good can we do? Surprisingly well! Can we explain this?
 
 
