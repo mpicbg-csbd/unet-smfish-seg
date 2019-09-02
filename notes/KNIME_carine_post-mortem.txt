@@ -1,5 +1,0 @@
-Carine project post mortem
-
-Can't run Dave's code on Linux without seg faults. Requires a specific commit. We've been working on this project for a long time. The current method of distribution is too complex. It doesn't work on windows, (Nadine's main machine), it throws away information through downscaling because training takes 4 days (it should take just a few seconds or minutes)...
-
-dress-biocomputing forces us to manually upload and host our own files (forced to use our own personal Dropbox, but since it's synced to your own Dropbox folder it's easily removed. Peter found a 404 error on one workflow.) And it's not up to date, like it would be if we were distributing via github.

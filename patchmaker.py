@@ -118,3 +118,14 @@ def piece_together(patches, coords, imgshape=None, border=0):
         a,b = imgshape
         res = res[:a, :b]
     return res
+
+
+
+    # # x_size = coords[:,0].max() + dx
+    # # y_size = coords[:,1].max() + dy
+    # if imgshape:
+    #     x_host, y_host = imgshape
+    #     x_size, y_size = max(x_size, x_host), max(y_size, y_host)
+
+    # count_img = np.zeros(shape=(x_size, y_size))
+
