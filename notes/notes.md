@@ -1,6 +1,6 @@
-Here's my current list of problems.
+An append-only list of problems.
 
-*What library and tool to use for learning?*
+# What library and tool to use for learning?
 
 - [ ] We either have to convince Ulrich to merge Dave's changes (not going to happen), or we have to replace Cascaded Random Forests with something else... (possible?) or we have to reimplement CRF in a way that doesn't force us to fork vigra...
 
@@ -10,7 +10,7 @@ Here's my current list of problems.
 
 3. Or, we use neural nets?
 
-*How to build on my Mac?*
+# How to build on my Mac?
 
 Assuming that we still use Random Forests...
 
@@ -25,7 +25,7 @@ This doesn't depend on whether we use dave/python/ for learning. As long as we a
 
 - [ ] move feature creation from KNIME/Java into vigra. Use c++ (and leave dave's code alone) or use python, and move dave's CRF into python as well!
 
-*How to distribute?*
+# How to distribute?
 
 Vigra is installed on Mac via brew. Linux has their own package managers. How do we install vigra on windows? I have no idea. Maybe it comes with binary installers...
 
@@ -626,7 +626,7 @@ PROBLEMS. IN CHRONOLOGICAL ORDER.
 
 You can fix this by figuring out the function (dataset,model) → (Max GPU memory usage, Max RAM Usage, Time taken). This shouldn't even be that hard to do!
 
-# Thoughts: Thu Mar  9 13:28:55 2017 -- Early stopping, weak models & proper scaling
+# Thoughts: Thu Mar  9  2017 -- Early stopping, weak models & proper scaling
 
 I submitted a job to the cluster last night: `results/bigim3/`. It was supposed to run for 300 epochs, but only ran for 18. There were no signs of error in the stderr log, or in stdout.
 
@@ -700,7 +700,7 @@ Let's run two simulations, both continuing with the model and param_weights from
 
 -------------------------------------------------------------------------------
 
-# Solved. PROBLEM. Thu Mar  9 18:53:52 2017 -- Image Metadata, API consistency
+# Solved. PROBLEM. Thu Mar  9 2017 -- Image Metadata, API consistency
 
 I've got an api problem.
 
@@ -839,7 +839,8 @@ SOLVED! We have to install pyopencl by hand, and remove the -arch i386 item from
 
 Fix the indentation and code folding issue on the cluster by changing shiftwidth to 4 `:set sw=4` and setting `:set fdm=indent`.
 
-# SOLVED. Problem: My tensor shape is not what I think it should be. I can't run Theano with channels_first setting.
+# SOLVED. Problem: My tensor shape is not what I think it should be.
+ I can't run Theano with channels_first setting.
 
 I'm expecting the "channels" dimension to be after "samples" but before "x", "y" in the theano dimension-ordering configuration.... But it's not! Apparently...
 
@@ -856,7 +857,8 @@ IGNORE THIS PROBLEM. Just use tensorflow and python3!
 
 PROBLEM SOLVED! I just needed to correct my unet model to allow for a channels_first approach.
 
-# SOLVED! The test score after the re-factor isn't as good as it was pre-refactor. Even though the train score is good!!
+# SOLVED! The test score after the re-factor isn't as good
+ as it was pre-refactor. Even though the train score is good!!
 
 Don't worry about recreating old stuff. Your new stuff will be better, after a little work, which you have to put in either way! You should change the loss function so that the pixel weight is a function of the pixels distance from the membrane.
 
@@ -884,7 +886,7 @@ from deep inside the core of tensorflow. in resource_handle_pb2.py
 
 Tensorflow is only provided systemwide on furiosa with python3 and you have to be on one of the GPU nodes to avoid the libcuda error.
 
-# PROBLEM: SOLVED: PROBLEM: trying to import train crashes ipython on furiosa
+# PROBLEM: trying to import train crashes ipython on furiosa
 
 This problem is still a pain in the ass. I can't import skimage.io on ipython because it crashes my X server.
 
@@ -912,7 +914,7 @@ We should be expecting scores that are more in the 0.01x range (if our accuracy 
 
 NOTE we can convert between the old loss (non-normalized weights) and the new loss by simply dividing by the normalization factor afterwards (e.g. old weights of {0:1, 1:53} with 1x membrane factor and loss of 0.4 would be 0.4/53=0.0074 in the new loss scheme. With a membrane scale factor of 10x it would be 0.4/(1+53*10)=0.00075329!!!)
 
-# SOLVED. PROBLEM: The old model doesn't even look like it can use the loss function we had!!! 
+# SOLVED. PROBLEM: The old model doesn't use the loss function we had!!! 
 If the output shape was really (samples, x*y, 2channel) then the loss would see just a 2d (x*y, 2) shaped array, and it would fail!
 
 Crazy stuff. No idea how the old function worked... Also, no idea how the old function trained so well!
@@ -1017,7 +1019,7 @@ todo: test to see what size warping are appropriate for full size images.
 
 
 
-# SOLVED. PROBLEM: I want a way of comparing two similar cell labelings visually.
+# SOLVED. PROBLEM: comparing two similar cell labelings visually.
 
 This requires permuting the labels of one images s.t. it aligns closely with another image. We can do this using the matching matrix from label_images, but this problem is very similar to the problem of finding an optimal correspondence between c. elegans nuclei! In our case, however, we only have one ground truth labeling, so we want to see how different the proposed labeling is from it. And also, we don't usually expect to have any warping, so a very flexible matching algorithms doesn't make sense. Usually the proposed solution and the ground truth are built on top of the same underlying greyscale image, so you won't ever find that the proposed solution looks the same as the ground truth, but just translated in x,y... 
 
@@ -1047,11 +1049,12 @@ SOLVED. Now we have a few different kinds of matching (that don't try to do any 
 
 NOTE: That this began to touch on the interesting, but mostly unrelated idea of matchings between warped versions of similar images, ala Dagmar's c.elegans matching, but this would be mostly a distraction :)
 
-# PROBLEM: I want to plot my vector fields and warpings on top of my images? How do i do this?
+# PROBLEM: plot my vector fields and warpings on top of my images?
+ How do i do this?
 
 I think you can just plot the vector filed using quiver and streamplot on top of an imshow??? But then we have to make sure we have the axes dimensions right... I want a way of dynamically checking my screen resolution, screen absolute size, and therefore dpi with python!
 
-# SOLVED: PROBLEM: How do I know which of my previous training sessions I should persue?
+# SOLVED: PROBLEM: which of my previous training sessions I should persue?
 
 I need to test my new train/test splitting. I think that the new (correct) splitting will help prevent the overfitting that we've been seeing. I should find a training session that overfit (in few epochs) and retrain with the new datasets.
 
@@ -1059,7 +1062,8 @@ Search through all datasets that have a history.json. Find the one with the mini
 
 The solution to this problem is the same as the solution to the next one. Improve the analysis.py tool so that you always know which model is best and only move the best ones.
 
-# SOLVED: PROBLEM: My training datasets are too big to store on my local machine
+# SOLVED: PROBLEM: My training datasets are too big
+ to store on my local machine
 
 How are we going to move our training and testing datasets between local and remote machines? I want to perform analysis on my local machine, because that's where I can use matplotlib. _Does it work on remote if I use ssh -X ?_ NO IT STILL DOESN'T WORK.
 
@@ -1119,7 +1123,8 @@ Dividing by zero leads to nans, which display fine in Fiji, etc.
 
 The correct solution is to deal with the boundaries to the input s.t. you don't get any nans!
 
-# SOLVED: PROBLEM: prediction still has square artifacts, but only visible on weak/untrained models.
+# SOLVED: PROBLEM: prediction still has square artifacts, 
+but only visible on weak/untrained models.
 
 I can still see the squares! This shouldn't happen, or?
 Let's write a test...
@@ -1129,13 +1134,15 @@ I want to:
 
 These sqaureish / straight-line-ish artifacts are a direct result of the model! Not the process by which the image is broken into patches or sewn back together. Strange! Is this something innate to unets, or is it also present in our training data???
 
-# SOLVED. PROBLEM: I use matplotlib in multiple places. I need a global setting on the cluster that forces me to use the Agg backend!
+# SOLVED. PROBLEM: I use matplotlib in multiple places. 
+I need a global setting on the cluster that forces me to use the Agg backend!
 
 I don't know how to use a new version of a package I've installed myself without forcibly adding it to the sys.path at the head of the list (this is not platform independent!)
 
 use the matplotlibrc file on the cluster with default backend : Agg
 
-# SOLVED: PROBLEM: I can't save my model architecture because it uses a custom activation function.
+# SOLVED: PROBLEM: I can't save my model architecture
+ because it uses a custom activation function.
 
 This activation function is just a softmax that has it's axis depend on the tensorflow|theano flag! (I could add a conditional permute? but this wouldn't appear in the model!)
 
@@ -1147,7 +1154,8 @@ Solved.
 2. by moving the conditional permute before the softmax I can use the standard softmax function.
 
 
-# Shitty Workaround: PROBLEM: I can't group my tests to a separate tests folder.
+# Shitty Workaround: PROBLEM: I can't group my tests
+ to a separate tests folder.
 
 Apparently you aren't supposed to call tests as you would call scripts...
 Actually, it looks like preferred behavior is, when making command-line calls within a python project, to use the `python -m module.submodule.subsubmodule` format, and not to just call the file by name e.g. `python tests/warping/test_warp.py`.
@@ -1156,7 +1164,8 @@ If I put scripts into a subdirectory, then I can't import stuff from the parent 
 
 I avoid this problem by keeping everything in a single directory :)
 
-# IGNORE: PROBLEM: Some of my simple tests require unet, but not keras or any model. Just the generators! The generators have no dependence on keras! Should I separate them?
+# IGNORE: PROBLEM: Some of my simple tests require unet
+, but not keras or any model. Just the generators! The generators have no dependence on keras! Should I separate them?
 
 We've factored out a lot of the unet stuff into patchmaker.py and datasets.py, but we're keeping the generator in there for now. Where should it live? Generators require X,Y and train_params...
 
@@ -1170,7 +1179,9 @@ Now I've got an awesome n-layer net. n_pool counts the number of pooling operati
 but we can try 4,5,6, etc!
 In the Ronneberger paper they use a network with '23 convolutional layers' which works out to n_pool = 5!
 
-# hacky solution: PROBLEM: $pythonpath env var always has .egg files at the top, so I can't have a default preference for my own installed libraries!
+# hacky solution: PROBLEM: $pythonpath env broken 
+
+the environment var always has .egg files at the top, so I can't have a default preference for my own installed libraries!
 
 see: 
 https://stackoverflow.com/questions/5984523/eggs-in-path-before-pythonpath-environment-variable
@@ -1179,7 +1190,7 @@ It's easy-install's problem, apparently, and I probably can't change that.
 
 The only solution that works for me is to prepend the projects/project-broaddes/.local/ directory to the sys.path list at the start of each script!
 
-# 90% SOLVED: BUG: my patchwork reconstruction produces visible square artifacts
+# 90% SOLVED: BUG: patchwork reconstruction produces square artifacts
 
 By increasing the step, keeping dx at 480, and keeping itd at 92 I expect to see..... AT LEAST at 20 pix gap between patches.
 I can see a 20px gap at the very top of the image. This means my itd is set to 20px! clearly wrong. Does a 20px itd explain the 60px gap between patches? yes... remove 20px twice for itd and add 20px gap from step=500. This means I'm probably setting itd to 20, when I don't mean to...
@@ -1309,11 +1320,11 @@ By making the step length between patches an integer multiple of the largest max
   * Hypothesis: GPU will introduce small random noise in output, not visible, and uncorrelated with signal.
 - What is the real info_travel_dist? Why are we close, but not exactly right?
 
-# PROBLEM: memory easily exhausted when I run tensorflow from iPython (on my mac)
+# PROBLEM: memory easily exhausted when I run tensorflow from iPython (mac)
 
 and now CUDNN_STATUS_INTERNAL_ERROR ggguguugggg
 
-# Question/Problem: What kind of improvement do I expect to find with the new data?
+# Question/Problem: What kind of improvement do I expect with the new data?
 
 I don't know, even roughly, what kind of improvement to expect with the new data. Should the (validation) loss decrease? 
 
@@ -1418,16 +1429,17 @@ More powerful models should make it easier to learn, or? But more powerful model
 
 
 
-# AVOID... PROBLEM: OSError: cannot identify image file 'training/m174/training.tif'
+# AVOID.PROBLEM: OSError: cannot identify image 'training/m174/training.tif'
 
 On the falcon server I have this bug when trying to open in ipython with skimage.io, but on my local machine the file opens as int32... Even after changing the save-type to 'uint16' i still have this error....
 
-# SOLVED. PROBLEM: I keep running into key errors when working with dataframes.
+# SOLVED. PROBLEM: I keep running into key errors when working dataframes.
 
 This is not a hard problem. It just means fixing the bugs and making the code more robust against changes/ missing data in train_params.json and history.json.
 Refactored dataframe_keys, and now it's Solved.
 
-# NOTE: when downsampling from float32 to uint16 we first need to convert values to range [0,2**16-1], otherwise it rolls over.
+# NOTE: avoid rollover when downsampling from float32 to uint16 
+we first need to convert values to range [0,2**16-1], otherwise it rolls over.
 
 obviously
 
@@ -1497,13 +1509,15 @@ If there were a way to automatically separate the tissue from the background and
 
 Unfortunately, because we're selecting training data by amount of membrane it uses, if we change this parameter we get very different quality/difficulty of training data, which means the loss score we get on 200 patches is not comparable to the one we get on 400 patches. 400 patches will be *easier*, because the 200 additional patches all have less membrane, and are therefore easier.
 
-# SOLVED IN PRACTICE: PROBLEM: Is the bright region membrane? or the border between bright and dark?
+# SOLVED IN PRACTICE: PROBLEM: Is the bright region membrane? 
+or the border between bright and dark?
 
 We see this problem arise in many places. A very bright, concentrated region will be dark in the predictions, and only the boundary will be counted as membrane. Not sure this is correct... Again I don't have the knowledge required to correct it!
 
 UPDATE: The model's predictions failures on this region were due to normalization, not necessarily label noise. 
 
-# PROBLEM: I want to edit ground truth and immediately see what happens to my predictions, just like ilastik
+# PROBLEM: I want to edit ground truth and immediately see what happens
+ to my predictions, just like ilastik
 
 We can do this!
 
@@ -1521,17 +1535,20 @@ LOOK THIS UP: sparse annotations for patch-based CNNs / Unets.
 
 I don't know if Carine is going to work on this data any more... I don't know if Nadine is interested in working with it anymore... But I think Christoff Z is interested in smFISH [it doesn't have to be exactly these images]? I could just work on these images without having a biological goal or partnership? What is the challenging aspect of this work that separates it from other membrane segmentation problems? The tissue distortions. So either you need to make a model which is custom engineered for distorted tissue, or you need a custom heuristic for the cell segmentation at the end which is engineered for distorted tissue. But there are other labs and people which have shown an interest in exactly this cell segmenter! That's probably because they didn't know that other options exist. Every year a bunch of new papers are published on histology image object segmentation and identification....
 
-# PROBLEM: The cell segmentations are bad, despite the membrane segmentation being good.
+# PROBLEM: The cell segmentations are bad, 
+despite the membrane segmentation being good.
 
 My cell segmentation is not smart, and the membrane can be misleading. I can either try to improve the membrane segmentation despite the label noise and inherent ambiguity, or I can constrain the cell segmentation in some way based on prior knowledge about cells. Right now cell can be any shape or size. It's completely determined by the membrane segmentation. We could do a progressive merging of the cells afterwards, based on existing data? Or we could do instance segmentation entirely within the deep learning framework?
 
-# NOTE: here's how the patchwidth/stepwidth/info_travel_dist/maxpool_grid/borderwidth constraints work
+# NOTE: here's how the patchwidth/stepwidth/info_travel_dist
+/maxpool_grid/borderwidth constraints work
 
 If we want our predictions to line up perfectly we have to have both step and width be integer multiples of 2**n_pool, and we have to normalize image-wise, not patch wise. (maybe do it patch wise anyways?). And since we're ignoring a small border region around each patch we have to make step smaller than width while keeping it an integer multiple of 2**n_pool, and this difference must be at least twice the info-travel-distance, which is at least as big as 2**n_pool.
 
 With this system we'll have overlaps of the predicted regions on adjacent patches as well as the black border regions.
 
-# IGNORE: PROBLEM: I can't use tensorflow package, because I have tensorflow-gpu package installed
+# IGNORE: PROBLEM: I can't use tensorflow package
+, because I have tensorflow-gpu package installed
 
 But the tensorflow-gpu package doesn't work, because I'm on a node without a gpu, so there is no libcuda.so. This holds *even if I specify that I want to use a CPU by setting cuda_visible_devices=''*.
 
@@ -1554,6 +1571,15 @@ We could assign confidence scores to cells and extract only the ones that are ab
 - 
 
 
+
+# Moving Mauricio's nuclei + membrane data into this project
+
+I want to combine projects. I want to use a small number of manual annotations from Mauricio's 3D+time, nuclei + membrane dataset. I'll start off with simple semantic segmentation and see if it's possible to come up with good predictions and cell segmentations despite the lack of hand-labeled ground truth...
+
+Annotating the ground truth for these images is extremely difficult. Just getting solid point annotations in 3D is difficult! There are a couple potential paths forward...
+
+1. Try to build up instance segmentations from some heuristic on top of a semantic segmentation. So far I've tried with thresholding, but it doesn't look good enough to be a semantic segmentation ground truth. Can you estimate error rates?
+2. 
 
 # TODO:
 
@@ -1578,7 +1604,8 @@ We could assign confidence scores to cells and extract only the ones that are ab
 11. If we just training on a single patch, with various augmentations, how good can we do? Surprisingly well! Can we explain this?
 
 
-# Questions | Ideas | Possibly todo
+
+# Questions . Ideas . Possibly Todo
 
 - How can we separate these problems?
   + Model too weak: try overfitting to the max.
@@ -1596,11 +1623,10 @@ We could assign confidence scores to cells and extract only the ones that are ab
 
 # References
 
-Hillarious old approach fitting round shapes to blurred images.
-http://www.sciencedirect.com/science/article/pii/S0031320399000916#FIG3
+[@garrido2000applying] Applying deformable templates for cell image segmentation
+- Hillarious old approach fitting round shapes to blurred images.
 
-Related to DCAN
-https://scholar.google.de/scholar?q=related:E_K-riETS4wJ:scholar.google.com/&hl=en&as_sdt=0,5
+[@chen2016dcan],[@chen2017dcan] Deep Content Aware Networks
 
 
 

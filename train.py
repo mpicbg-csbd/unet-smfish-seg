@@ -21,8 +21,8 @@ import patchmaker
 import skimage.io as io
 
 rationale = """
-Repeat again. Fixing ys type to uint16.
-Repeat 29[345] with imgnorm stakk.
+Train any old model just to make sure we can!
+Same params more or less as m344
 """
 
 train_params = {
@@ -33,9 +33,10 @@ train_params = {
  #'stakk' : 'stakk_all_256_128.tif',
  #'stakk' : 'stakk_800_1024_comp.tif',
  #'stakk' : 'stakk_all_296_480.tif',
- #'stakk'  : 'stakk_mem_2xdown_256.tif',
- 'stakk'  : 'stakk_mem_256_imgnorm.tif',
+ 'stakk'  : 'stakk_mem_2xdown_256.tif',
+ #'stakk'  : 'stakk_mem_256_imgnorm.tif',
  #'stakk'  : 'stakk_mem_256_adapthist.tif',
+ 'norm' : 'patchwise',
 
  'n_patches' : 960,
  'split'  : 6,
@@ -47,7 +48,7 @@ train_params = {
  'batches_per_epoch' : 'TBD',
 
  'optimizer' : 'adam', # 'sgd' or 'adam' (adam ignores momentum)
- 'learning_rate' : 1.00e-4,
+ 'learning_rate' : 1.00e-5,
  'momentum' : 'NA', #0.99,
 
  ## noise True | False
@@ -59,7 +60,7 @@ train_params = {
  ## rotate_angle_max > 0, float, rotations in [-angle, angle]
  'rotate_angle_max' : 0, #np.pi,
 
- 'initial_model_params' : None, # "training/m268/unet_model_weights_checkpoint.h5",
+ 'initial_model_params' : "training/m337/unet_model_weights_checkpoint.h5",
  'n_pool' : 4,
  'n_classes' : 2,
  'n_convolutions_first_layer' : 32,
@@ -96,7 +97,7 @@ def build_XY(train_params):
     ys = stakk[:,1]
 
     xs = xs.astype('float32')
-    # xs = unet.normalize_X(xs)
+    xs = unet.normalize_X(xs)
     ys = ys.astype('uint16')
     ys = fix_labels(ys)
     #ys = learn_background(ys)
@@ -200,6 +201,7 @@ def train(train_params):
     pp['savedir'] = train_params['savedir']
     pp['grey_tif_folder'] = "data3/labeled_data_membranes/images_big/smaller2x/"
     pp = predict.get_model_params_from_dir(pp, train_params['savedir'])
+    pp['itd'] = 30
     print(pp)
     predict.predict_all(pp, data, history)
     json.dump(history.history, open(train_params['savedir'] + '/history.json', 'w'))

@@ -1,18 +1,26 @@
+import sys
+sys.path.insert(0, "/projects/project-broaddus/.local/lib/python3.5/site-packages/")
+import pkg_resources
+pkg_resources.require("scikit-image>=0.13.0")
+
+import platform
+
 import pandas as pd
 import numpy as np
 import skimage.io as io
-import matplotlib.pyplot as plt
-plt.ion()
-import scipy.ndimage as ndimage
-import skimage.exposure as exposure
+# import matplotlib.pyplot as plt
+# plt.ion()
+# import scipy.ndimage as ndimage
+# import skimage.exposure as exposure
 from glob import glob
 import subprocess
+import util, os
 
-import summarize_models
-import datasets
-import segtools
-import warping
-import unet
+# import summarize_models
+# import datasets
+# import segtools
+# import warping
+# import unet
 
 
 def load_state():
@@ -35,13 +43,13 @@ def a(pred):
     from skimage.feature import peak_local_max
     pred[pred < 0.75]=0
     local_maxi = peak_local_max(1-pred, min_distance=20, threshold_abs=0.5, indices=False, ) #footprint=np.ones((10, 10)))
-
     qsave(50*local_maxi.astype('uint8'))
 
-def qsave(img):
+def qsave(img, name='qsave.tif'):
     print(img.min(), img.max())
-    io.imsave('qsave.tif', img)
-    subprocess.call("open qsave.tif", shell=True)
+    io.imsave(name, img)
+    if platform.uname()[1].startswith('myers-mac-10'):    
+        subprocess.call("open {}".format(name), shell=True)
 
 def summary():
     if 'df' not in globals():
@@ -88,25 +96,28 @@ probabilities?...
 """
 
 def compute_uncertainty(img_names, dirs):
-    # sumimg = 
-    import util, os
     for imgname in img_names:
         path, base, ext = util.path_base_ext(imgname)
         predictions = []
         for d in dirs:
-            imgname = d + '/' + base + ext
-            if os.path.exists(imgname):
-                img, pred = io.imread(imgname)
-                predictions.append(pred)
+            name = d + base + ext
+            if os.path.exists(name):
+                # img, pred = io.imread(name)
+                img = io.imread(name)
+                print(img.shape)
+                if img.shape[0]==2:
+                    img, pred = img
+                    predictions.append(pred)
+                else:
+                    print(name)
         predictions = np.stack(predictions)
         img_mean = np.mean(predictions, axis=0)
         img_std = np.std(predictions, axis=0)
         img_min = np.min(predictions, axis=0)
         img_min_thresh = img_min > 0.02
         img_max = np.max(predictions, axis=0)
-        qsave(np.stack([img, img_mean, img_std, img_min, img_min_thresh, img_max]))
-        qsave(np.stack([img, img_min]))
-
+        qsave(np.stack([img, img_mean, img_std, img_min, img_min_thresh, img_max]), name=(base + '_one.tif'))
+        qsave(np.stack([img, img_min]), name=(base + '_two.tif'))
 
 def img_to_levels(img, levels=[0.5]):
     """
@@ -155,7 +166,7 @@ def show_mistakes(state):
     pred[lab > mask_lab] = 1
 
     res = np.stack([img/img.max(), pred, mask_lab]).astype('float16') #, pred, pred])
-    qsave(res)
+    # qsave(res)
 
     img2 = img.copy()
     ma = np.percentile(img, 99)
@@ -270,3 +281,9 @@ def distance_transform():
     dis = ndimage.distance_transform_edt(1-lab)
     dis[dis>20]=20
 
+if __name__ == '__main__':
+    dirs = glob('training/m3[23456]?/')
+    print(dirs)
+    imgnames = glob('training/m343/2015*.tif')
+    print(imgnames)
+    compute_uncertainty(imgnames, dirs)

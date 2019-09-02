@@ -20,7 +20,6 @@ def show_files_gt_1MB(topdir):
                 table.append([name, '\t', size, "MB"])
     print(tabulate.tabulate(table))
 
-
 def walkfiles():
     "Walk through data3/ directories and explain them."
     for d in os.walk("./", topdown=False):
@@ -61,7 +60,6 @@ def combine(dir1, dir2):
         print("res has shape: ", res.shape, '\n')
         print('dtype: ', img1.dtype, img2.dtype)
         io.imsave('combined/' + os.path.basename(i1), res)
-
 
 def run():
     for d in glob("results3/*p?/"):

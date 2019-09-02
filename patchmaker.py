@@ -1,6 +1,5 @@
 import numpy as np
 
-
 @DeprecationWarning
 def sample_patches(data, patch_size, n_samples=100, verbose=False):
     """
