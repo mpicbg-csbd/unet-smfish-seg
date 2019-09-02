@@ -58,7 +58,7 @@ def get_label(img, threshold):
 def segment_classified_images(membranes, threshold):
     "membranes is a list of filenames of membrane images."
     imgs = [io.imread(mem) for mem in membranes]
-    res = [get_label(img, threshold) for img in imgs]
+    res  = [get_label(img, threshold) for img in imgs]
     for fname, img in zip(membranes, res):
         path, base, ext = util.path_base_ext(fname)
         io.imsave(base + '_seg' + ext, img) 
