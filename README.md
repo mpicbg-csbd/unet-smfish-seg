@@ -1,11 +1,7 @@
-# Readme
-
-Performs automatic pixelwise membrane labeling and cell segmentation in 2D fluorescence microscopy images of early embryos.
-
-Pic is worth 10^3 words:
+Performs automatic pixelwise membrane labeling and cell instance segmentation in 2D cross-sections of Zebrafish embryos labeled with smFISH.
 
 <p align="center">
-<img align="center" src="resources/readme_img_02.png" alt="one fish two fish; red fish blue fish;">
+<img align="center" src="resources/readme_img_02.png" alt="Example membrane classification and cell segmentation.">
 </p>
 
 ## About
@@ -16,19 +12,14 @@ creating the data please see [Stapel et al](#f1).
 ## Methods
 
 Membrane pixelwise classification is performed with a 5-layer
-(2-downsampling, 1-bottom, 2-upsampling)
 [U-Net](https://arxiv.org/pdf/1505.04597.pdf) modified from
 [retinal blood vessel segmentation](https://github.com/orobix/retina-unet).
 
-## Installation
+## Dependencies
 
 You need Python3 with the standard scientific python libraries:
 numpy, scipy, scikit-learn and scikit-image the deep learning framework
 Keras which uses as backend: Tensorflow or Theano
-
-## Usage
-
-TBD
 
 # Footnotes
 
