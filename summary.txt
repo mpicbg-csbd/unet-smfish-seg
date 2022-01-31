@@ -1,0 +1,56 @@
+--------------
+Failed|Ongoing
+training/m175/
+training/m167/
+training/m154/
+training/m139/
+training/m176/
+training/m161/
+training/m197/
+training/m160/
+training/m165/
+training/m172/
+training/m159/
+training/m169/
+training/m153/
+training/m127/
+training/m248
+training/m239
+training/m245
+training/m246
+training/m249
+training/m216
+training/m247
+training/m250
+--------------
+               batch_size                     stakk initial_model_params  learning_rate  n_pool  avg_time_per_epoch  n_conv    X_train_shape  trained_epochs   acc_min  loss_min  val_acc_min  val_loss_min
+training/m254           1  stakk_mem_2xdown_256.tif       training/m253/       0.000010     2.0           11.928292      64  [200, 256, 256]              67  0.846531  0.017717     0.852440      0.026858
+training/m255           1  stakk_mem_2xdown_256.tif       training/m253/       0.000100     2.0           11.808064      64  [200, 256, 256]              44  0.845117  0.018506     0.869380      0.025127
+training/m256           1  stakk_mem_2xdown_256.tif       training/m253/       0.000100     2.0           11.760156      64  [200, 256, 256]              56  0.830814  0.019045     0.850604      0.026383
+training/m257           1  stakk_mem_2xdown_256.tif       training/m253/       0.000100     2.0           11.793306      64  [200, 256, 256]              63  0.832756  0.018985     0.831894      0.023092
+training/m258           1  stakk_mem_2xdown_256.tif       training/m253/       0.000100     2.0           11.877737      64  [200, 256, 256]              62  0.827577  0.019716     0.866967      0.020242
+training/m259           1  stakk_mem_2xdown_256.tif       training/m253/       0.000100     2.0            3.207411      64   [50, 256, 256]               9  0.807606  0.031737     0.831200      0.028392
+training/m260           1  stakk_mem_2xdown_256.tif                 None       0.000100     4.0            2.376051      16   [50, 256, 256]              30  0.767182  0.032964     0.784914      0.038160
+training/m261           1  stakk_mem_2xdown_256.tif                 None       0.000100     4.0            2.342054      16   [50, 256, 256]              30  0.775074  0.034587     0.807910      0.037794
+training/m262           1  stakk_mem_2xdown_256.tif                 None       0.000100     4.0            2.335089      16   [50, 256, 256]              30  0.764433  0.031762     0.810071      0.032007
+training/m263           1  stakk_mem_2xdown_256.tif                 None       0.000030     4.0            4.526113      16  [100, 256, 256]              75  0.776848  0.024875     0.801121      0.029185
+training/m264           1  stakk_mem_2xdown_256.tif                 None       0.000030     4.0            4.558330      16  [100, 256, 256]              51  0.762681  0.028072     0.811903      0.030562
+training/m265           1  stakk_mem_2xdown_256.tif                 None       0.000030     4.0            4.590974      16  [100, 256, 256]              41  0.758952  0.031754     0.826073      0.035144
+training/m266           1  stakk_mem_2xdown_256.tif                 None       0.000030     4.0            8.806487      16  [200, 256, 256]              55  0.794501  0.019423     0.826688      0.025440
+training/m267           1  stakk_mem_2xdown_256.tif                 None       0.000030     4.0            8.981583      16  [200, 256, 256]              71  0.800391  0.018506     0.847435      0.022242
+training/m268           1  stakk_mem_2xdown_256.tif                 None       0.000030     4.0            8.854696      16  [200, 256, 256]              70  0.789105  0.019323     0.840078      0.019743
+training/m269           1  stakk_mem_2xdown_256.tif                 None       0.000030     4.0           17.133912      16  [400, 256, 256]              33  0.975553  0.029289     0.978606      0.029236
+training/m270           1  stakk_mem_2xdown_256.tif                 None       0.000030     4.0           17.199575      16  [400, 256, 256]              33  0.978543  0.029745     0.980382      0.028056
+training/m271           1  stakk_mem_2xdown_256.tif                 None       0.000030     4.0           17.123965      16  [400, 256, 256]              52  0.978915  0.029146     0.978291      0.029515
+training/m272           1  stakk_mem_2xdown_256.tif       training/m268/       0.000030     4.0           17.301328      16  [400, 256, 256]              41  0.822591  0.008684     0.866382      0.010444
+training/m273           1  stakk_mem_2xdown_256.tif       training/m268/       0.000030     4.0           17.232310      16  [400, 256, 256]              35  0.587475  0.029258     0.938151      0.029022
+training/m274           1  stakk_mem_2xdown_256.tif       training/m268/       0.000030     4.0           17.245257      16  [400, 256, 256]              41  0.684664  0.029057     0.103235      0.029552
+training/m275           1  stakk_mem_2xdown_256.tif       training/m268/       0.000030     4.0           16.196536      16  [400, 256, 256]              37  0.840544  0.008264     0.873303      0.008763
+training/m276           1  stakk_mem_2xdown_256.tif       training/m268/       0.000030     4.0           16.396173      16  [400, 256, 256]              33  0.835369  0.008522     0.843880      0.010769
+training/m277           1  stakk_mem_2xdown_256.tif       training/m268/       0.000030     4.0           16.229456      16  [400, 256, 256]              34  0.838482  0.008571     0.851797      0.008991
+training/m278           1  stakk_mem_2xdown_256.tif       training/m268/       0.000030     4.0           16.197042      16  [400, 256, 256]              34  0.832361  0.009125     0.829589      0.010125
+training/m279           1  stakk_mem_2xdown_256.tif       training/m268/       0.000030     4.0           16.198492      16  [400, 256, 256]              33  0.829258  0.008827     0.841718      0.010383
+training/m280           1  stakk_mem_2xdown_256.tif       training/m268/       0.000030     4.0           16.372362      16  [400, 256, 256]              46  0.857883  0.007216     0.862243      0.011144
+training/m281           1  stakk_mem_2xdown_256.tif       training/m268/       0.000003     4.0           16.314286      16  [400, 256, 256]              42  0.841337  0.008004     0.856924      0.010656
+training/m282           1  stakk_mem_2xdown_256.tif       training/m268/       0.000003     4.0           16.140144      16  [400, 256, 256]              65  0.854826  0.006944     0.862507      0.012871
+training/m283           1  stakk_mem_2xdown_256.tif       training/m268/       0.000003     4.0           16.172878      16  [400, 256, 256]              56  0.849217  0.007685     0.863223      0.009833
