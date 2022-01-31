@@ -1,14 +1,15 @@
-<p align="center">
-<img align="center" 
-     width="50%"
-     style="transform:rotate(90deg);"
-     src="resources/readme_img_02.png" 
-     alt="Example membrane classification and cell segmentation.">
-</p>
+<!-- <p align="center"> -->
+<!-- style="transform:rotate(90deg);" -->
+
+<!-- </p> -->
 
 ## About
 
-This method performs automatic pixelwise membrane labeling and cell instance segmentation in 2D cross-sections of Zebrafish embryos labeled with smFISH.
+<img align="right" 
+     width="30%"
+     src="resources/readme_img_02.png" 
+     alt="Example membrane classification and cell segmentation.">
+This method performs automatic pixelwise membrane labeling and cell instance segmentation in 2D cross-sections of Zebrafish embryos labeled with smFISH. 
 
 For information about the sample preparation and imaging involved in
 creating the data please see [Stapel et al](#f1).
